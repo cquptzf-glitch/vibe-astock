@@ -1,3 +1,4 @@
+mod journal;
 mod market;
 mod quote;
 mod rotation;
@@ -48,11 +49,12 @@ impl AppCore {
             .with_context(|| format!("create app data dir: {}", data_dir.display()))?;
         let db_path = data_dir.join("vibe-astock-mobile.sqlite3");
         storage::init(&db_path)?;
+        journal::init(&db_path)?;
 
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.2")
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.3")
             .build()?;
 
         Ok(Self { client, db_path })
@@ -72,10 +74,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.1.2-mobile"
+                "version": "0.1.3-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.1.2-mobile",
+                "version": "0.1.3-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
@@ -102,6 +104,13 @@ impl AppCore {
             ("DELETE", "/mobile/watchlist") => {
                 Ok(MobileApiResponse::ok(storage::delete(&self.db_path, &request.body)?))
             }
+            ("GET", "/mobile/journal") => {
+                Ok(MobileApiResponse::ok(journal::view(&self.db_path)?))
+            }
+            ("POST", "/mobile/journal") => match journal::act(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "journal", error.to_string())),
+            },
             ("GET", "/mobile/market-overview") => {
                 Ok(MobileApiResponse::ok(market::overview(&self.client).await?))
             }

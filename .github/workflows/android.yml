@@ -21,8 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.2"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.2-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.3"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.3-arm64.apk"
 
     steps:
       - name: Checkout
@@ -124,7 +124,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.2-arm64
+          name: vibe-astock-android-mvp-v0.1.3-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -138,23 +138,24 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.2
+          ## Vibe AStock Android MVP v0.1.3
 
-          Third installable Android MVP built from the `android-mvp` branch.
+          Fourth installable Android MVP built from the `android-mvp` branch.
 
-          ### New in v0.1.2
-          - New Rotation tab for concept themes and industry sectors
-          - Eastmoney board-fund-flow logic migrated into the on-device Rust Core
-          - Compare today vs. 5-day main-fund rankings
-          - Automatically marks Persistent Strength, New Strength and Cooling signals
-          - Shows board change, main net inflow, main-fund ratio, breadth and leading stock
-          - Adds a Tauri CLI cache to speed up subsequent Android release builds
+          ### New in v0.1.3
+          - New local Trading Journal tab backed by SQLite
+          - Follows the desktop journal model: fills or manual P/L%, playbook, planned/unplanned, stop/target and review notes
+          - Supports multiple buy/sell fills per journal record and local deletion
+          - Calculates closed-trade P/L, win rate and plan execution rate on device
+          - Missing per-fill fees are estimated with the same default fee model used by the desktop journal; the app labels estimates explicitly
+          - Personal journal data remains local to the phone and is not automatically sent to AI
 
           ### Already included
           - Market overview and breadth
-          - Limit-up pool and simple consecutive-limit ladder
+          - Limit-up pool and consecutive-limit ladder
+          - Concept/industry rotation with today vs. 5-day fund-flow observation labels
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
-          - Recent forward-adjusted K-line data
+          - Forward-adjusted K-line data
           - Local SQLite watchlist
 
           ### Installation
@@ -176,7 +177,7 @@ jobs:
               "dist/${ANDROID_APK_NAME}" \
               "dist/${ANDROID_APK_NAME}.sha256" \
               --target "$GITHUB_SHA" \
-              --title "Vibe AStock Android MVP v0.1.2" \
+              --title "Vibe AStock Android MVP v0.1.3" \
               --notes "$NOTES" \
               --prerelease
           fi

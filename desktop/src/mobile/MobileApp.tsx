@@ -1,26 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
   BookmarkPlus,
   ChartNoAxesCombined,
   ChevronRight,
   Database,
   Flame,
   Layers3,
+  NotebookPen,
   RefreshCw,
   Search,
-  Settings,
   Star,
   Trash2,
   Wifi,
 } from "lucide-react";
 
+import { JournalPanel } from "./JournalPanel";
 import { MarketOverview } from "./MarketOverview";
 import { RotationPanel } from "./RotationPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
 import "./mobile.css";
 
-type Tab = "market" | "shortline" | "rotation" | "watchlist" | "settings";
+type Tab = "market" | "shortline" | "rotation" | "watchlist" | "journal";
 
 interface Evidence {
   field: string;
@@ -226,7 +226,7 @@ export function MobileApp() {
       <header className="mobile-header">
         <div>
           <div className="mobile-brand">Vibe AStock</div>
-          <div className="mobile-subtitle">Android · Rust Core</div>
+          <div className="mobile-subtitle">Android · Rust Core · v0.1.3</div>
         </div>
         <div className={`mobile-status ${health?.ok ? "ok" : ""}`}>
           <Wifi size={14} />
@@ -350,26 +350,7 @@ export function MobileApp() {
           </section>
         )}
 
-        {tab === "settings" && (
-          <section className="mobile-section">
-            <div className="mobile-section-title">
-              <div><h1>移动端状态</h1><p>Android MVP v0.1.2。</p></div>
-            </div>
-            <div className="mobile-info-card">
-              <div><Activity size={18} /><span>Rust Core</span><strong>{health?.version ?? "检查中"}</strong></div>
-              <div><Database size={18} /><span>本地数据</span><strong>SQLite</strong></div>
-              <div><Wifi size={18} /><span>行情</span><strong>腾讯 + 东财</strong></div>
-            </div>
-            <div className="mobile-roadmap-card">
-              <h2>已迁移</h2>
-              <p>大盘指数、涨跌家数、涨跌分布、涨停/跌停/炸板、涨停池、简版连板天梯、题材/行业轮动、单股行情、K 线、本地自选。</p>
-            </div>
-            <div className="mobile-roadmap-card">
-              <h2>下一批</h2>
-              <p>交易日志、个股详情增强、AI API 直连与 Android 通知。</p>
-            </div>
-          </section>
-        )}
+        {tab === "journal" && <JournalPanel onOpenSymbol={openFromList} />}
       </main>
 
       <nav className="mobile-nav" style={{ gridTemplateColumns: "repeat(5, 1fr)" }} aria-label="主导航">
@@ -385,8 +366,8 @@ export function MobileApp() {
         <button className={tab === "watchlist" ? "active" : ""} onClick={() => setTab("watchlist")}>
           <Star size={20} /><span>自选</span>
         </button>
-        <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>
-          <Settings size={20} /><span>状态</span>
+        <button className={tab === "journal" ? "active" : ""} onClick={() => setTab("journal")}>
+          <NotebookPen size={20} /><span>日志</span>
         </button>
       </nav>
     </div>
