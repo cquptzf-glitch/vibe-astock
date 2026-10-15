@@ -6,11 +6,15 @@ use serde_json::{json, Value};
 const ZTB_UT: &str = "7eea3edcaed734bea9cbfc24409ed989";
 
 pub async fn limit_up_pool(client: &Client, request_path: &str) -> Result<Value> {
-    let requested = query_param(request_path, "date")
+    let requested_param = query_param(request_path, "date");
+    let explicit_date = requested_param.is_some();
+    let requested = requested_param
         .map(normalize_date)
         .transpose()?
         .unwrap_or_else(china_yyyymmdd);
-    guard_today_before_open(&requested)?;
+    if explicit_date {
+        guard_today_before_open(&requested)?;
+    }
 
     let root: Value = client
         .get("https://push2ex.eastmoney.com/getTopicZTPool")
@@ -39,13 +43,14 @@ pub async fn limit_up_pool(client: &Client, request_path: &str) -> Result<Value>
         .and_then(Value::as_object)
         .ok_or_else(|| anyhow!("东财涨停池缺少 data"))?;
     let qdate = text(data.get("qdate")).unwrap_or_default();
-    if qdate.len() == 8 && requested > qdate {
+    if explicit_date && qdate.len() == 8 && requested > qdate {
         return Err(anyhow!(
             "东财还没有 {} 的涨停池数据(上游最新行情日 {})",
             requested,
             qdate
         ));
     }
+    let fallback = !explicit_date && qdate.len() == 8 && requested > qdate;
     let pool = match data.get("pool") {
         None | Some(Value::Null) => Vec::new(),
         Some(Value::Array(items)) => items.clone(),
@@ -102,6 +107,8 @@ pub async fn limit_up_pool(client: &Client, request_path: &str) -> Result<Value>
         "date": format_yyyymmdd(&actual_date),
         "requested_date": format_yyyymmdd(&requested),
         "stale": actual_date != china_yyyymmdd(),
+        "fallback": fallback,
+        "fallback_reason": if fallback { Some("当前自然日没有涨停池，已自动展示上游最近交易日") } else { None },
         "count": items.len(),
         "items": items,
         "fetched_at": Utc::now().to_rfc3339()

@@ -1,0 +1,231 @@
+.journal-review {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 10px;
+}
+
+.journal-review-title,
+.journal-review-heading,
+.journal-review-balance > div,
+.journal-review-line,
+.journal-review-positions button {
+  display: flex;
+  align-items: center;
+}
+
+.journal-review-title {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.journal-review-title > div > span,
+.journal-review-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.journal-review-title h1 {
+  margin: 5px 0 3px;
+  font-size: 22px;
+}
+
+.journal-review-title p,
+.journal-review-note,
+.journal-review-notes p,
+.journal-review-disclaimer {
+  margin: 0;
+  color: var(--mobile-muted, #7b8494);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.journal-review-title button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--mobile-card, rgba(255, 255, 255, 0.06));
+  color: inherit;
+}
+
+.journal-review-cards,
+.journal-review-risk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.journal-review-cards > div,
+.journal-review-risk-grid > div,
+.journal-review-balance > div,
+.journal-review-block {
+  border: 1px solid var(--mobile-border, rgba(128, 140, 160, 0.18));
+  background: var(--mobile-card, rgba(255, 255, 255, 0.04));
+  border-radius: 14px;
+}
+
+.journal-review-cards > div,
+.journal-review-risk-grid > div {
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.journal-review-cards span,
+.journal-review-risk-grid span,
+.journal-review-balance span,
+.journal-review-line span,
+.journal-review-positions span,
+.journal-review-positions small {
+  color: var(--mobile-muted, #7b8494);
+  font-size: 11px;
+}
+
+.journal-review-cards strong {
+  font-size: 20px;
+}
+
+.journal-review-cards small {
+  color: var(--mobile-muted, #7b8494);
+  font-size: 10px;
+}
+
+.journal-review-balance {
+  display: grid;
+  gap: 8px;
+}
+
+.journal-review-balance > div {
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.journal-review-balance > div strong {
+  margin-left: auto;
+}
+
+.journal-review-balance .win strong {
+  color: #d64b47;
+}
+
+.journal-review-balance .loss strong {
+  color: #2f9b72;
+}
+
+.journal-review-block {
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.journal-review-block.compact {
+  gap: 6px;
+}
+
+.journal-review-heading {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.journal-review-heading > span {
+  color: var(--mobile-muted, #7b8494);
+  font-size: 11px;
+}
+
+.journal-review-risk-grid strong.warn,
+.journal-review-positions .unknown b {
+  color: #d88931;
+}
+
+.journal-review-note {
+  padding: 8px 9px;
+  background: rgba(128, 140, 160, 0.08);
+  border-radius: 10px;
+}
+
+.journal-review-positions {
+  display: grid;
+  gap: 8px;
+}
+
+.journal-review-positions button {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--mobile-border, rgba(128, 140, 160, 0.14));
+  padding: 10px 0 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  gap: 10px;
+}
+
+.journal-review-positions button > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 100px;
+}
+
+.journal-review-positions button > div:nth-child(2) {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+}
+
+.journal-review-positions button > div:last-child {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.journal-review-line {
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid var(--mobile-border, rgba(128, 140, 160, 0.14));
+}
+
+.journal-review-line > div:first-child {
+  display: grid;
+  gap: 2px;
+  flex: 1.2;
+  min-width: 0;
+}
+
+.journal-review-line > div:not(:first-child) {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  min-width: 58px;
+}
+
+.journal-review-line b {
+  font-size: 12px;
+}
+
+.journal-review-error,
+.journal-review-empty {
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(216, 74, 70, 0.08);
+  font-size: 12px;
+}
+
+.journal-review-empty {
+  background: rgba(128, 140, 160, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.journal-review-disclaimer {
+  padding-top: 5px;
+}
+
+@media (min-width: 720px) {
+  .journal-review-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .journal-review-risk-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

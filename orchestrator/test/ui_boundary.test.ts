@@ -23,15 +23,16 @@ const rel = (p: string) => path.relative(SRC, p);
  * 前端的 Core / 垂类边界。
  *
  * 🔴 **2026-08-26 界面整套换成开源版 Vibe-Research 之后,前端的形状变了**:
- *    整套 UI(外壳 / 导航 / 组件 / 页面)都在 `verticals/finance/` 里,
+ *    PC 垂类 UI 在 `verticals/finance/`;Android 专用金融 UI 在 `mobile/`。
  *    Core 只剩 `src/` 顶层那几个文件(组装根 + 全局样式)。
- *    ⇒ 断言必须跟着改。旧版查的是 `src/core/` 与 `lib/nav.ts`,那两样**已经不存在**,
- *      而 `walk()` 对不存在的目录返回空数组 ⇒ 前三条会**全绿地什么都没查**。
- *      (第四条读文件才炸出来 —— 否则这条棘轮会静默失效,那正是它最该防的事。)
+ *    ⇒ 断言必须同时排除两套垂类 UI，不能把 Android 金融页面误当成可跨行业复用的 Core。
  */
 
 const coreFiles = () =>
-  walk(SRC).filter((f) => !rel(f).startsWith("verticals" + path.sep));
+  walk(SRC).filter((f) => {
+    const r = rel(f);
+    return !r.startsWith("verticals" + path.sep) && !r.startsWith("mobile" + path.sep);
+  });
 
 test("🔴 Core UI 确实存在 —— 目录改名 / 搬走时,后面几条不许静默变成空查", () => {
   const files = coreFiles().map(rel);

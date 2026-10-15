@@ -21,8 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.4"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.4-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.5"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.5-arm64.apk"
 
     steps:
       - name: Checkout
@@ -124,7 +124,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.4-arm64
+          name: vibe-astock-android-mvp-v0.1.5-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -138,25 +138,26 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.4
+          ## Vibe AStock Android MVP v0.1.5
 
-          Fifth installable Android MVP built from the `android-mvp` branch.
+          Sixth installable Android MVP built from the `android-mvp` branch.
 
-          ### New in v0.1.4
-          - Enhanced stock detail view with 30-session candlesticks and 5/20/60-session returns
-          - Adds MA5 / MA10 / MA20, distance to MA20 and 20-session price-range position
-          - Trading Journal records can now be edited after saving
-          - Open journal positions support atomic append of later buy/sell fills into the original record
-          - Appended fills are balance-checked so sells cannot exceed prior buys
-          - Manual P/L entries can update date, P/L%, playbook, planned/unplanned state and notes
+          ### New in v0.1.5
+          - Adds a local Trading Journal review dashboard backed only by Android SQLite
+          - Historical review includes win rate (flat trades excluded), average win/loss, payoff ratio and monetary profit factor
+          - Adds recent-10-trade statistics, planned vs unplanned comparison and per-playbook performance
+          - Adds open-position risk review using weighted average transaction cost and the user's planned stop price
+          - Surfaces positions without a planned stop separately instead of pretending their risk is known
+          - Shortline/limit-up page now automatically falls back to the latest upstream trading day when the natural day has no pool data
+          - Explicitly requested future dates still fail loudly instead of silently showing another day
 
           ### Already included
           - Market overview and breadth
           - Limit-up pool and consecutive-limit ladder
           - Concept/industry rotation with today vs. 5-day fund-flow observation labels
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
-          - Forward-adjusted K-line data
-          - Local SQLite watchlist and local Trading Journal
+          - Forward-adjusted K-line data and enhanced stock detail analysis
+          - Local SQLite watchlist and editable Trading Journal with appendable fills
 
           ### Installation
           - Android 7.0+ (minSdk 24)
@@ -177,7 +178,7 @@ jobs:
               "dist/${ANDROID_APK_NAME}" \
               "dist/${ANDROID_APK_NAME}.sha256" \
               --target "$GITHUB_SHA" \
-              --title "Vibe AStock Android MVP v0.1.4" \
+              --title "Vibe AStock Android MVP v0.1.5" \
               --notes "$NOTES" \
               --prerelease
           fi

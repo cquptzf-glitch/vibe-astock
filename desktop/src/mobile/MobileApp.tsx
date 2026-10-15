@@ -14,7 +14,7 @@ import {
   Wifi,
 } from "lucide-react";
 
-import { JournalPanelV2 } from "./JournalPanelV2";
+import { JournalWorkspace } from "./JournalWorkspace";
 import { MarketOverview } from "./MarketOverview";
 import { RotationPanel } from "./RotationPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
@@ -227,7 +227,7 @@ export function MobileApp() {
       <header className="mobile-header">
         <div>
           <div className="mobile-brand">Vibe AStock</div>
-          <div className="mobile-subtitle">Android · Rust Core · v0.1.4</div>
+          <div className="mobile-subtitle">Android · Rust Core · v0.1.5</div>
         </div>
         <div className={`mobile-status ${health?.ok ? "ok" : ""}`}>
           <Wifi size={14} />
@@ -355,7 +355,7 @@ export function MobileApp() {
           </section>
         )}
 
-        {tab === "journal" && <JournalPanelV2 onOpenSymbol={openFromList} />}
+        {tab === "journal" && <JournalWorkspace onOpenSymbol={openFromList} />}
       </main>
 
       <nav className="mobile-nav" style={{ gridTemplateColumns: "repeat(5, 1fr)" }} aria-label="主导航">

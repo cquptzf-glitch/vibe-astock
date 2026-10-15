@@ -1,5 +1,6 @@
 mod journal;
 mod journal_mutation;
+mod journal_review;
 mod market;
 mod quote;
 mod rotation;
@@ -55,7 +56,7 @@ impl AppCore {
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.4")
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.5")
             .build()?;
 
         Ok(Self { client, db_path })
@@ -75,10 +76,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.1.4-mobile"
+                "version": "0.1.5-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.1.4-mobile",
+                "version": "0.1.5-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
@@ -107,6 +108,9 @@ impl AppCore {
             }
             ("GET", "/mobile/journal") => {
                 Ok(MobileApiResponse::ok(journal::view(&self.db_path)?))
+            }
+            ("GET", "/mobile/journal/review") => {
+                Ok(MobileApiResponse::ok(journal_review::view(&self.db_path)?))
             }
             ("POST", "/mobile/journal") => match journal::act(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
