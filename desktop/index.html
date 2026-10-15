@@ -18,6 +18,8 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Tauri 环境先安装 /api -> IPC 兼容桥；普通浏览器中它是 no-op。 -->
+    <script type="module" src="/src/mobileBridge.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

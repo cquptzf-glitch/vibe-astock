@@ -1,0 +1,85 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-mvp
+    paths:
+      - "desktop/**"
+      - "core-rust/**"
+      - "src-tauri/**"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: "true"
+      NDK_VERSION: "27.2.12479018"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK and NDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;${NDK_VERSION}"
+          echo "NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Setup Rust Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix desktop
+
+      - name: Typecheck and build frontend
+        run: npm run build --prefix desktop
+
+      - name: Check Rust core
+        run: cargo check --manifest-path core-rust/Cargo.toml
+
+      - name: Initialize Android project
+        run: cargo tauri android init
+
+      - name: Build debug-signable APK
+        run: cargo tauri android build --apk --target aarch64
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe-astock-android-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
