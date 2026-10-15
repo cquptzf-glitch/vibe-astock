@@ -21,8 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.1"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.1-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.2"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.2-arm64.apk"
 
     steps:
       - name: Checkout
@@ -74,7 +74,15 @@ jobs:
         with:
           targets: aarch64-linux-android
 
+      - name: Cache Tauri CLI
+        id: tauri-cli-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri
+          key: tauri-cli-v2-${{ runner.os }}-${{ runner.arch }}-1
+
       - name: Install Tauri CLI
+        if: steps.tauri-cli-cache.outputs.cache-hit != 'true'
         run: cargo install tauri-cli --version "^2" --locked
 
       - name: Install frontend dependencies
@@ -116,7 +124,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.1-arm64
+          name: vibe-astock-android-mvp-v0.1.2-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -130,20 +138,21 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.1
+          ## Vibe AStock Android MVP v0.1.2
 
-          Second installable Android MVP built from the `android-mvp` branch.
+          Third installable Android MVP built from the `android-mvp` branch.
 
-          ### New in v0.1.1
-          - New Short-line tab for the Eastmoney limit-up pool
-          - Simple consecutive-limit ladder grouped by board height
-          - Shows first/last seal time, seal funds, break count, industry and limit statistics
-          - Tap a limit-up stock to jump directly into the mobile quote/K-line detail
-          - Mobile and Rust Core version metadata aligned to v0.1.1
+          ### New in v0.1.2
+          - New Rotation tab for concept themes and industry sectors
+          - Eastmoney board-fund-flow logic migrated into the on-device Rust Core
+          - Compare today vs. 5-day main-fund rankings
+          - Automatically marks Persistent Strength, New Strength and Cooling signals
+          - Shows board change, main net inflow, main-fund ratio, breadth and leading stock
+          - Adds a Tauri CLI cache to speed up subsequent Android release builds
 
           ### Already included
-          - Mobile-first Tauri 2 shell backed by Rust Core
-          - A-share market overview: major indices, advance/decline counts, limit-up/limit-down and seal rate
+          - Market overview and breadth
+          - Limit-up pool and simple consecutive-limit ladder
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
           - Recent forward-adjusted K-line data
           - Local SQLite watchlist
@@ -167,7 +176,7 @@ jobs:
               "dist/${ANDROID_APK_NAME}" \
               "dist/${ANDROID_APK_NAME}.sha256" \
               --target "$GITHUB_SHA" \
-              --title "Vibe AStock Android MVP v0.1.1" \
+              --title "Vibe AStock Android MVP v0.1.2" \
               --notes "$NOTES" \
               --prerelease
           fi

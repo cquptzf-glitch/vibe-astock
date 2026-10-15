@@ -1,5 +1,6 @@
 mod market;
 mod quote;
+mod rotation;
 mod shortline;
 mod storage;
 
@@ -51,7 +52,7 @@ impl AppCore {
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.1")
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.2")
             .build()?;
 
         Ok(Self { client, db_path })
@@ -71,10 +72,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.1.1-mobile"
+                "version": "0.1.2-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.1.1-mobile",
+                "version": "0.1.2-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
@@ -106,6 +107,9 @@ impl AppCore {
             }
             ("GET", "/mobile/shortline/limit-up") => Ok(MobileApiResponse::ok(
                 shortline::limit_up_pool(&self.client, &request.path).await?,
+            )),
+            ("GET", "/mobile/rotation") => Ok(MobileApiResponse::ok(
+                rotation::snapshot(&self.client, &request.path).await?,
             )),
             ("POST", "/fetch") => match quote::fetch_endpoint(&self.client, &request.body).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),

@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Database,
   Flame,
+  Layers3,
   RefreshCw,
   Search,
   Settings,
@@ -15,10 +16,11 @@ import {
 } from "lucide-react";
 
 import { MarketOverview } from "./MarketOverview";
+import { RotationPanel } from "./RotationPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
 import "./mobile.css";
 
-type Tab = "market" | "shortline" | "watchlist" | "settings";
+type Tab = "market" | "shortline" | "rotation" | "watchlist" | "settings";
 
 interface Evidence {
   field: string;
@@ -320,6 +322,7 @@ export function MobileApp() {
         )}
 
         {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} />}
+        {tab === "rotation" && <RotationPanel />}
 
         {tab === "watchlist" && (
           <section className="mobile-section">
@@ -350,7 +353,7 @@ export function MobileApp() {
         {tab === "settings" && (
           <section className="mobile-section">
             <div className="mobile-section-title">
-              <div><h1>移动端状态</h1><p>Android MVP v0.1.1。</p></div>
+              <div><h1>移动端状态</h1><p>Android MVP v0.1.2。</p></div>
             </div>
             <div className="mobile-info-card">
               <div><Activity size={18} /><span>Rust Core</span><strong>{health?.version ?? "检查中"}</strong></div>
@@ -359,22 +362,25 @@ export function MobileApp() {
             </div>
             <div className="mobile-roadmap-card">
               <h2>已迁移</h2>
-              <p>大盘指数、涨跌家数、涨跌分布、涨停/跌停/炸板、涨停池、简版连板天梯、单股行情、K 线、本地自选。</p>
+              <p>大盘指数、涨跌家数、涨跌分布、涨停/跌停/炸板、涨停池、简版连板天梯、题材/行业轮动、单股行情、K 线、本地自选。</p>
             </div>
             <div className="mobile-roadmap-card">
               <h2>下一批</h2>
-              <p>题材轮动、交易日志、个股详情增强、AI API 直连与 Android 通知。</p>
+              <p>交易日志、个股详情增强、AI API 直连与 Android 通知。</p>
             </div>
           </section>
         )}
       </main>
 
-      <nav className="mobile-nav" style={{ gridTemplateColumns: "repeat(4, 1fr)" }} aria-label="主导航">
+      <nav className="mobile-nav" style={{ gridTemplateColumns: "repeat(5, 1fr)" }} aria-label="主导航">
         <button className={tab === "market" ? "active" : ""} onClick={() => setTab("market")}>
           <ChartNoAxesCombined size={20} /><span>行情</span>
         </button>
         <button className={tab === "shortline" ? "active" : ""} onClick={() => setTab("shortline")}>
           <Flame size={20} /><span>短线</span>
+        </button>
+        <button className={tab === "rotation" ? "active" : ""} onClick={() => setTab("rotation")}>
+          <Layers3 size={20} /><span>轮动</span>
         </button>
         <button className={tab === "watchlist" ? "active" : ""} onClick={() => setTab("watchlist")}>
           <Star size={20} /><span>自选</span>
