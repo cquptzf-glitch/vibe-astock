@@ -12,7 +12,7 @@ on:
       - ".github/workflows/android.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
@@ -21,6 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.0"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.0-arm64.apk"
 
     steps:
       - name: Checkout
@@ -87,13 +89,79 @@ jobs:
       - name: Initialize Android project
         run: cargo tauri android init --ci
 
-      - name: Build APK
-        run: cargo tauri android build --ci --apk --target aarch64
+      - name: Build installable APK
+        run: cargo tauri android build --ci --debug --apk --target aarch64
 
-      - name: Upload APK
+      - name: Prepare and verify APK
+        shell: bash
+        run: |
+          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
+          if [ -z "$APK" ] || [ ! -f "$APK" ]; then
+            echo "Android APK was not produced" >&2
+            find src-tauri/gen/android/app/build/outputs -maxdepth 6 -type f -print || true
+            exit 1
+          fi
+
+          mkdir -p dist
+          cp "$APK" "dist/${ANDROID_APK_NAME}"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner -perm -111 | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "apksigner not found" >&2
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs "dist/${ANDROID_APK_NAME}"
+          sha256sum "dist/${ANDROID_APK_NAME}" > "dist/${ANDROID_APK_NAME}.sha256"
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          name: vibe-astock-android-mvp-v0.1.0-arm64
+          path: |
+            dist/${{ env.ANDROID_APK_NAME }}
+            dist/${{ env.ANDROID_APK_NAME }}.sha256
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
+
+      - name: Publish Android MVP prerelease
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-android]')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          NOTES=$(cat <<'EOF'
+          ## Vibe AStock Android MVP v0.1.0
+
+          First installable Android MVP built from the `android-mvp` branch.
+
+          ### Included
+          - Mobile-first Tauri 2 shell backed by Rust Core
+          - A-share market overview: major indices, advance/decline counts, limit-up/limit-down and seal rate
+          - Realtime stock quote with Tencent primary source and Eastmoney fallback
+          - Recent forward-adjusted K-line data
+          - Local SQLite watchlist
+          - Initial short-line / limit-up pool data endpoint
+
+          ### Installation
+          - Android 7.0+ (minSdk 24)
+          - ARM64 devices only in this MVP build
+          - Direct sideload APK; this is a debug-signed prerelease for functional testing, not a Google Play production build
+
+          The `.sha256` file is provided for download integrity verification.
+          EOF
+          )
+
+          if gh release view "$ANDROID_RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$ANDROID_RELEASE_TAG" \
+              "dist/${ANDROID_APK_NAME}" \
+              "dist/${ANDROID_APK_NAME}.sha256" \
+              --clobber
+          else
+            gh release create "$ANDROID_RELEASE_TAG" \
+              "dist/${ANDROID_APK_NAME}" \
+              "dist/${ANDROID_APK_NAME}.sha256" \
+              --target "$GITHUB_SHA" \
+              --title "Vibe AStock Android MVP v0.1.0" \
+              --notes "$NOTES" \
+              --prerelease
+          fi
