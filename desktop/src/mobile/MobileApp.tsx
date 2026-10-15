@@ -13,6 +13,7 @@ import {
   Wifi,
 } from "lucide-react";
 
+import { MarketOverview } from "./MarketOverview";
 import "./mobile.css";
 
 type Tab = "market" | "watchlist" | "settings";
@@ -75,7 +76,12 @@ function evidenceNumber(env: Envelope | null, field: string): number | null {
 }
 
 function formatNumber(value: number | null, digits = 2): string {
-  return value === null ? "—" : value.toLocaleString("zh-CN", { maximumFractionDigits: digits, minimumFractionDigits: digits });
+  return value === null
+    ? "—"
+    : value.toLocaleString("zh-CN", {
+        maximumFractionDigits: digits,
+        minimumFractionDigits: digits,
+      });
 }
 
 function formatMarketCap(value: number | null, source: string | null): string {
@@ -93,11 +99,13 @@ function Sparkline({ rows }: { rows: unknown[][] }) {
     const min = Math.min(...closes);
     const max = Math.max(...closes);
     const span = max - min || 1;
-    return closes.map((value, index) => {
-      const x = (index / (closes.length - 1)) * 100;
-      const y = 34 - ((value - min) / span) * 30;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    }).join(" ");
+    return closes
+      .map((value, index) => {
+        const x = (index / (closes.length - 1)) * 100;
+        const y = 34 - ((value - min) / span) * 30;
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
   }, [rows]);
 
   if (!points) return <div className="mobile-empty-chart">K 线数据不足</div>;
@@ -145,7 +153,6 @@ export function MobileApp() {
     if (!symbol) return;
     setLoading(true);
     setError("");
-    setActiveSymbol(symbol.replace(/^(SH|SZ)[.:]?/, "").replace(/\.(SH|SZ)$/, ""));
     try {
       const quoteResult = await api<FetchResult>("/fetch", {
         method: "POST",
@@ -178,17 +185,14 @@ export function MobileApp() {
     if (!activeSymbol) return;
     setError("");
     try {
-      if (isWatched) {
-        await api("/mobile/watchlist", {
-          method: "DELETE",
-          body: JSON.stringify({ symbol: activeSymbol }),
-        });
-      } else {
-        await api("/mobile/watchlist", {
-          method: "POST",
-          body: JSON.stringify({ symbol: activeSymbol, name: currentName }),
-        });
-      }
+      await api("/mobile/watchlist", {
+        method: isWatched ? "DELETE" : "POST",
+        body: JSON.stringify(
+          isWatched
+            ? { symbol: activeSymbol }
+            : { symbol: activeSymbol, name: currentName },
+        ),
+      });
       await loadWatchlist();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -231,6 +235,15 @@ export function MobileApp() {
 
         {tab === "market" && (
           <section className="mobile-section">
+            <MarketOverview />
+
+            <div className="mobile-section-title" style={{ marginTop: 22 }}>
+              <div>
+                <h1>个股行情</h1>
+                <p>腾讯实时行情，失败自动降级东财；K 线为前复权。</p>
+              </div>
+            </div>
+
             <form
               className="mobile-search"
               onSubmit={(event) => {
@@ -254,8 +267,8 @@ export function MobileApp() {
             {!quote && !loading && (
               <div className="mobile-hero-card">
                 <ChartNoAxesCombined size={34} />
-                <h1>移动端行情 MVP</h1>
-                <p>第一阶段已改为手机内 Rust 直接访问行情源，不依赖 PC、Node 或 Python 服务。</p>
+                <h1>选一只股票继续</h1>
+                <p>行情与 K 线都由手机内 Rust Core 直接访问公开数据源，不依赖电脑端服务。</p>
                 <div className="mobile-chips">
                   <span>腾讯行情</span><span>东财降级</span><span>前复权 K 线</span><span>SQLite 自选</span>
                 </div>
@@ -263,45 +276,43 @@ export function MobileApp() {
             )}
 
             {quote && (
-              <>
-                <article className="mobile-quote-card">
-                  <div className="mobile-quote-head">
-                    <div>
-                      <div className="mobile-symbol-line">
-                        <strong>{currentName || activeSymbol}</strong>
-                        <span>{quote.market} · {quote.symbol}</span>
-                      </div>
-                      <div className="mobile-price-row">
-                        <span className="mobile-price">{formatNumber(price)}</span>
-                        <span className={changePct !== null && changePct < 0 ? "down" : "up"}>
-                          {changePct === null ? "—" : `${changePct >= 0 ? "+" : ""}${formatNumber(changePct)}%`}
-                        </span>
-                      </div>
+              <article className="mobile-quote-card">
+                <div className="mobile-quote-head">
+                  <div>
+                    <div className="mobile-symbol-line">
+                      <strong>{currentName || activeSymbol}</strong>
+                      <span>{quote.market} · {quote.symbol}</span>
                     </div>
-                    <button className={`mobile-star ${isWatched ? "active" : ""}`} onClick={() => void toggleWatch()} aria-label="自选">
-                      {isWatched ? <Star size={22} fill="currentColor" /> : <BookmarkPlus size={22} />}
-                    </button>
+                    <div className="mobile-price-row">
+                      <span className="mobile-price">{formatNumber(price)}</span>
+                      <span className={changePct !== null && changePct < 0 ? "down" : "up"}>
+                        {changePct === null ? "—" : `${changePct >= 0 ? "+" : ""}${formatNumber(changePct)}%`}
+                      </span>
+                    </div>
                   </div>
+                  <button className={`mobile-star ${isWatched ? "active" : ""}`} onClick={() => void toggleWatch()} aria-label="自选">
+                    {isWatched ? <Star size={22} fill="currentColor" /> : <BookmarkPlus size={22} />}
+                  </button>
+                </div>
 
-                  <div className="mobile-chart-wrap">
-                    <div className="mobile-card-label">近 60 日 · 前复权</div>
-                    <Sparkline rows={klineRows} />
-                  </div>
+                <div className="mobile-chart-wrap">
+                  <div className="mobile-card-label">近 60 日 · 前复权</div>
+                  <Sparkline rows={klineRows} />
+                </div>
 
-                  <div className="mobile-metrics">
-                    <div><span>PE(TTM)</span><strong>{formatNumber(pe)}</strong></div>
-                    <div><span>PB</span><strong>{formatNumber(pb)}</strong></div>
-                    <div><span>换手率</span><strong>{turnover === null ? "—" : `${formatNumber(turnover)}%`}</strong></div>
-                    <div><span>总市值</span><strong>{formatMarketCap(marketCap, quote.primary_source)}</strong></div>
-                  </div>
+                <div className="mobile-metrics">
+                  <div><span>PE(TTM)</span><strong>{formatNumber(pe)}</strong></div>
+                  <div><span>PB</span><strong>{formatNumber(pb)}</strong></div>
+                  <div><span>换手率</span><strong>{turnover === null ? "—" : `${formatNumber(turnover)}%`}</strong></div>
+                  <div><span>总市值</span><strong>{formatMarketCap(marketCap, quote.primary_source)}</strong></div>
+                </div>
 
-                  <div className="mobile-source-line">
-                    <Database size={14} />
-                    数据源：{quote.primary_source ?? "—"} · 状态：{quote.status}
-                    {quote.extra?.quote_date ? ` · ${String(quote.extra.quote_date)}` : ""}
-                  </div>
-                </article>
-              </>
+                <div className="mobile-source-line">
+                  <Database size={14} />
+                  数据源：{quote.primary_source ?? "—"} · 状态：{quote.status}
+                  {quote.extra?.quote_date ? ` · ${String(quote.extra.quote_date)}` : ""}
+                </div>
+              </article>
             )}
           </section>
         )}
@@ -335,7 +346,7 @@ export function MobileApp() {
         {tab === "settings" && (
           <section className="mobile-section">
             <div className="mobile-section-title">
-              <div><h1>移动端状态</h1><p>当前为 Android MVP 第一阶段。</p></div>
+              <div><h1>移动端状态</h1><p>当前为 Android MVP 第二阶段。</p></div>
             </div>
             <div className="mobile-info-card">
               <div><Activity size={18} /><span>Rust Core</span><strong>{health?.version ?? "检查中"}</strong></div>
@@ -343,8 +354,12 @@ export function MobileApp() {
               <div><Wifi size={18} /><span>行情</span><strong>腾讯 + 东财</strong></div>
             </div>
             <div className="mobile-roadmap-card">
-              <h2>下一批迁移</h2>
-              <p>大盘首页、涨停池、连板天梯、题材轮动、交易日志、AI API 直连与通知。</p>
+              <h2>已迁移</h2>
+              <p>大盘指数、涨跌家数、涨跌分布、涨停/跌停/炸板、单股行情、K 线、本地自选。</p>
+            </div>
+            <div className="mobile-roadmap-card">
+              <h2>下一批</h2>
+              <p>涨停池列表、连板天梯、题材轮动、交易日志、AI API 直连与 Android 通知。</p>
             </div>
           </section>
         )}

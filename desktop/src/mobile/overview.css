@@ -1,0 +1,269 @@
+.mo-wrap {
+  margin-bottom: 18px;
+}
+
+.mo-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mo-eyebrow {
+  color: #e46a43;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.mo-heading h2 {
+  margin: 3px 0 0;
+  font-size: 19px;
+}
+
+.mo-heading p {
+  margin: 3px 0 0;
+  color: #737c87;
+  font-size: 11px;
+}
+
+.mo-refresh {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #293039;
+  border-radius: 11px;
+  color: #89929e;
+  background: #11151a;
+}
+
+.mo-refresh:disabled {
+  opacity: .55;
+}
+
+.mo-error,
+.mo-partial {
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  color: #e6bd95;
+  background: rgba(180, 109, 47, .12);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.mo-index-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.mo-index-card,
+.mo-breadth-card,
+.mo-sentiment-grid,
+.mo-distribution-card {
+  border: 1px solid #252b33;
+  background: linear-gradient(180deg, #15191f, #111419);
+}
+
+.mo-index-card {
+  min-height: 76px;
+  padding: 11px 12px;
+  border-radius: 13px;
+}
+
+.mo-index-card.skeleton {
+  opacity: .45;
+  background: linear-gradient(90deg, #15191f, #1d2229, #15191f);
+  background-size: 200% 100%;
+  animation: mo-shimmer 1.2s infinite linear;
+}
+
+.mo-index-name {
+  overflow: hidden;
+  color: #8b949f;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mo-index-price {
+  margin-top: 5px;
+  font-size: 18px;
+  font-weight: 720;
+  letter-spacing: -.02em;
+}
+
+.mo-index-change {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.mo-index-change.up,
+.mo-breadth-side.up,
+.mo-sentiment-grid strong.up {
+  color: #ef6b5a;
+}
+
+.mo-index-change.down,
+.mo-breadth-side.down,
+.mo-sentiment-grid strong.down {
+  color: #56c58f;
+}
+
+.mo-index-change.flat {
+  color: #8a929c;
+}
+
+.mo-breadth-card {
+  margin-top: 10px;
+  padding: 13px 14px;
+  border-radius: 14px;
+}
+
+.mo-breadth-head,
+.mo-breadth-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mo-breadth-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.mo-breadth-side strong {
+  margin-left: 2px;
+  font-size: 16px;
+}
+
+.mo-breadth-bar {
+  overflow: hidden;
+  height: 6px;
+  margin: 10px 0 7px;
+  border-radius: 999px;
+  background: #256c50;
+}
+
+.mo-breadth-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #b54d40;
+}
+
+.mo-breadth-foot {
+  color: #6d7580;
+  font-size: 10px;
+}
+
+.mo-sentiment-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 10px;
+  border-radius: 14px;
+}
+
+.mo-sentiment-grid > div {
+  padding: 12px 5px;
+  border-right: 1px solid #242a31;
+  text-align: center;
+}
+
+.mo-sentiment-grid > div:last-child {
+  border-right: 0;
+}
+
+.mo-sentiment-grid span,
+.mo-sentiment-grid strong {
+  display: block;
+}
+
+.mo-sentiment-grid span {
+  color: #737c88;
+  font-size: 10px;
+}
+
+.mo-sentiment-grid strong {
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.mo-distribution-card {
+  margin-top: 10px;
+  padding: 13px;
+  border-radius: 14px;
+}
+
+.mo-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #9ca4ae;
+  font-size: 11px;
+}
+
+.mo-card-title svg {
+  color: #e46a43;
+}
+
+.mo-distribution-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.mo-distribution-item {
+  min-width: 0;
+  padding: 7px 4px;
+  border-radius: 9px;
+  background: #0c0f13;
+  text-align: center;
+}
+
+.mo-distribution-item span,
+.mo-distribution-item strong {
+  display: block;
+}
+
+.mo-distribution-item span {
+  overflow: hidden;
+  color: #66707b;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mo-distribution-item strong {
+  margin-top: 3px;
+  color: #bac1ca;
+  font-size: 12px;
+}
+
+.mo-partial {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
+@keyframes mo-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (min-width: 520px) {
+  .mo-index-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mo-distribution-list {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
