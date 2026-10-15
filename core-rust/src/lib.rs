@@ -1,5 +1,6 @@
 mod market;
 mod quote;
+mod shortline;
 mod storage;
 
 use anyhow::{Context, Result};
@@ -70,10 +71,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.2.0-mobile"
+                "version": "0.3.0-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.2.0-mobile",
+                "version": "0.3.0-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
@@ -103,6 +104,9 @@ impl AppCore {
             ("GET", "/mobile/market-overview") => {
                 Ok(MobileApiResponse::ok(market::overview(&self.client).await?))
             }
+            ("GET", "/mobile/shortline/limit-up") => Ok(MobileApiResponse::ok(
+                shortline::limit_up_pool(&self.client, &request.path).await?,
+            )),
             ("POST", "/fetch") => match quote::fetch_endpoint(&self.client, &request.body).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(quote::FetchError::BadRequest(message)) => {
