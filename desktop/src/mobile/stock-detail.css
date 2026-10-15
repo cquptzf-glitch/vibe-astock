@@ -1,0 +1,123 @@
+.stock-detail-card {
+  margin-top: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.72);
+  padding: 16px;
+  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.18);
+}
+
+.stock-detail-head,
+.stock-range-label,
+.stock-range-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stock-detail-kicker,
+.stock-range-label span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.stock-detail-head h2 {
+  margin: 3px 0 0;
+  font-size: 18px;
+}
+
+.stock-trend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 11px;
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.12);
+  white-space: nowrap;
+}
+
+.stock-trend-pill.positive { color: #fb7185; background: rgba(244, 63, 94, 0.12); }
+.stock-trend-pill.negative { color: #4ade80; background: rgba(34, 197, 94, 0.12); }
+
+.stock-candles {
+  width: 100%;
+  height: 142px;
+  margin-top: 14px;
+  overflow: visible;
+}
+
+.stock-candles line { stroke-width: 1; vector-effect: non-scaling-stroke; }
+.stock-candles rect { vector-effect: non-scaling-stroke; }
+.stock-candles .candle-up line,
+.stock-candles .candle-up rect { stroke: #fb7185; fill: rgba(244, 63, 94, 0.64); }
+.stock-candles .candle-down line,
+.stock-candles .candle-down rect { stroke: #4ade80; fill: rgba(34, 197, 94, 0.62); }
+
+.stock-detail-returns,
+.stock-detail-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.stock-detail-returns { grid-template-columns: repeat(3, 1fr); }
+.stock-detail-grid { grid-template-columns: repeat(4, 1fr); }
+
+.stock-detail-returns > div,
+.stock-detail-grid > div {
+  min-width: 0;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.68);
+  padding: 10px;
+}
+
+.stock-detail-returns span,
+.stock-detail-grid span {
+  display: block;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.stock-detail-returns strong,
+.stock-detail-grid strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stock-range-box {
+  margin-top: 12px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.58);
+  padding: 10px 12px;
+}
+
+.stock-range-label strong { font-size: 13px; }
+.stock-range-track {
+  height: 6px;
+  margin: 9px 0 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.15);
+  overflow: hidden;
+}
+.stock-range-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22c55e, #eab308, #f43f5e);
+}
+.stock-range-foot { color: #64748b; font-size: 10px; }
+.stock-detail-note { margin: 10px 2px 0; color: #64748b; font-size: 10px; line-height: 1.55; }
+.stock-detail-empty { padding: 32px 0; text-align: center; color: #64748b; font-size: 12px; }
+
+@media (max-width: 520px) {
+  .stock-detail-grid { grid-template-columns: repeat(2, 1fr); }
+}

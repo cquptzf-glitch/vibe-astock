@@ -14,10 +14,11 @@ import {
   Wifi,
 } from "lucide-react";
 
-import { JournalPanel } from "./JournalPanel";
+import { JournalPanelV2 } from "./JournalPanelV2";
 import { MarketOverview } from "./MarketOverview";
 import { RotationPanel } from "./RotationPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
+import { StockDetailPanel } from "./StockDetailPanel";
 import "./mobile.css";
 
 type Tab = "market" | "shortline" | "rotation" | "watchlist" | "journal";
@@ -226,7 +227,7 @@ export function MobileApp() {
       <header className="mobile-header">
         <div>
           <div className="mobile-brand">Vibe AStock</div>
-          <div className="mobile-subtitle">Android · Rust Core · v0.1.3</div>
+          <div className="mobile-subtitle">Android · Rust Core · v0.1.4</div>
         </div>
         <div className={`mobile-status ${health?.ok ? "ok" : ""}`}>
           <Wifi size={14} />
@@ -280,43 +281,47 @@ export function MobileApp() {
             )}
 
             {quote && (
-              <article className="mobile-quote-card">
-                <div className="mobile-quote-head">
-                  <div>
-                    <div className="mobile-symbol-line">
-                      <strong>{currentName || activeSymbol}</strong>
-                      <span>{quote.market} · {quote.symbol}</span>
+              <>
+                <article className="mobile-quote-card">
+                  <div className="mobile-quote-head">
+                    <div>
+                      <div className="mobile-symbol-line">
+                        <strong>{currentName || activeSymbol}</strong>
+                        <span>{quote.market} · {quote.symbol}</span>
+                      </div>
+                      <div className="mobile-price-row">
+                        <span className="mobile-price">{formatNumber(price)}</span>
+                        <span className={changePct !== null && changePct < 0 ? "down" : "up"}>
+                          {changePct === null ? "—" : `${changePct >= 0 ? "+" : ""}${formatNumber(changePct)}%`}
+                        </span>
+                      </div>
                     </div>
-                    <div className="mobile-price-row">
-                      <span className="mobile-price">{formatNumber(price)}</span>
-                      <span className={changePct !== null && changePct < 0 ? "down" : "up"}>
-                        {changePct === null ? "—" : `${changePct >= 0 ? "+" : ""}${formatNumber(changePct)}%`}
-                      </span>
-                    </div>
+                    <button className={`mobile-star ${isWatched ? "active" : ""}`} onClick={() => void toggleWatch()} aria-label="自选">
+                      {isWatched ? <Star size={22} fill="currentColor" /> : <BookmarkPlus size={22} />}
+                    </button>
                   </div>
-                  <button className={`mobile-star ${isWatched ? "active" : ""}`} onClick={() => void toggleWatch()} aria-label="自选">
-                    {isWatched ? <Star size={22} fill="currentColor" /> : <BookmarkPlus size={22} />}
-                  </button>
-                </div>
 
-                <div className="mobile-chart-wrap">
-                  <div className="mobile-card-label">近 60 日 · 前复权</div>
-                  <Sparkline rows={klineRows} />
-                </div>
+                  <div className="mobile-chart-wrap">
+                    <div className="mobile-card-label">近 60 日 · 前复权</div>
+                    <Sparkline rows={klineRows} />
+                  </div>
 
-                <div className="mobile-metrics">
-                  <div><span>PE(TTM)</span><strong>{formatNumber(pe)}</strong></div>
-                  <div><span>PB</span><strong>{formatNumber(pb)}</strong></div>
-                  <div><span>换手率</span><strong>{turnover === null ? "—" : `${formatNumber(turnover)}%`}</strong></div>
-                  <div><span>总市值</span><strong>{formatMarketCap(marketCap, quote.primary_source)}</strong></div>
-                </div>
+                  <div className="mobile-metrics">
+                    <div><span>PE(TTM)</span><strong>{formatNumber(pe)}</strong></div>
+                    <div><span>PB</span><strong>{formatNumber(pb)}</strong></div>
+                    <div><span>换手率</span><strong>{turnover === null ? "—" : `${formatNumber(turnover)}%`}</strong></div>
+                    <div><span>总市值</span><strong>{formatMarketCap(marketCap, quote.primary_source)}</strong></div>
+                  </div>
 
-                <div className="mobile-source-line">
-                  <Database size={14} />
-                  数据源：{quote.primary_source ?? "—"} · 状态：{quote.status}
-                  {quote.extra?.quote_date ? ` · ${String(quote.extra.quote_date)}` : ""}
-                </div>
-              </article>
+                  <div className="mobile-source-line">
+                    <Database size={14} />
+                    数据源：{quote.primary_source ?? "—"} · 状态：{quote.status}
+                    {quote.extra?.quote_date ? ` · ${String(quote.extra.quote_date)}` : ""}
+                  </div>
+                </article>
+
+                <StockDetailPanel quote={quote} rows={klineRows} />
+              </>
             )}
           </section>
         )}
@@ -350,7 +355,7 @@ export function MobileApp() {
           </section>
         )}
 
-        {tab === "journal" && <JournalPanel onOpenSymbol={openFromList} />}
+        {tab === "journal" && <JournalPanelV2 onOpenSymbol={openFromList} />}
       </main>
 
       <nav className="mobile-nav" style={{ gridTemplateColumns: "repeat(5, 1fr)" }} aria-label="主导航">

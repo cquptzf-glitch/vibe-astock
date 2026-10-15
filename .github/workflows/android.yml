@@ -21,8 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.3"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.3-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.4"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.4-arm64.apk"
 
     steps:
       - name: Checkout
@@ -124,7 +124,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.3-arm64
+          name: vibe-astock-android-mvp-v0.1.4-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -138,17 +138,17 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.3
+          ## Vibe AStock Android MVP v0.1.4
 
-          Fourth installable Android MVP built from the `android-mvp` branch.
+          Fifth installable Android MVP built from the `android-mvp` branch.
 
-          ### New in v0.1.3
-          - New local Trading Journal tab backed by SQLite
-          - Follows the desktop journal model: fills or manual P/L%, playbook, planned/unplanned, stop/target and review notes
-          - Supports multiple buy/sell fills per journal record and local deletion
-          - Calculates closed-trade P/L, win rate and plan execution rate on device
-          - Missing per-fill fees are estimated with the same default fee model used by the desktop journal; the app labels estimates explicitly
-          - Personal journal data remains local to the phone and is not automatically sent to AI
+          ### New in v0.1.4
+          - Enhanced stock detail view with 30-session candlesticks and 5/20/60-session returns
+          - Adds MA5 / MA10 / MA20, distance to MA20 and 20-session price-range position
+          - Trading Journal records can now be edited after saving
+          - Open journal positions support atomic append of later buy/sell fills into the original record
+          - Appended fills are balance-checked so sells cannot exceed prior buys
+          - Manual P/L entries can update date, P/L%, playbook, planned/unplanned state and notes
 
           ### Already included
           - Market overview and breadth
@@ -156,7 +156,7 @@ jobs:
           - Concept/industry rotation with today vs. 5-day fund-flow observation labels
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
           - Forward-adjusted K-line data
-          - Local SQLite watchlist
+          - Local SQLite watchlist and local Trading Journal
 
           ### Installation
           - Android 7.0+ (minSdk 24)
@@ -177,7 +177,7 @@ jobs:
               "dist/${ANDROID_APK_NAME}" \
               "dist/${ANDROID_APK_NAME}.sha256" \
               --target "$GITHUB_SHA" \
-              --title "Vibe AStock Android MVP v0.1.3" \
+              --title "Vibe AStock Android MVP v0.1.4" \
               --notes "$NOTES" \
               --prerelease
           fi

@@ -1,4 +1,5 @@
 mod journal;
+mod journal_mutation;
 mod market;
 mod quote;
 mod rotation;
@@ -54,7 +55,7 @@ impl AppCore {
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.3")
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.4")
             .build()?;
 
         Ok(Self { client, db_path })
@@ -74,10 +75,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.1.3-mobile"
+                "version": "0.1.4-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.1.3-mobile",
+                "version": "0.1.4-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
@@ -110,6 +111,14 @@ impl AppCore {
             ("POST", "/mobile/journal") => match journal::act(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "journal", error.to_string())),
+            },
+            ("POST", "/mobile/journal/append") => match journal_mutation::append_fills(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "journal_append", error.to_string())),
+            },
+            ("POST", "/mobile/journal/update") => match journal_mutation::update_entry(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "journal_update", error.to_string())),
             },
             ("GET", "/mobile/market-overview") => {
                 Ok(MobileApiResponse::ok(market::overview(&self.client).await?))
