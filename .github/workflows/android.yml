@@ -21,8 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.0"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.0-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.1"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.1-arm64.apk"
 
     steps:
       - name: Checkout
@@ -116,7 +116,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.0-arm64
+          name: vibe-astock-android-mvp-v0.1.1-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -130,17 +130,23 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.0
+          ## Vibe AStock Android MVP v0.1.1
 
-          First installable Android MVP built from the `android-mvp` branch.
+          Second installable Android MVP built from the `android-mvp` branch.
 
-          ### Included
+          ### New in v0.1.1
+          - New Short-line tab for the Eastmoney limit-up pool
+          - Simple consecutive-limit ladder grouped by board height
+          - Shows first/last seal time, seal funds, break count, industry and limit statistics
+          - Tap a limit-up stock to jump directly into the mobile quote/K-line detail
+          - Mobile and Rust Core version metadata aligned to v0.1.1
+
+          ### Already included
           - Mobile-first Tauri 2 shell backed by Rust Core
           - A-share market overview: major indices, advance/decline counts, limit-up/limit-down and seal rate
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
           - Recent forward-adjusted K-line data
           - Local SQLite watchlist
-          - Initial short-line / limit-up pool data endpoint
 
           ### Installation
           - Android 7.0+ (minSdk 24)
@@ -161,7 +167,7 @@ jobs:
               "dist/${ANDROID_APK_NAME}" \
               "dist/${ANDROID_APK_NAME}.sha256" \
               --target "$GITHUB_SHA" \
-              --title "Vibe AStock Android MVP v0.1.0" \
+              --title "Vibe AStock Android MVP v0.1.1" \
               --notes "$NOTES" \
               --prerelease
           fi

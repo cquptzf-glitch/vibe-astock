@@ -51,7 +51,7 @@ impl AppCore {
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1")
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.1")
             .build()?;
 
         Ok(Self { client, db_path })
@@ -71,10 +71,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.3.0-mobile"
+                "version": "0.1.1-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.3.0-mobile",
+                "version": "0.1.1-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
