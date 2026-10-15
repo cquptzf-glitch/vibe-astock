@@ -18,12 +18,30 @@ interface Bar {
 }
 
 function parseBars(rows: unknown[][]): Bar[] {
-  return rows.flatMap((row) => {
+  return rows.flatMap((row): Bar[] => {
     if (row.length < 6) return [];
     const [date, open, close, high, low, volume] = row;
-    const values = [open, close, high, low, volume].map(Number);
-    if (typeof date !== "string" || values.some((value) => !Number.isFinite(value))) return [];
-    return [{ date, open: values[0], close: values[1], high: values[2], low: values[3], volume: values[4] }];
+    const openValue = Number(open);
+    const closeValue = Number(close);
+    const highValue = Number(high);
+    const lowValue = Number(low);
+    const volumeValue = Number(volume);
+    if (
+      typeof date !== "string"
+      || !Number.isFinite(openValue)
+      || !Number.isFinite(closeValue)
+      || !Number.isFinite(highValue)
+      || !Number.isFinite(lowValue)
+      || !Number.isFinite(volumeValue)
+    ) return [];
+    return [{
+      date,
+      open: openValue,
+      close: closeValue,
+      high: highValue,
+      low: lowValue,
+      volume: volumeValue,
+    }];
   });
 }
 
@@ -38,7 +56,7 @@ function tailAverage(bars: Bar[], count: number): number | null {
 
 function changeFrom(bars: Bar[], sessions: number): number | null {
   if (bars.length < 2) return null;
-  const latest = bars[bars.length - 1].close;
+  const latest = bars[bars.length - 1]!.close;
   const index = Math.max(0, bars.length - 1 - sessions);
   const base = bars[index]?.close;
   if (!base) return null;
@@ -96,10 +114,10 @@ function CandleChart({ bars }: { bars: Bar[] }) {
 
 export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unknown[][] }) {
   const bars = useMemo(() => parseBars(rows), [rows]);
-  const latest = bars.length ? bars[bars.length - 1] : null;
+  const latest = bars.length ? bars[bars.length - 1]! : null;
   const stats = useMemo(() => {
     if (!bars.length) return null;
-    const latestClose = bars[bars.length - 1].close;
+    const latestClose = bars[bars.length - 1]!.close;
     const ma5 = tailAverage(bars, 5);
     const ma10 = tailAverage(bars, 10);
     const ma20 = tailAverage(bars, 20);
