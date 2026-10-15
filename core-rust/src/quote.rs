@@ -274,7 +274,8 @@ async fn fetch_kline(client: &Client, raw_symbol: &str, bars: usize) -> Result<V
         .first()
         .and_then(|r| r.get(0))
         .and_then(Value::as_str)
-        .unwrap_or("");
+        .unwrap_or("")
+        .to_string();
     let evidence = vec![
         evidence(
             &symbol,
