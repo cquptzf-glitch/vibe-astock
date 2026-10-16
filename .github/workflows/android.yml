@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-apk:
     runs-on: ubuntu-24.04
@@ -167,17 +171,19 @@ jobs:
           Ninth installable Android MVP built from the `android-mvp` branch.
 
           ### New in v0.1.8
+          - Adds A-share symbol search by code, Chinese name and pinyin directly in Rust Core
           - Adds a dedicated local portfolio view under “自选与持仓”
           - Open positions are derived from Trading Journal fills instead of maintaining a second position database
           - Portfolio refreshes realtime quotes and calculates latest market value, unrealized P/L and unrealized return
           - Shows average cost, shares, planned stop/target, stop coverage and planned risk from the local review model
+          - Adds a Settings page with Rust Core version, SQLite footprint, watchlist/journal/fill/open-position counts and AI credential status
           - Fixes the strict TypeScript error in v0.1.7 symbol search and removes the stale-suggestion submit edge case
           - Optimizes the Rust Android dev profile for sideload builds: size optimization, stripped symbols, thin LTO, one codegen unit and abort panic strategy
           - Builds only the ARM64 split APK and emits an APK size / largest-file report in GitHub Actions
+          - CI now cancels stale Android and cross-platform runs when a newer branch commit arrives
 
           ### Already included
           - Market overview and breadth
-          - A-share code/name/pinyin symbol search
           - Limit-up pool and consecutive-limit ladder with latest-trading-day fallback
           - Concept/industry rotation with today vs. 5-day fund-flow observation labels
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
