@@ -87,12 +87,26 @@ export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) 
   const [tab, setTab] = useState<"watch" | "position">("watch");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [samples, setSamples] = useState<Record<string, { at: number; price: number }[]>>({});
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      setData(await api<MonitorData>("/mobile/monitor"));
+      const next = await api<MonitorData>("/mobile/monitor");
+      const at = Date.now();
+      const prices = [...next.watchlist, ...next.positions].filter((row) => row.is_today && row.price !== null);
+      setSamples((previous) => {
+        const nextSamples = { ...previous };
+        for (const row of prices) {
+          const history = [...(nextSamples[row.symbol] ?? []), { at, price: row.price! }]
+            .filter((sample) => at - sample.at <= 5 * 60_000)
+            .slice(-6);
+          nextSamples[row.symbol] = history;
+        }
+        return nextSamples;
+      });
+      setData(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -112,6 +126,13 @@ export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) 
   );
 
   const rows = tab === "watch" ? data?.watchlist ?? [] : data?.positions ?? [];
+  const move3m = (symbol: string, current: number | null): number | null => {
+    if (current === null) return null;
+    const history = samples[symbol] ?? [];
+    const first = history.find((sample) => Date.now() - sample.at >= 150_000);
+    if (!first || first.price <= 0) return null;
+    return (current / first.price - 1) * 100;
+  };
 
   return (
     <section className="monitor-panel">
@@ -171,6 +192,7 @@ export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) 
                   <span>成交额 <b>{amount(row.amount_yuan)}</b></span>
                   {row.is_today && row.price !== null && row.limit_up !== null && row.price >= row.limit_up ? <span className="warning">涨停</span> : null}
                   {row.is_today && row.price !== null && row.limit_down !== null && row.price <= row.limit_down ? <span className="down">跌停</span> : null}
+                  <span>{(() => { const move = move3m(row.symbol, row.price); return move !== null && Math.abs(move) >= 1.5 ? `急${move > 0 ? "拉" : "跌"} ${move >= 0 ? "+" : ""}${move.toFixed(2)}%` : null; })()}</span>
                   <span>{row.available ? (row.is_today ? "今日行情" : "旧行情") : "暂无报价"}</span>
                   <ChevronRight size={16} />
                 </div>
