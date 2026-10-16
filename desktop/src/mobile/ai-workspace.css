@@ -1,0 +1,41 @@
+.ai-workspace {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 16px;
+  padding: 4px;
+  border-radius: 13px;
+  background: rgba(128, 140, 160, 0.08);
+}
+
+.ai-workspace-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 10px;
+  color: #79828d;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ai-workspace-tabs button.active {
+  color: #d8dde3;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+
+@media (min-width: 680px) {
+  .ai-workspace-tabs {
+    margin-right: 22px;
+    margin-left: 22px;
+  }
+}
