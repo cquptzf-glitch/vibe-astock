@@ -17,6 +17,7 @@ import {
 import { JournalWorkspace } from "./JournalWorkspace";
 import { MarketOverview } from "./MarketOverview";
 import { PortfolioPanel } from "./PortfolioPanel";
+import { ResearchPanel } from "./ResearchPanel";
 import { RotationPanel } from "./RotationPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
 import { StockDetailPanel } from "./StockDetailPanel";
@@ -432,6 +433,7 @@ export function MobileApp() {
                 </article>
 
                 <StockDetailPanel quote={quote} rows={klineRows} />
+                <ResearchPanel symbol={activeSymbol} />
               </>
             )}
           </section>

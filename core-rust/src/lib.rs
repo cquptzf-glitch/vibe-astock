@@ -9,6 +9,7 @@ mod journal_mutation;
 mod journal_review;
 mod market;
 mod quote;
+mod research;
 mod rotation;
 mod schema;
 mod search;
@@ -127,7 +128,7 @@ impl AppCore {
                 },
                 "defaults": {},
                 "paths": { "data_root": "android-app-data", "python": "" },
-                "sources": ["tencent", "eastmoney"],
+                "sources": ["tencent", "eastmoney", "sina"],
                 "ignored_legacy": [],
                 "config_error": null,
                 "provider_templates": {}
@@ -247,6 +248,18 @@ impl AppCore {
             ("GET", "/mobile/rotation") => Ok(MobileApiResponse::ok(
                 rotation::snapshot(&self.client, &request.path).await?,
             )),
+            ("GET", "/mobile/research/profile") => {
+                Ok(research_response(research::profile(&self.client, &request.path).await))
+            }
+            ("GET", "/mobile/research/announcements") => Ok(research_response(
+                research::announcements(&self.client, &request.path).await,
+            )),
+            ("GET", "/mobile/research/financials") => Ok(research_response(
+                research::financials(&self.client, &request.path).await,
+            )),
+            ("GET", "/mobile/research/estimates") => Ok(research_response(
+                research::estimates(&self.client, &request.path).await,
+            )),
             ("POST", "/fetch") => match quote::fetch_endpoint(&self.client, &request.body).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(quote::FetchError::BadRequest(message)) => {
@@ -264,6 +277,18 @@ impl AppCore {
                 "mobile_not_migrated",
                 format!("Android Rust Core 尚未迁移接口: {} {}", method, request.path),
             )),
+        }
+    }
+}
+
+fn research_response(result: std::result::Result<Value, research::ResearchError>) -> MobileApiResponse {
+    match result {
+        Ok(value) => MobileApiResponse::ok(value),
+        Err(research::ResearchError::BadRequest(message)) => {
+            MobileApiResponse::error(400, "research", message)
+        }
+        Err(research::ResearchError::Upstream(error)) => {
+            MobileApiResponse::error(502, "research_upstream", error.to_string())
         }
     }
 }
