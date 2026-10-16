@@ -1,10 +1,145 @@
-use tauri::State;
+use serde_json::{json, Value};
+use tauri::{AppHandle, State};
 use vibe_astock_core::{AppCore, MobileApiRequest, MobileApiResponse};
+
+use crate::secure_ai;
+
+fn response_error(status: u16, code: &str, message: impl Into<String>) -> MobileApiResponse {
+    MobileApiResponse {
+        status,
+        body: json!({ "error": code, "message": message.into() }),
+    }
+}
+
+fn put_internal(body: &mut Value, key: &str, value: Value) {
+    if !body.is_object() {
+        *body = json!({});
+    }
+    if let Some(object) = body.as_object_mut() {
+        object.insert(key.to_string(), value);
+    }
+}
+
+fn normalized_scope(value: &str) -> String {
+    value.trim().trim_end_matches('/').to_string()
+}
 
 #[tauri::command]
 pub async fn mobile_api(
+    app: AppHandle,
     state: State<'_, AppCore>,
-    request: MobileApiRequest,
+    mut request: MobileApiRequest,
 ) -> Result<MobileApiResponse, String> {
+    let route = request.path.split('?').next().unwrap_or("").to_string();
+    let method = request.method.to_uppercase();
+
+    if method == "GET" && (route == "/mobile/ai/config" || route == "/mobile/data/summary") {
+        let present = match secure_ai::key_present(&app, &state) {
+            Ok(value) => value,
+            Err(error) => return Ok(response_error(500, "secure_storage", error)),
+        };
+        put_internal(&mut request.body, "__secure_key_present", Value::Bool(present));
+        return Ok(state.handle(request).await);
+    }
+
+    if method == "POST" && route == "/mobile/ai/config" {
+        let old_base = state
+            .ai_base_url()
+            .map_err(|error| format!("读取当前模型配置失败: {error}"))?
+            .unwrap_or_default();
+        let clear_key = request
+            .body
+            .get("clear_key")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let pending_key = match request.body.get("api_key") {
+            None => None,
+            Some(Value::String(value)) => {
+                let trimmed = value.trim();
+                if trimmed.len() > 4096 {
+                    return Ok(response_error(400, "ai_config", "API Key 过长"));
+                }
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            }
+            Some(_) => return Ok(response_error(400, "ai_config", "api_key 必须是字符串")),
+        };
+        if let Some(object) = request.body.as_object_mut() {
+            object.remove("api_key");
+        }
+        let current_present = match secure_ai::key_present(&app, &state) {
+            Ok(value) => value,
+            Err(error) => return Ok(response_error(500, "secure_storage", error)),
+        };
+        put_internal(
+            &mut request.body,
+            "__secure_key_present",
+            Value::Bool(current_present),
+        );
+
+        let mut response = state.handle(request).await;
+        if response.status != 200 {
+            return Ok(response);
+        }
+
+        let new_base = response
+            .body
+            .get("base_url")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let storage_result = if clear_key {
+            secure_ai::delete(&app)
+        } else if let Some(api_key) = pending_key.as_deref() {
+            secure_ai::save(&app, &new_base, api_key)
+        } else if normalized_scope(&old_base) != normalized_scope(&new_base) {
+            // Credentials are provider-scoped: changing endpoints never carries an old key over.
+            secure_ai::delete(&app)
+        } else {
+            Ok(())
+        };
+        if let Err(error) = storage_result {
+            return Ok(response_error(500, "secure_storage", error));
+        }
+
+        let present = match secure_ai::key_present(&app, &state) {
+            Ok(value) => value,
+            Err(error) => return Ok(response_error(500, "secure_storage", error)),
+        };
+        if let Some(object) = response.body.as_object_mut() {
+            object.insert("key_present".to_string(), Value::Bool(present));
+            object.insert(
+                "storage".to_string(),
+                Value::String("android_keystore_aes_256_gcm".to_string()),
+            );
+        }
+        return Ok(response);
+    }
+
+    if method == "DELETE" && route == "/mobile/ai/config" {
+        if let Err(error) = secure_ai::delete(&app) {
+            return Ok(response_error(500, "secure_storage", error));
+        }
+        return Ok(state.handle(request).await);
+    }
+
+    if method == "POST" && (route == "/mobile/ai/review" || route == "/mobile/ai/chat") {
+        let key = match secure_ai::key_for_current_provider(&app, &state) {
+            Ok(value) => value,
+            Err(error) => return Ok(response_error(500, "secure_storage", error)),
+        };
+        if let Some(key) = key {
+            put_internal(
+                &mut request.body,
+                "__secure_api_key",
+                Value::String(key),
+            );
+        }
+        return Ok(state.handle(request).await);
+    }
+
     Ok(state.handle(request).await)
 }
