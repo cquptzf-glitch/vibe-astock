@@ -334,3 +334,7 @@
     padding-left: 22px;
   }
 }
+
+.shortline-tabs { display:flex; gap:7px; margin-bottom:10px; }
+.shortline-tabs button { border:1px solid var(--mobile-border,#e7e5e4); border-radius:999px; padding:7px 13px; background:transparent; color:var(--mobile-muted,#78716c); font-size:12px; }
+.shortline-tabs button.active { border-color:color-mix(in srgb, var(--mobile-accent,#f97316) 45%, transparent); background:color-mix(in srgb, var(--mobile-accent,#f97316) 10%, transparent); color:var(--mobile-accent,#f97316); }
