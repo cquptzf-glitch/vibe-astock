@@ -222,7 +222,7 @@ async fn fetch_eastmoney_quote(client: &Client, symbol: &SymbolKey) -> Result<Va
     }))
 }
 
-async fn fetch_kline(client: &Client, symbol: &SymbolKey, bars: usize) -> Result<Value> {
+pub(crate) async fn fetch_kline(client: &Client, symbol: &SymbolKey, bars: usize) -> Result<Value> {
     let bars_string = bars.to_string();
     let response = client
         .get("https://push2his.eastmoney.com/api/qt/stock/kline/get")
