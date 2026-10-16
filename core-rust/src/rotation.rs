@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use chrono::Utc;
 use reqwest::Client;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::collections::HashSet;
 
 pub async fn snapshot(client: &Client, request_path: &str) -> Result<Value> {
