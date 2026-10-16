@@ -1,0 +1,33 @@
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+use std::marker::PhantomData;
+use tauri::{plugin::PluginApi, AppHandle, Runtime};
+
+use crate::{rule_count, ReminderSyncStatus, Result};
+
+pub struct VibeReminders<R: Runtime>(PhantomData<R>);
+
+pub fn init<R: Runtime, C: DeserializeOwned>(
+    _app: &AppHandle<R>,
+    _api: PluginApi<R, C>,
+) -> Result<VibeReminders<R>> {
+    Ok(VibeReminders(PhantomData))
+}
+
+impl<R: Runtime> VibeReminders<R> {
+    pub fn sync_rules(&self, snapshot: &Value) -> Result<ReminderSyncStatus> {
+        Ok(ReminderSyncStatus {
+            scheduled: false,
+            rule_count: rule_count(snapshot),
+            interval_minutes: 0,
+        })
+    }
+
+    pub fn status(&self) -> Result<ReminderSyncStatus> {
+        Ok(ReminderSyncStatus {
+            scheduled: false,
+            rule_count: 0,
+            interval_minutes: 0,
+        })
+    }
+}
