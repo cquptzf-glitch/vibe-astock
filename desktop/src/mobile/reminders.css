@@ -2,6 +2,52 @@
   padding-bottom: 18px;
 }
 
+.reminder-scheduler {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  border: 1px solid #29313a;
+  border-radius: 11px;
+  background: #11161b;
+  padding: 10px 11px;
+  color: #7f8995;
+}
+
+.reminder-scheduler.active {
+  border-color: rgba(53, 177, 119, 0.35);
+  background: rgba(53, 177, 119, 0.06);
+  color: #68c99c;
+}
+
+.reminder-scheduler.error {
+  border-color: rgba(224, 77, 77, 0.35);
+  background: rgba(224, 77, 77, 0.06);
+  color: #ef8b8b;
+}
+
+.reminder-scheduler > div {
+  min-width: 0;
+}
+
+.reminder-scheduler strong,
+.reminder-scheduler span {
+  display: block;
+}
+
+.reminder-scheduler strong {
+  color: #dfe5ea;
+  font-size: 11px;
+}
+
+.reminder-scheduler span {
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  color: inherit;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .reminder-editor {
   margin-top: 12px;
   padding: 14px;
