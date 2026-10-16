@@ -16,12 +16,14 @@ import {
 
 import { JournalWorkspace } from "./JournalWorkspace";
 import { MarketOverview } from "./MarketOverview";
+import { PortfolioPanel } from "./PortfolioPanel";
 import { RotationPanel } from "./RotationPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
 import { StockDetailPanel } from "./StockDetailPanel";
 import "./mobile.css";
 
 type Tab = "market" | "shortline" | "rotation" | "watchlist" | "journal";
+type StockView = "watch" | "hold";
 
 interface Evidence {
   field: string;
@@ -147,6 +149,7 @@ function Sparkline({ rows }: { rows: unknown[][] }) {
 
 export function MobileApp() {
   const [tab, setTab] = useState<Tab>("market");
+  const [stockView, setStockView] = useState<StockView>("watch");
   const [query, setQuery] = useState("");
   const [activeSymbol, setActiveSymbol] = useState("");
   const [quote, setQuote] = useState<Envelope | null>(null);
@@ -261,13 +264,14 @@ export function MobileApp() {
     setSearching(true);
     setError("");
     try {
-      const items = suggestions.length > 0 ? suggestions : await searchSymbols(keyword);
+      const items = await searchSymbols(keyword);
       setSuggestions(items);
-      if (items.length === 0) {
+      const first = items[0];
+      if (!first) {
         setError(`没有找到沪深 A 股：${keyword}`);
         return;
       }
-      await openSymbol(items[0].symbol);
+      await openSymbol(first.symbol);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -316,7 +320,7 @@ export function MobileApp() {
       <header className="mobile-header">
         <div>
           <div className="mobile-brand">Vibe AStock</div>
-          <div className="mobile-subtitle">Android · Rust Core · v0.1.7</div>
+          <div className="mobile-subtitle">Android · Rust Core · v0.1.8</div>
         </div>
         <div className={`mobile-status ${health?.ok ? "ok" : ""}`}>
           <Wifi size={14} />
@@ -438,26 +442,36 @@ export function MobileApp() {
         {tab === "watchlist" && (
           <section className="mobile-section">
             <div className="mobile-section-title">
-              <div><h1>自选股</h1><p>数据保存在手机本地 SQLite。</p></div>
-              <span>{watchlist.length} 只</span>
+              <div><h1>自选与持仓</h1><p>自选、成交和持仓都保存在手机本地。</p></div>
+              {stockView === "watch" && <span>{watchlist.length} 只</span>}
             </div>
-            {watchlist.length === 0 ? (
-              <div className="mobile-empty">查询股票后点右上角星标，即可加入自选。</div>
-            ) : (
-              <div className="mobile-watch-list">
-                {watchlist.map((item) => (
-                  <div className="mobile-watch-row" key={item.symbol}>
-                    <button className="mobile-watch-open" onClick={() => openFromList(item.symbol)}>
-                      <div><strong>{item.name || item.symbol}</strong><span>{item.symbol}</span></div>
-                      <ChevronRight size={18} />
-                    </button>
-                    <button className="mobile-delete" onClick={() => void removeWatch(item.symbol)} aria-label={`删除 ${item.symbol}`}>
-                      <Trash2 size={17} />
-                    </button>
-                  </div>
-                ))}
-              </div>
+
+            <div className="mobile-stock-tabs" role="tablist" aria-label="自选与持仓">
+              <button role="tab" aria-selected={stockView === "watch"} className={stockView === "watch" ? "active" : ""} onClick={() => setStockView("watch")}>自选</button>
+              <button role="tab" aria-selected={stockView === "hold"} className={stockView === "hold" ? "active" : ""} onClick={() => setStockView("hold")}>持仓</button>
+            </div>
+
+            {stockView === "watch" && (
+              watchlist.length === 0 ? (
+                <div className="mobile-empty">查询股票后点右上角星标，即可加入自选。</div>
+              ) : (
+                <div className="mobile-watch-list">
+                  {watchlist.map((item) => (
+                    <div className="mobile-watch-row" key={item.symbol}>
+                      <button className="mobile-watch-open" onClick={() => openFromList(item.symbol)}>
+                        <div><strong>{item.name || item.symbol}</strong><span>{item.symbol}</span></div>
+                        <ChevronRight size={18} />
+                      </button>
+                      <button className="mobile-delete" onClick={() => void removeWatch(item.symbol)} aria-label={`删除 ${item.symbol}`}>
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
+
+            {stockView === "hold" && <PortfolioPanel onOpenSymbol={openFromList} />}
           </section>
         )}
 
@@ -475,7 +489,7 @@ export function MobileApp() {
           <Layers3 size={20} /><span>轮动</span>
         </button>
         <button className={tab === "watchlist" ? "active" : ""} onClick={() => setTab("watchlist")}>
-          <Star size={20} /><span>自选</span>
+          <Star size={20} /><span>自选持仓</span>
         </button>
         <button className={tab === "journal" ? "active" : ""} onClick={() => setTab("journal")}>
           <NotebookPen size={20} /><span>日志</span>
