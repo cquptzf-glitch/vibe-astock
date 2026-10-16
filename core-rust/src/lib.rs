@@ -11,6 +11,7 @@ mod journal_mutation;
 mod journal_review;
 mod market;
 mod quote;
+mod reminders;
 mod research;
 mod rotation;
 mod schema;
@@ -95,6 +96,10 @@ impl AppCore {
         ai_config::base_url(&self.db_path)
     }
 
+    pub fn reminder_snapshot(&self) -> Result<Value> {
+        reminders::native_snapshot(&self.db_path)
+    }
+
     pub async fn handle(&self, request: MobileApiRequest) -> MobileApiResponse {
         match self.handle_inner(request).await {
             Ok(response) => response,
@@ -142,6 +147,18 @@ impl AppCore {
             ("GET", "/mobile/data/schema") => {
                 Ok(MobileApiResponse::ok(schema::info(&self.db_path)?))
             }
+            ("GET", "/mobile/reminders") => match reminders::list(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "reminders", error.to_string())),
+            },
+            ("POST", "/mobile/reminders") => match reminders::save(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "reminders", error.to_string())),
+            },
+            ("DELETE", "/mobile/reminders") => match reminders::delete(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "reminders", error.to_string())),
+            },
             ("GET", "/mobile/calendar") => match calendar::list(&self.db_path, &request.path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "calendar", error.to_string())),
