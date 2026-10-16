@@ -1,5 +1,4 @@
 name: Android APK
-# Release trigger: v0.1.10
 
 on:
   workflow_dispatch:
@@ -26,8 +25,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.10"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.10-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.11"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.11-arm64.apk"
 
     steps:
       - name: Checkout
@@ -158,7 +157,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.10-arm64
+          name: vibe-astock-android-mvp-v0.1.11-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -172,32 +171,26 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.10
+          ## Vibe AStock Android MVP v0.1.11
 
-          Android secure-credential hardening release built from the `android-mvp` branch.
+          Android local-data backup and restore release built from the `android-mvp` branch.
 
-          ### New in v0.1.10
-          - Moves AI API Keys out of plaintext SQLite into a native Android Keystore-backed secure storage plugin
-          - Uses a non-exportable AndroidKeyStore AES-256 key with AES-GCM encryption; disk persistence contains only IV + ciphertext
-          - Keeps model Base URL / model metadata in SQLite while credentials are resolved only inside the native Tauri shell
-          - Injects API Keys into Rust Core only for the in-memory AI request that needs them; keys are never returned by the mobile API
-          - Preserves provider isolation: changing API Base URL never reuses a credential from another provider
-          - Migrates legacy v0.1.9-and-earlier SQLite API Keys on startup and scrubs plaintext only after Keystore data is confirmed usable
-          - Handles restored/corrupt secure ciphertext by discarding unusable secure data rather than exposing it
-          - Adds Rust regression tests proving new AI config saves never persist API Keys and legacy SQL keys can be scrubbed after migration
-          - Updates Android privacy/status UI to report the actual Keystore-backed credential state
+          ### New in v0.1.11
+          - Adds versioned JSON export for local watchlist, Trading Journal, fills, daily reviews and AI chat history
+          - Adds Android system Save/Open document pickers through Tauri Dialog + File System plugins
+          - Validates backup format, schema version, row limits, stock symbols, references and numeric fields before restore
+          - Restores local business data in one SQLite transaction so a failed import cannot leave a half-restored database
+          - Uses explicit replace mode with a user-visible record-count preview and confirmation before destructive restore
+          - Never exports or imports API Keys, Android Keystore material or AI model configuration
+          - Preserves the current device AI configuration and Keystore credential during business-data restore
+          - Adds regression tests proving credentials stay out of backup payloads and device AI config survives restore
 
           ### Already included
+          - Android Keystore-backed AI credential storage with AES-256-GCM
           - Unified SH / SZ / BJ stock routing with legacy parity tests
-          - Market overview and breadth
-          - Limit-up pool and consecutive-limit ladder with latest-trading-day fallback
-          - Concept/industry rotation with today vs. 5-day fund-flow observation labels
-          - Realtime stock quote with Tencent primary source and Eastmoney fallback
-          - Forward-adjusted K-line data and enhanced stock detail analysis
-          - Code / Chinese-name / pinyin symbol search
-          - Local SQLite watchlist and editable Trading Journal with appendable fills
-          - Local portfolio derived from journal fills with realtime quote refresh
-          - Local journal performance/discipline/risk dashboard
+          - Market overview, limit-up ladder and concept/industry rotation
+          - Realtime quote, adjusted K-line, code/name/pinyin symbol search
+          - Local watchlist, portfolio, Trading Journal and journal risk review
           - Local daily review and OpenAI-compatible AI chat/review flows
           - Android native notifications and local data/settings status
 
@@ -223,6 +216,6 @@ jobs:
             "dist/${ANDROID_APK_NAME}" \
             "dist/${ANDROID_APK_NAME}.sha256" \
             --target "$GITHUB_SHA" \
-            --title "Vibe AStock Android MVP v0.1.10" \
+            --title "Vibe AStock Android MVP v0.1.11" \
             --notes "$NOTES" \
             --prerelease

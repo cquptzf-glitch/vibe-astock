@@ -1,0 +1,590 @@
+use crate::symbol::normalize_stock_symbol;
+use anyhow::{anyhow, Context, Result};
+use chrono::Utc;
+use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::{collections::HashSet, path::Path};
+
+const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
+const SCHEMA_VERSION: u32 = 1;
+const SOURCE_VERSION: &str = "0.1.11-mobile";
+const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BackupEnvelope {
+    format: String,
+    schema_version: u32,
+    source_version: String,
+    created_at: String,
+    security: BackupSecurity,
+    data: BackupData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BackupSecurity {
+    credentials_included: bool,
+    ai_model_config_included: bool,
+    preserved_on_restore: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BackupData {
+    watchlist: Vec<WatchlistRow>,
+    journal_entries: Vec<JournalEntryRow>,
+    journal_fills: Vec<JournalFillRow>,
+    daily_reviews: Vec<DailyReviewRow>,
+    ai_messages: Vec<AiMessageRow>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct WatchlistRow {
+    symbol: String,
+    name: String,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct JournalEntryRow {
+    id: i64,
+    kind: String,
+    symbol: String,
+    name: String,
+    date: String,
+    playbook: Option<String>,
+    as_planned: Option<bool>,
+    planned_stop: Option<f64>,
+    planned_target: Option<f64>,
+    note: String,
+    pnl_pct: Option<f64>,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct JournalFillRow {
+    id: i64,
+    entry_id: i64,
+    side: String,
+    date: String,
+    price: f64,
+    shares: f64,
+    fee: Option<f64>,
+    sort_order: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DailyReviewRow {
+    date: String,
+    observation: String,
+    tomorrow_check: String,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AiMessageRow {
+    id: i64,
+    role: String,
+    content: String,
+    created_at: String,
+}
+
+fn open(db_path: &Path) -> Result<Connection> {
+    Connection::open(db_path).context("open mobile sqlite for backup")
+}
+
+pub fn export(db_path: &Path) -> Result<Value> {
+    let conn = open(db_path)?;
+    let backup = BackupEnvelope {
+        format: BACKUP_FORMAT.to_string(),
+        schema_version: SCHEMA_VERSION,
+        source_version: SOURCE_VERSION.to_string(),
+        created_at: Utc::now().to_rfc3339(),
+        security: BackupSecurity {
+            credentials_included: false,
+            ai_model_config_included: false,
+            preserved_on_restore: vec![
+                "android_keystore_credentials".to_string(),
+                "ai_model_config".to_string(),
+            ],
+        },
+        data: BackupData {
+            watchlist: read_watchlist(&conn)?,
+            journal_entries: read_journal_entries(&conn)?,
+            journal_fills: read_journal_fills(&conn)?,
+            daily_reviews: read_daily_reviews(&conn)?,
+            ai_messages: read_ai_messages(&conn)?,
+        },
+    };
+    validate_envelope(&backup)?;
+    let value = serde_json::to_value(backup)?;
+    ensure_size(&value)?;
+    Ok(value)
+}
+
+pub fn validate(body: &Value) -> Result<Value> {
+    let backup = parse_backup(body)?;
+    Ok(preview(&backup))
+}
+
+pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
+    let mode = body.get("mode").and_then(Value::as_str).unwrap_or("");
+    if mode != "replace" {
+        return Err(anyhow!("当前仅支持 replace 恢复模式"));
+    }
+    if body.get("confirm").and_then(Value::as_bool) != Some(true) {
+        return Err(anyhow!("恢复本地数据前必须明确确认"));
+    }
+    let backup = parse_backup(body)?;
+
+    let mut conn = open(db_path)?;
+    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+    let tx = conn.transaction().context("start backup restore transaction")?;
+
+    tx.execute("DELETE FROM journal_fills", [])?;
+    tx.execute("DELETE FROM journal_entries", [])?;
+    tx.execute("DELETE FROM watchlist", [])?;
+    tx.execute("DELETE FROM mobile_daily_reviews", [])?;
+    tx.execute("DELETE FROM mobile_ai_messages", [])?;
+    tx.execute(
+        "DELETE FROM sqlite_sequence WHERE name IN ('journal_entries', 'journal_fills', 'mobile_ai_messages')",
+        [],
+    )?;
+
+    for row in &backup.data.watchlist {
+        let symbol = normalize_stock_symbol(&row.symbol)
+            .map_err(|error| anyhow!("备份中的自选代码无效 {}: {error}", row.symbol))?
+            .digits;
+        tx.execute(
+            "INSERT INTO watchlist(symbol, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+            params![symbol, &row.name, &row.created_at, &row.updated_at],
+        )?;
+    }
+
+    for row in &backup.data.journal_entries {
+        let symbol = normalize_stock_symbol(&row.symbol)
+            .map_err(|error| anyhow!("备份中的交易代码无效 {}: {error}", row.symbol))?
+            .digits;
+        let as_planned = row.as_planned.map(|value| if value { 1_i64 } else { 0_i64 });
+        tx.execute(
+            "INSERT INTO journal_entries(
+                id, kind, symbol, name, date, playbook, as_planned,
+                planned_stop, planned_target, note, pnl_pct, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            params![
+                row.id,
+                &row.kind,
+                symbol,
+                &row.name,
+                &row.date,
+                row.playbook.as_deref(),
+                as_planned,
+                row.planned_stop,
+                row.planned_target,
+                &row.note,
+                row.pnl_pct,
+                &row.created_at,
+                &row.updated_at,
+            ],
+        )?;
+    }
+
+    for row in &backup.data.journal_fills {
+        tx.execute(
+            "INSERT INTO journal_fills(id, entry_id, side, date, price, shares, fee, sort_order)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                row.id,
+                row.entry_id,
+                &row.side,
+                &row.date,
+                row.price,
+                row.shares,
+                row.fee,
+                row.sort_order,
+            ],
+        )?;
+    }
+
+    for row in &backup.data.daily_reviews {
+        tx.execute(
+            "INSERT INTO mobile_daily_reviews(date, observation, tomorrow_check, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                &row.date,
+                &row.observation,
+                &row.tomorrow_check,
+                &row.created_at,
+                &row.updated_at,
+            ],
+        )?;
+    }
+
+    for row in &backup.data.ai_messages {
+        tx.execute(
+            "INSERT INTO mobile_ai_messages(id, role, content, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![row.id, &row.role, &row.content, &row.created_at],
+        )?;
+    }
+
+    tx.commit().context("commit backup restore")?;
+
+    Ok(json!({
+        "status": "restored",
+        "mode": "replace",
+        "restored_at": Utc::now().to_rfc3339(),
+        "backup": preview(&backup),
+        "preserved": ["android_keystore_credentials", "ai_model_config"],
+        "credentials_imported": false,
+        "restart_required": false
+    }))
+}
+
+fn parse_backup(body: &Value) -> Result<BackupEnvelope> {
+    let value = body.get("backup").unwrap_or(body);
+    ensure_size(value)?;
+    let backup: BackupEnvelope = serde_json::from_value(value.clone())
+        .context("备份文件结构无效")?;
+    validate_envelope(&backup)?;
+    Ok(backup)
+}
+
+fn ensure_size(value: &Value) -> Result<()> {
+    let bytes = serde_json::to_vec(value)?.len();
+    if bytes > MAX_BACKUP_BYTES {
+        return Err(anyhow!("备份文件过大，最大允许 32 MiB"));
+    }
+    Ok(())
+}
+
+fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
+    if backup.format != BACKUP_FORMAT {
+        return Err(anyhow!("不是 Vibe AStock Android 备份文件"));
+    }
+    if backup.schema_version != SCHEMA_VERSION {
+        return Err(anyhow!(
+            "不支持的备份版本 {}，当前支持 {}",
+            backup.schema_version,
+            SCHEMA_VERSION
+        ));
+    }
+    if backup.security.credentials_included || backup.security.ai_model_config_included {
+        return Err(anyhow!("拒绝导入声明包含模型凭据或模型配置的备份"));
+    }
+    if backup.data.watchlist.len() > 10_000
+        || backup.data.journal_entries.len() > 100_000
+        || backup.data.journal_fills.len() > 500_000
+        || backup.data.daily_reviews.len() > 10_000
+        || backup.data.ai_messages.len() > 100_000
+    {
+        return Err(anyhow!("备份记录数量超过安全上限"));
+    }
+
+    let mut symbols = HashSet::new();
+    for row in &backup.data.watchlist {
+        let symbol = normalize_stock_symbol(&row.symbol)
+            .map_err(|error| anyhow!("自选代码无效 {}: {error}", row.symbol))?;
+        if !symbols.insert(symbol.digits) {
+            return Err(anyhow!("备份中存在重复自选代码: {}", row.symbol));
+        }
+        ensure_text(&row.name, 300, "自选名称")?;
+    }
+
+    let mut entry_ids = HashSet::new();
+    let mut episode_ids = HashSet::new();
+    for row in &backup.data.journal_entries {
+        if row.id <= 0 || !entry_ids.insert(row.id) {
+            return Err(anyhow!("交易日志包含无效或重复 ID: {}", row.id));
+        }
+        if row.kind != "episode" && row.kind != "manual" {
+            return Err(anyhow!("交易日志 kind 无效: {}", row.kind));
+        }
+        if row.kind == "episode" {
+            episode_ids.insert(row.id);
+        }
+        normalize_stock_symbol(&row.symbol)
+            .map_err(|error| anyhow!("交易代码无效 {}: {error}", row.symbol))?;
+        ensure_text(&row.name, 300, "交易名称")?;
+        ensure_text(&row.date, 32, "交易日期")?;
+        ensure_text(&row.note, 20_000, "交易备注")?;
+        if let Some(playbook) = &row.playbook {
+            ensure_text(playbook, 100, "交易模式")?;
+        }
+        ensure_optional_number(row.planned_stop, "计划止损")?;
+        ensure_optional_number(row.planned_target, "计划目标")?;
+        ensure_optional_number(row.pnl_pct, "盈亏比例")?;
+    }
+
+    let mut fill_ids = HashSet::new();
+    for row in &backup.data.journal_fills {
+        if row.id <= 0 || !fill_ids.insert(row.id) {
+            return Err(anyhow!("成交明细包含无效或重复 ID: {}", row.id));
+        }
+        if !episode_ids.contains(&row.entry_id) {
+            return Err(anyhow!("成交明细引用了不存在的交易记录: {}", row.entry_id));
+        }
+        if row.side != "buy" && row.side != "sell" {
+            return Err(anyhow!("成交方向无效: {}", row.side));
+        }
+        if !row.price.is_finite() || row.price <= 0.0 || !row.shares.is_finite() || row.shares <= 0.0 {
+            return Err(anyhow!("成交价格或数量无效"));
+        }
+        if let Some(fee) = row.fee {
+            if !fee.is_finite() || fee < 0.0 {
+                return Err(anyhow!("成交费用无效"));
+            }
+        }
+        ensure_text(&row.date, 32, "成交日期")?;
+    }
+
+    let mut dates = HashSet::new();
+    for row in &backup.data.daily_reviews {
+        if !dates.insert(row.date.clone()) {
+            return Err(anyhow!("备份中存在重复日复盘日期: {}", row.date));
+        }
+        ensure_text(&row.date, 32, "复盘日期")?;
+        ensure_text(&row.observation, 6000, "今日观察")?;
+        ensure_text(&row.tomorrow_check, 6000, "明日验证")?;
+    }
+
+    let mut message_ids = HashSet::new();
+    for row in &backup.data.ai_messages {
+        if row.id <= 0 || !message_ids.insert(row.id) {
+            return Err(anyhow!("AI 聊天包含无效或重复 ID: {}", row.id));
+        }
+        if row.role != "user" && row.role != "assistant" {
+            return Err(anyhow!("AI 聊天角色无效: {}", row.role));
+        }
+        ensure_text(&row.content, 100_000, "AI 聊天内容")?;
+    }
+
+    Ok(())
+}
+
+fn ensure_text(value: &str, max_chars: usize, label: &str) -> Result<()> {
+    if value.chars().count() > max_chars {
+        return Err(anyhow!("{label} 超过最大长度 {max_chars}"));
+    }
+    Ok(())
+}
+
+fn ensure_optional_number(value: Option<f64>, label: &str) -> Result<()> {
+    if value.is_some_and(|number| !number.is_finite()) {
+        return Err(anyhow!("{label} 不是有效数字"));
+    }
+    Ok(())
+}
+
+fn preview(backup: &BackupEnvelope) -> Value {
+    json!({
+        "valid": true,
+        "format": backup.format,
+        "schema_version": backup.schema_version,
+        "source_version": backup.source_version,
+        "created_at": backup.created_at,
+        "counts": {
+            "watchlist": backup.data.watchlist.len(),
+            "journal_entries": backup.data.journal_entries.len(),
+            "journal_fills": backup.data.journal_fills.len(),
+            "daily_reviews": backup.data.daily_reviews.len(),
+            "ai_messages": backup.data.ai_messages.len()
+        },
+        "security": {
+            "credentials_included": false,
+            "ai_model_config_included": false,
+            "preserved_on_restore": backup.security.preserved_on_restore
+        }
+    })
+}
+
+fn read_watchlist(conn: &Connection) -> Result<Vec<WatchlistRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT symbol, COALESCE(name, ''), created_at, updated_at FROM watchlist ORDER BY created_at, symbol",
+    )?;
+    Ok(stmt
+        .query_map([], |row| {
+            Ok(WatchlistRow {
+                symbol: row.get(0)?,
+                name: row.get(1)?,
+                created_at: row.get(2)?,
+                updated_at: row.get(3)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn read_journal_entries(conn: &Connection) -> Result<Vec<JournalEntryRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, kind, symbol, name, date, playbook, as_planned, planned_stop, planned_target,
+                note, pnl_pct, created_at, updated_at
+         FROM journal_entries ORDER BY id",
+    )?;
+    Ok(stmt
+        .query_map([], |row| {
+            Ok(JournalEntryRow {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                symbol: row.get(2)?,
+                name: row.get(3)?,
+                date: row.get(4)?,
+                playbook: row.get(5)?,
+                as_planned: row.get::<_, Option<i64>>(6)?.map(|value| value != 0),
+                planned_stop: row.get(7)?,
+                planned_target: row.get(8)?,
+                note: row.get(9)?,
+                pnl_pct: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn read_journal_fills(conn: &Connection) -> Result<Vec<JournalFillRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, entry_id, side, date, price, shares, fee, sort_order FROM journal_fills ORDER BY id",
+    )?;
+    Ok(stmt
+        .query_map([], |row| {
+            Ok(JournalFillRow {
+                id: row.get(0)?,
+                entry_id: row.get(1)?,
+                side: row.get(2)?,
+                date: row.get(3)?,
+                price: row.get(4)?,
+                shares: row.get(5)?,
+                fee: row.get(6)?,
+                sort_order: row.get(7)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn read_daily_reviews(conn: &Connection) -> Result<Vec<DailyReviewRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT date, observation, tomorrow_check, created_at, updated_at FROM mobile_daily_reviews ORDER BY date",
+    )?;
+    Ok(stmt
+        .query_map([], |row| {
+            Ok(DailyReviewRow {
+                date: row.get(0)?,
+                observation: row.get(1)?,
+                tomorrow_check: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn read_ai_messages(conn: &Connection) -> Result<Vec<AiMessageRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, role, content, created_at FROM mobile_ai_messages ORDER BY id",
+    )?;
+    Ok(stmt
+        .query_map([], |row| {
+            Ok(AiMessageRow {
+                id: row.get(0)?,
+                role: row.get(1)?,
+                content: row.get(2)?,
+                created_at: row.get(3)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_db(label: &str) -> std::path::PathBuf {
+        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        std::env::temp_dir().join(format!("vibe-backup-{label}-{stamp}.sqlite3"))
+    }
+
+    fn init_all(path: &Path) {
+        crate::storage::init(path).unwrap();
+        crate::journal::init(path).unwrap();
+        crate::daily_review::init(path).unwrap();
+        crate::ai_chat::init(path).unwrap();
+        crate::ai_config::init(path).unwrap();
+    }
+
+    #[test]
+    fn export_never_contains_ai_credentials() {
+        let path = temp_db("export");
+        init_all(&path);
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "INSERT INTO mobile_ai_config(id, base_url, model, api_key, updated_at)
+             VALUES (1, 'https://example.com/v1', 'demo-model', 'super-secret-key', 'now')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO watchlist(symbol, name, created_at, updated_at) VALUES ('600519', '贵州茅台', 'a', 'b')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let backup = export(&path).unwrap();
+        let text = serde_json::to_string(&backup).unwrap();
+        assert!(!text.contains("super-secret-key"));
+        assert!(!text.contains("demo-model"));
+        assert_eq!(backup["security"]["credentials_included"], false);
+        assert_eq!(backup["data"]["watchlist"][0]["symbol"], "600519");
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn restore_replaces_business_data_but_preserves_ai_config() {
+        let source = temp_db("source");
+        init_all(&source);
+        let conn = Connection::open(&source).unwrap();
+        conn.execute(
+            "INSERT INTO watchlist(symbol, name, created_at, updated_at) VALUES ('000001', '平安银行', 'a', 'b')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO mobile_ai_messages(role, content, created_at) VALUES ('user', 'hello', 'now')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        let backup = export(&source).unwrap();
+
+        let target = temp_db("target");
+        init_all(&target);
+        crate::ai_config::save(
+            &target,
+            &json!({"base_url": "https://device.example/v1", "model": "device-model"}),
+            true,
+        )
+        .unwrap();
+        crate::storage::upsert(&target, &json!({"symbol": "600519", "name": "旧数据"})).unwrap();
+
+        let result = restore(
+            &target,
+            &json!({"backup": backup, "mode": "replace", "confirm": true}),
+        )
+        .unwrap();
+        assert_eq!(result["credentials_imported"], false);
+
+        let watchlist = crate::storage::list(&target).unwrap();
+        assert_eq!(watchlist["items"].as_array().unwrap().len(), 1);
+        assert_eq!(watchlist["items"][0]["symbol"], "000001");
+        let config = crate::ai_config::load(&target).unwrap().unwrap();
+        assert_eq!(config.base_url, "https://device.example/v1");
+        assert_eq!(config.model, "device-model");
+        let history = crate::ai_chat::history(&target).unwrap();
+        assert_eq!(history["count"], 1);
+
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(target);
+    }
+}

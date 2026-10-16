@@ -1,6 +1,7 @@
 mod ai_chat;
 mod ai_config;
 mod ai_review;
+mod backup;
 mod daily_review;
 mod data_summary;
 mod journal;
@@ -68,7 +69,7 @@ impl AppCore {
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.10")
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.11")
             .build()?;
 
         Ok(Self { client, db_path })
@@ -106,10 +107,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.1.10-mobile"
+                "version": "0.1.11-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.1.10-mobile",
+                "version": "0.1.11-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
@@ -130,6 +131,17 @@ impl AppCore {
             ("GET", "/mobile/data/summary") => Ok(MobileApiResponse::ok(
                 data_summary::summary(&self.db_path, secure_key_present)?,
             )),
+            ("GET", "/mobile/backup/export") => {
+                Ok(MobileApiResponse::ok(backup::export(&self.db_path)?))
+            }
+            ("POST", "/mobile/backup/validate") => match backup::validate(&request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "backup_validate", error.to_string())),
+            },
+            ("POST", "/mobile/backup/import") => match backup::restore(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "backup_restore", error.to_string())),
+            },
             ("GET", "/mobile/daily-review") => match daily_review::get(&self.db_path, &request.path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "daily_review", error.to_string())),
