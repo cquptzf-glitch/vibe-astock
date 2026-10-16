@@ -1302,7 +1302,7 @@ APK CI run 是否成功
 - 本轮无 SQLite schema/migration、原生插件/权限或业务 Core route 新增。仍为 debug-signed 预览包；真机返回/重建/通知/弱网、正式签名/AAB 与覆盖升级未验收。更换安装前应导出业务备份。
 - 所有剩余业务移植与工程验收继续见 ANDROID_REMAINING.md；未把本轮 UI 交付计为全功能迁移完成。
 
-### 五大栏目导航与情绪复盘「今日情绪」迁移（0.1.19，未推送）
+### 五大栏目导航与情绪复盘「今日情绪」迁移（0.1.19）
 
 维护者反馈：UI 不够细致，要参考原版功能并重新设计布局与功能分布。本轮先用两个只读子任务逐页清点桌面版 finance 路由与移动端/Rust 现状，差距已写进 ANDROID_REMAINING.md「对照桌面版仍缺的页面与交互」。
 
@@ -1321,6 +1321,8 @@ APK CI run 是否成功
 - Rust：`cargo test --locked` 64 项 + 1 项 parity 通过（新增 11 项 emotion 单元测试 + 3 个路由入参拒绝用例）；`emotion::tests::live_emotion_and_cycle_probe` 为 ignored 实时探测，对真实上游跑通：61 涨停 / 49 炸板 / 10 跌停 / 最高 11 板，与东财原始池 tc 一致。本机走代理时 reqwest 访问 push2his 会被断开，已由腾讯日历兜底。
 - 前端：`tsc --noEmit`、`npm run build` 通过；`npm test` 427/428，失败的是 `agent_error.test.ts`（本机未装 orchestrator 的 ajv，CI 会装）。新增 `mobile_emotion.test.ts`，使用 Rust 真实返回裁剪的冻结样本 `desktop/test/fixtures/mobile-emotion-2026-10-16.json`（公开行情，无用户数据）；导航/首页快捷测试按新结构重写。
 - 浏览器：用 Playwright 1.56.1 + 本机 Edge 跑 `desktop/test/mobile-ui-smoke.mjs`（CI 用 chromium），6 组视口/主题、底部导航单行、复盘子页签单行、无横向溢出、30 张截图全部通过；已人工查看 390 白色首页/今日情绪、360 深色连板天梯、768 白色今日情绪。
-- 未做：未推送、未跑 GitHub Android CI/APK 编译、未发布 0.1.19 预览版、未做发布前隐私扫描、无真机验收。
+- 发布前隐私扫描：用 Node（能透明解密）扫工作区 1042 个文件、HEAD 1037 个 blob 与 `git log --all -p`。候选 65 / HEAD 65 / 历史 71 个既有命中（测试假 key、公开查询参数），候选相对 HEAD 新增 0；未跟踪 .env/.local/密钥文件；历史中的 `.env.example` 仅占位值。注意：本机 shell 重定向生成的文件会被 DLP 加密、shell 工具读到密文，扫描结果要直接输出到终端。提交前已确认 git blob 是明文。
+- CI 与发布：代码 47bbc61 的 [Android CI #38975425413](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38975425413) build-apk（Rust 测试、前端类型检查/构建/测试、浏览器冒烟、APK 编译、原生提醒路由测试、APK 校验）与 publish-preview 全部成功；[跨平台 #38975425430](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38975425430) 成功。已发布 [Android 0.1.19 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.19)，标签固定在 47bbc617e872e998920c8e4cfbce4bdde2b3502d；APK 23,334,749 bytes（22.25 MiB），SHA256：6282f1b84eb693fc3bbf02abfa81d305b9f26a619969cbcda5247f71991050ea。APK artifact #12078478776、截图 artifact #12078317923 保留 30 天。CI 内各步骤测试数未从日志核对（公开 API 读不到 job 日志）。
+- 未做：真机验收（返回/重建/通知/弱网、新栏目实际触控）、正式签名/AAB。仍是 debug-signed 预览包，更换安装前应导出业务备份。
 
 下一步建议：情绪历史/近 5 天（需要先把每日已收盘读数存 SQLite）→ 明日验证条件与对账 → 盯盘异动流与昨日梯队实时 → 竞价与盘中路径 → 交易日志分组/风险与复查页签。
