@@ -10,7 +10,6 @@ const MAX_SYMBOLS: usize = 50;
 
 #[derive(Debug, Clone)]
 struct QuoteRow {
-    symbol: String,
     name: String,
     price: Option<f64>,
     change_pct: Option<f64>,
@@ -118,11 +117,18 @@ pub async fn snapshot(client: &Client, db_path: &std::path::Path) -> Result<Valu
     }))
 }
 
-async fn fetch_batch(client: &Client, symbols: &[crate::symbol::SymbolKey]) -> Result<HashMap<String, QuoteRow>> {
+async fn fetch_batch(
+    client: &Client,
+    symbols: &[crate::symbol::SymbolKey],
+) -> Result<HashMap<String, QuoteRow>> {
     if symbols.is_empty() {
         return Ok(HashMap::new());
     }
-    let query = symbols.iter().map(|key| key.tencent.as_str()).collect::<Vec<_>>().join(",");
+    let query = symbols
+        .iter()
+        .map(|key| key.tencent.as_str())
+        .collect::<Vec<_>>()
+        .join(",");
     let response = client
         .get("https://qt.gtimg.cn")
         .query(&[("q", query.as_str())])
@@ -136,7 +142,9 @@ async fn fetch_batch(client: &Client, symbols: &[crate::symbol::SymbolKey]) -> R
 
     for line in decoded.lines() {
         let line = line.trim();
-        let Some((lhs, rhs)) = line.split_once('=') else { continue };
+        let Some((lhs, rhs)) = line.split_once('=') else {
+            continue;
+        };
         if !lhs.starts_with("v_") || rhs.len() < 2 {
             continue;
         }
@@ -163,7 +171,6 @@ async fn fetch_batch(client: &Client, symbols: &[crate::symbol::SymbolKey]) -> R
         rows.insert(
             code.to_string(),
             QuoteRow {
-                symbol: code.to_string(),
                 name: fields.get(1).copied().unwrap_or("").to_string(),
                 price,
                 change_pct,
@@ -182,10 +189,13 @@ async fn fetch_batch(client: &Client, symbols: &[crate::symbol::SymbolKey]) -> R
 }
 
 fn quote_from_envelope(value: &Value) -> Option<QuoteRow> {
-    let symbol = value.get("symbol").and_then(Value::as_str)?.to_string();
+    value.get("symbol").and_then(Value::as_str)?;
     let evidence = value.get("evidence").and_then(Value::as_array)?;
     let number_for = |field: &str| -> Option<f64> {
-        let raw = evidence.iter().find(|row| row.get("field").and_then(Value::as_str) == Some(field))?.get("value")?;
+        let raw = evidence
+            .iter()
+            .find(|row| row.get("field").and_then(Value::as_str) == Some(field))?
+            .get("value")?;
         match raw {
             Value::Number(n) => n.as_f64(),
             Value::String(s) => s.parse().ok(),
@@ -215,7 +225,6 @@ fn quote_from_envelope(value: &Value) -> Option<QuoteRow> {
         _ => amount,
     };
     Some(QuoteRow {
-        symbol,
         name,
         price: number_for("price"),
         change_pct: number_for("change_pct"),
@@ -244,15 +253,20 @@ fn render_watch_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> Val
 }
 
 fn render_position_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> Value {
-    let shares = item.get("open_shares").and_then(Value::as_f64).unwrap_or(0.0);
+    let shares = item
+        .get("open_shares")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
     let avg_cost = item.get("avg_cost").and_then(Value::as_f64);
     let price = quote.and_then(|q| q.price);
     let market_value = price.map(|v| v * shares);
     let unrealized_pnl = price.zip(avg_cost).map(|(v, c)| (v - c) * shares);
-    let unrealized_pct = price.zip(avg_cost).and_then(|(v, c)| {
-        (c > 0.0).then_some((v / c - 1.0) * 100.0)
-    });
-    let quote_today = quote.and_then(|q| q.quote_date.as_deref()).is_some_and(|date| date == today);
+    let unrealized_pct = price
+        .zip(avg_cost)
+        .and_then(|(v, c)| (c > 0.0).then_some((v / c - 1.0) * 100.0));
+    let quote_today = quote
+        .and_then(|q| q.quote_date.as_deref())
+        .is_some_and(|date| date == today);
     let planned_stop = item.get("planned_stop").and_then(Value::as_f64);
     let planned_target = item.get("planned_target").and_then(Value::as_f64);
     let risk_state = match (price, planned_stop, planned_target, quote_today) {
@@ -295,7 +309,10 @@ fn number(value: Option<&&str>) -> Option<f64> {
 
 fn china_date() -> String {
     let offset = FixedOffset::east_opt(8 * 3600).expect("valid China timezone offset");
-    Utc::now().with_timezone(&offset).format("%Y-%m-%d").to_string()
+    Utc::now()
+        .with_timezone(&offset)
+        .format("%Y-%m-%d")
+        .to_string()
 }
 
 #[cfg(test)]
@@ -305,14 +322,18 @@ mod tests {
     #[test]
     fn batch_parser_keeps_missing_fields_as_null() {
         let line = r#"v_sh600519="1~贵州茅台~600519~1500~1490~1495~100~0~0~1500~1~0~0~0~0~0~0~0~0~0~20261016100000~0~0~0~0~0~0~0~0~0~20261016100000~0.67~0.7~1510~1480~0~0~0~100~1.2~";"#;
-        let mut rows = HashMap::new();
-        let payload = line.split_once('=').unwrap().1.trim().trim_matches(';').trim_matches('"');
+        let payload = line
+            .split_once('=')
+            .unwrap()
+            .1
+            .trim()
+            .trim_matches(';')
+            .trim_matches('"');
         let fields: Vec<&str> = payload.split('~').collect();
         assert_eq!(fields[1], "贵州茅台");
         assert_eq!(fields[2], "600519");
         assert_eq!(number(fields.get(3)), Some(1500.0));
         assert_eq!(number(fields.get(39)), Some(1.2));
-        let _ = &mut rows;
     }
 
     #[test]
@@ -326,7 +347,6 @@ mod tests {
             "planned_target": 1800.0
         });
         let quote = QuoteRow {
-            symbol: "600519".into(),
             name: "贵州茅台".into(),
             price: Some(1490.0),
             change_pct: Some(-1.0),
