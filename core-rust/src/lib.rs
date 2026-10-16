@@ -1,4 +1,5 @@
 mod ai_review;
+mod data_summary;
 mod journal;
 mod journal_mutation;
 mod journal_review;
@@ -100,6 +101,9 @@ impl AppCore {
                 "provider_templates": {}
             }))),
             ("GET", "/local-agents") => Ok(MobileApiResponse::ok(json!([]))),
+            ("GET", "/mobile/data/summary") => {
+                Ok(MobileApiResponse::ok(data_summary::summary(&self.db_path)?))
+            }
             ("GET", "/mobile/watchlist") => {
                 Ok(MobileApiResponse::ok(storage::list(&self.db_path)?))
             }
