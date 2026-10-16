@@ -21,8 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.5"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.5-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.6"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.6-arm64.apk"
 
     steps:
       - name: Checkout
@@ -124,7 +124,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.5-arm64
+          name: vibe-astock-android-mvp-v0.1.6-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -138,26 +138,33 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.5
+          ## Vibe AStock Android MVP v0.1.6
 
-          Sixth installable Android MVP built from the `android-mvp` branch.
+          Seventh installable Android MVP built from the `android-mvp` branch.
 
-          ### New in v0.1.5
-          - Adds a local Trading Journal review dashboard backed only by Android SQLite
-          - Historical review includes win rate (flat trades excluded), average win/loss, payoff ratio and monetary profit factor
-          - Adds recent-10-trade statistics, planned vs unplanned comparison and per-playbook performance
-          - Adds open-position risk review using weighted average transaction cost and the user's planned stop price
-          - Surfaces positions without a planned stop separately instead of pretending their risk is known
-          - Shortline/limit-up page now automatically falls back to the latest upstream trading day when the natural day has no pool data
-          - Explicitly requested future dates still fail loudly instead of silently showing another day
+          ### New in v0.1.6
+          - Adds user-configured OpenAI-compatible Chat Completions API support directly in the Android Rust Core
+          - Adds an AI Review tab inside the local Trading Journal workspace
+          - Model Base URL, model name and optional API key are stored only in Android app-private SQLite; the API key is never returned to the UI after saving
+          - AI review is never automatic: the user must explicitly press the send button
+          - Default AI scope sends only aggregated review statistics: overall performance, recent-10 stats, discipline, playbook performance and risk summary
+          - Raw fills, journal notes and API keys are always excluded from the AI payload
+          - Open-position symbol/cost/stop details are opt-in and disabled by default
+          - Adds a local preview endpoint/UI so users can inspect the exact JSON payload before any network request
+          - AI prompt is constrained to historical review, discipline and risk analysis; it must not produce stock picks or buy/sell instructions
+
+          ### Security note
+          - v0.1.6 keeps model credentials in Android app-private SQLite and never echoes the saved key back through the mobile API
+          - This MVP has not yet migrated credentials to Android Keystore; production hardening remains planned
 
           ### Already included
           - Market overview and breadth
-          - Limit-up pool and consecutive-limit ladder
+          - Limit-up pool and consecutive-limit ladder with latest-trading-day fallback
           - Concept/industry rotation with today vs. 5-day fund-flow observation labels
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
           - Forward-adjusted K-line data and enhanced stock detail analysis
           - Local SQLite watchlist and editable Trading Journal with appendable fills
+          - Local journal performance/discipline/risk dashboard
 
           ### Installation
           - Android 7.0+ (minSdk 24)
@@ -178,7 +185,7 @@ jobs:
               "dist/${ANDROID_APK_NAME}" \
               "dist/${ANDROID_APK_NAME}.sha256" \
               --target "$GITHUB_SHA" \
-              --title "Vibe AStock Android MVP v0.1.5" \
+              --title "Vibe AStock Android MVP v0.1.6" \
               --notes "$NOTES" \
               --prerelease
           fi

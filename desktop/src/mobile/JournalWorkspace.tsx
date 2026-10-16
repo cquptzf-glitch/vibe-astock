@@ -1,11 +1,12 @@
-import { BarChart3, NotebookPen } from "lucide-react";
+import { BarChart3, BrainCircuit, NotebookPen } from "lucide-react";
 import { useState } from "react";
 
+import { AiReviewPanel } from "./AiReviewPanel";
 import { JournalPanelV2 } from "./JournalPanelV2";
 import { JournalReviewPanel } from "./JournalReviewPanel";
 import "./journal-workspace.css";
 
-type ViewMode = "records" | "review";
+type ViewMode = "records" | "review" | "ai";
 
 export function JournalWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
   const [view, setView] = useState<ViewMode>("records");
@@ -29,11 +30,19 @@ export function JournalWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: stri
         >
           <BarChart3 size={15} /> 复盘
         </button>
+        <button
+          role="tab"
+          aria-selected={view === "ai"}
+          className={view === "ai" ? "active" : ""}
+          onClick={() => setView("ai")}
+        >
+          <BrainCircuit size={15} /> AI 复盘
+        </button>
       </div>
 
-      {view === "records"
-        ? <JournalPanelV2 onOpenSymbol={onOpenSymbol} />
-        : <JournalReviewPanel onOpenSymbol={onOpenSymbol} />}
+      {view === "records" && <JournalPanelV2 onOpenSymbol={onOpenSymbol} />}
+      {view === "review" && <JournalReviewPanel onOpenSymbol={onOpenSymbol} />}
+      {view === "ai" && <AiReviewPanel />}
     </section>
   );
 }

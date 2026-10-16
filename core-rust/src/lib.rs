@@ -1,3 +1,4 @@
+mod ai_review;
 mod journal;
 mod journal_mutation;
 mod journal_review;
@@ -52,11 +53,12 @@ impl AppCore {
         let db_path = data_dir.join("vibe-astock-mobile.sqlite3");
         storage::init(&db_path)?;
         journal::init(&db_path)?;
+        ai_review::init(&db_path)?;
 
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.5")
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.6")
             .build()?;
 
         Ok(Self { client, db_path })
@@ -76,10 +78,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.1.5-mobile"
+                "version": "0.1.6-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.1.5-mobile",
+                "version": "0.1.6-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
@@ -123,6 +125,30 @@ impl AppCore {
             ("POST", "/mobile/journal/update") => match journal_mutation::update_entry(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "journal_update", error.to_string())),
+            },
+            ("GET", "/mobile/ai/config") => {
+                Ok(MobileApiResponse::ok(ai_review::config_view(&self.db_path)?))
+            }
+            ("POST", "/mobile/ai/config") => match ai_review::save_config(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "ai_config", error.to_string())),
+            },
+            ("DELETE", "/mobile/ai/config") => {
+                Ok(MobileApiResponse::ok(ai_review::clear_config(&self.db_path)?))
+            }
+            ("POST", "/mobile/ai/review/preview") => match ai_review::preview(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "ai_preview", error.to_string())),
+            },
+            ("POST", "/mobile/ai/review") => match ai_review::run(&self.client, &self.db_path, &request.body).await {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(ai_review::RunError::BadRequest(message)) => {
+                    Ok(MobileApiResponse::error(400, "ai_review", message))
+                }
+                Err(ai_review::RunError::Upstream(message)) => {
+                    Ok(MobileApiResponse::error(502, "ai_upstream", message))
+                }
+                Err(ai_review::RunError::Internal(error)) => Err(error),
             },
             ("GET", "/mobile/market-overview") => {
                 Ok(MobileApiResponse::ok(market::overview(&self.client).await?))
