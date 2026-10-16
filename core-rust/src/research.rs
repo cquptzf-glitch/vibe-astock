@@ -4,6 +4,7 @@ use chrono::{Datelike, Utc};
 use reqwest::Client;
 use serde_json::{json, Map, Value};
 
+#[derive(Debug)]
 pub enum ResearchError {
     BadRequest(String),
     Upstream(anyhow::Error),

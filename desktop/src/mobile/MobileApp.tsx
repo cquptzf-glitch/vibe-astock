@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   BookmarkPlus,
   ChartNoAxesCombined,
   ChevronRight,
@@ -14,17 +15,17 @@ import {
   Wifi,
 } from "lucide-react";
 
-import { DiscoveryWorkspace } from "./DiscoveryWorkspace";
-import { JournalWorkspace } from "./JournalWorkspace";
+import { DiscoveryWorkspace, type DiscoveryView } from "./DiscoveryWorkspace";
+import { JournalWorkspace, type JournalView } from "./JournalWorkspace";
 import { MarketOverview } from "./MarketOverview";
 import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
 import { StockDetailPanel } from "./StockDetailPanel";
+import { useMobileNavigation } from "./useMobileNavigation";
 import "./mobile.css";
 
 type Tab = "market" | "shortline" | "rotation" | "watchlist" | "journal";
-type StockView = "watch" | "hold";
 
 interface Evidence {
   field: string;
@@ -149,8 +150,18 @@ function Sparkline({ rows }: { rows: unknown[][] }) {
 }
 
 export function MobileApp() {
-  const [tab, setTab] = useState<Tab>("market");
-  const [stockView, setStockView] = useState<StockView>("watch");
+  const { route, navigate, back } = useMobileNavigation();
+  const page = route.page;
+  const isStock = page === "stock";
+  const discoveryPages: DiscoveryView[] = ["rotation", "sector", "candidate", "calendar", "backtest"];
+  const journalPages: JournalView[] = ["records", "daily", "review", "ai", "library", "reminders", "settings"];
+  const tab: Tab = page === "market" || isStock ? "market"
+    : page === "monitor" || page === "limitUp" ? "shortline"
+    : page === "watch" || page === "hold" ? "watchlist"
+    : discoveryPages.includes(page as DiscoveryView) ? "rotation" : "journal";
+  const stockView = page === "hold" ? "hold" : "watch";
+  const setTab = (next: Tab) => navigate({ page: next === "shortline" ? "monitor"
+    : next === "watchlist" ? "watch" : next === "journal" ? "records" : next });
   const [query, setQuery] = useState("");
   const [activeSymbol, setActiveSymbol] = useState("");
   const [quote, setQuote] = useState<Envelope | null>(null);
@@ -159,6 +170,8 @@ export function MobileApp() {
   const [suggestions, setSuggestions] = useState<SymbolSearchItem[]>([]);
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [quoteRevision, setQuoteRevision] = useState(0);
+  const [loadedSymbol, setLoadedSymbol] = useState("");
   const [error, setError] = useState("");
   const [health, setHealth] = useState<{ ok: boolean; version: string } | null>(null);
 
@@ -221,38 +234,51 @@ export function MobileApp() {
     };
   }, [query, activeSymbol]);
 
-  async function openSymbol(raw: string) {
-    const symbol = raw.trim().toUpperCase();
-    if (!symbol) return;
-    setLoading(true);
+  useEffect(() => {
+    const symbol = route.symbol;
+    let cancelled = false;
+    setQuote(null);
+    setKlineRows([]);
     setError("");
+    setLoading(false);
+    setActiveSymbol(symbol ?? "");
+    if (!symbol) return;
+    setQuery(symbol);
     setSuggestions([]);
-    try {
-      const quoteResult = await api<FetchResult>("/fetch", {
-        method: "POST",
-        body: JSON.stringify({ endpoint: "tx_quote", symbol, refresh: true }),
-      });
-      setQuote(quoteResult.envelope);
-      setActiveSymbol(quoteResult.envelope.symbol);
-      setQuery(quoteResult.envelope.symbol);
-
+    setLoading(true);
+    void (async () => {
       try {
-        const klineResult = await api<FetchResult>("/fetch", {
+        const quoteResult = await api<FetchResult>("/fetch", {
           method: "POST",
-          body: JSON.stringify({ endpoint: "kline", symbol, args: { bars: 60 }, refresh: true }),
+          body: JSON.stringify({ endpoint: "tx_quote", symbol, refresh: true }),
         });
-        const rows = klineResult.envelope.extra?.rows;
-        setKlineRows(Array.isArray(rows) ? rows as unknown[][] : []);
-      } catch {
-        setKlineRows([]);
+        if (cancelled) return;
+        setQuote(quoteResult.envelope);
+        setLoadedSymbol(symbol);
+        setActiveSymbol(quoteResult.envelope.symbol);
+        setQuery(quoteResult.envelope.symbol);
+        try {
+          const klineResult = await api<FetchResult>("/fetch", {
+            method: "POST",
+            body: JSON.stringify({ endpoint: "kline", symbol, args: { bars: 60 }, refresh: true }),
+          });
+          if (cancelled) return;
+          const rows = klineResult.envelope.extra?.rows;
+          setKlineRows(Array.isArray(rows) ? rows as unknown[][] : []);
+        } catch {
+          if (!cancelled) setKlineRows([]);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (e) {
-      setQuote(null);
-      setKlineRows([]);
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+    })();
+    return () => { cancelled = true; };
+  }, [route.symbol, quoteRevision]);
+
+  function openSymbol(raw: string) {
+    navigate({ page: "stock", symbol: raw });
   }
 
   async function submitSearch() {
@@ -312,9 +338,7 @@ export function MobileApp() {
   }
 
   function openFromList(symbol: string) {
-    setTab("market");
-    setQuery(symbol);
-    void openSymbol(symbol);
+    openSymbol(symbol);
   }
 
   return (
@@ -331,11 +355,16 @@ export function MobileApp() {
       </header>
 
       <main className="mobile-main">
+        {page !== "market" && (
+          <button className="mobile-back" type="button" onClick={back}>
+            <ArrowLeft size={18} /> 返回
+          </button>
+        )}
         {error && <div className="mobile-error">{error}</div>}
 
         {tab === "market" && (
           <section className="mobile-section">
-            <MarketOverview />
+            {!isStock && <MarketOverview />}
 
             <div className="mobile-section-title" style={{ marginTop: 22 }}>
               <div>
@@ -381,7 +410,7 @@ export function MobileApp() {
               </div>
             )}
 
-            {!quote && !loading && (
+            {!isStock && !quote && !loading && (
               <div className="mobile-hero-card">
                 <ChartNoAxesCombined size={34} />
                 <h1>选一只股票继续</h1>
@@ -392,7 +421,12 @@ export function MobileApp() {
               </div>
             )}
 
-            {quote && (
+            {isStock && loading && <div className="mobile-empty" role="status">正在加载 {route.symbol} 行情…</div>}
+            {isStock && !loading && error && (
+              <button className="mobile-back" type="button" onClick={() => setQuoteRevision((value) => value + 1)}>重新加载行情</button>
+            )}
+
+            {isStock && quote && loadedSymbol === route.symbol && (
               <>
                 <article className="mobile-quote-card">
                   <div className="mobile-quote-head">
@@ -439,8 +473,8 @@ export function MobileApp() {
           </section>
         )}
 
-        {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} />}
-        {tab === "rotation" && <DiscoveryWorkspace onOpenSymbol={openFromList} />}
+        {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} view={page === "limitUp" ? "limit-up" : "monitor"} onViewChange={(view) => navigate({ page: view === "limit-up" ? "limitUp" : "monitor" })} />}
+        {tab === "rotation" && <DiscoveryWorkspace onOpenSymbol={openFromList} view={page as DiscoveryView} onViewChange={(view) => navigate({ page: view })} />}
 
         {tab === "watchlist" && (
           <section className="mobile-section">
@@ -450,8 +484,8 @@ export function MobileApp() {
             </div>
 
             <div className="mobile-stock-tabs" role="tablist" aria-label="自选与持仓">
-              <button role="tab" aria-selected={stockView === "watch"} className={stockView === "watch" ? "active" : ""} onClick={() => setStockView("watch")}>自选</button>
-              <button role="tab" aria-selected={stockView === "hold"} className={stockView === "hold" ? "active" : ""} onClick={() => setStockView("hold")}>持仓</button>
+              <button role="tab" aria-selected={stockView === "watch"} className={stockView === "watch" ? "active" : ""} onClick={() => navigate({ page: "watch" })}>自选</button>
+              <button role="tab" aria-selected={stockView === "hold"} className={stockView === "hold" ? "active" : ""} onClick={() => navigate({ page: "hold" })}>持仓</button>
             </div>
 
             {stockView === "watch" && (
@@ -478,7 +512,7 @@ export function MobileApp() {
           </section>
         )}
 
-        {tab === "journal" && <JournalWorkspace onOpenSymbol={openFromList} />}
+        {tab === "journal" && <JournalWorkspace onOpenSymbol={openFromList} view={journalPages.includes(page as JournalView) ? page as JournalView : "records"} onViewChange={(view) => navigate({ page: view })} />}
       </main>
 
       <nav className="mobile-nav" style={{ gridTemplateColumns: "repeat(5, 1fr)" }} aria-label="主导航">

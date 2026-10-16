@@ -6,6 +6,9 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Intent
+import android.net.Uri
+import android.webkit.WebView
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -30,6 +33,13 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
+private const val EXTRA_ROUTE = "com.vibeastock.reminders.ROUTE"
+
+internal fun validReminderRoute(route: String?): String? {
+    if (route == "/mobile/journal/daily" || route == "/mobile/reminders") return route
+    return route?.takeIf { Regex("^/mobile/stock/(SH|SZ|BJ)[0-9]{6}$").matches(it) }
+}
+
 private const val PREFS_NAME = "vibe_astock_reminders"
 private const val SNAPSHOT_KEY = "snapshot_json"
 private const val UNIQUE_WORK = "vibe_astock_periodic_reminders"
@@ -46,6 +56,42 @@ private data class QuoteSnapshot(val price: Double, val quoteDate: String)
 
 @TauriPlugin
 class RemindersPlugin(private val activity: Activity) : Plugin(activity) {
+    private var webView: WebView? = null
+    private var pendingRoute: String? = null
+
+    override fun load(webView: WebView) {
+        this.webView = webView
+        captureNavigation(activity.intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        captureNavigation(intent)
+    }
+
+    private fun captureNavigation(intent: Intent?) {
+        val route = validReminderRoute(intent?.getStringExtra(EXTRA_ROUTE)) ?: return
+        intent?.removeExtra(EXTRA_ROUTE)
+        synchronized(this) { pendingRoute = route }
+        // The command retains the route until React is mounted. This event only
+        // wakes an already running UI and carries no executable/user content.
+        webView?.post {
+            webView?.evaluateJavascript(
+                "window.dispatchEvent(new Event('vibe-reminder-open'))",
+                null,
+            )
+        }
+    }
+
+    @Command
+    fun takeNavigation(invoke: Invoke) {
+        val route = synchronized(this) {
+            val next = pendingRoute
+            pendingRoute = null
+            next
+        }
+        invoke.resolve(JSObject().apply { put("route", route ?: JSONObject.NULL) })
+    }
+
     @Command
     fun syncRules(invoke: Invoke) {
         try {
@@ -138,6 +184,7 @@ class ReminderWorker(
                         id,
                         title,
                         "A股收盘复盘时间到了，记得填写今日观察和明日验证。",
+                        rule.optString("route", "/mobile/reminders"),
                     )
                     prefs.edit().putString(lastDateKey, marketDateIso).apply()
                 }
@@ -184,7 +231,7 @@ class ReminderWorker(
                 "target_near" -> "$symbol 当前 ${formatPrice(quote.price)}，距离目标价 ${formatPrice(threshold)} 已进入 ${formatPercent(tolerance)}% 范围。"
                 else -> continue
             }
-            postNotification(id, name, message)
+            postNotification(id, name, message, rule.optString("route", "/mobile/reminders"))
             prefs.edit().putLong(lastTriggerKey, now).apply()
         }
 
@@ -234,11 +281,14 @@ class ReminderWorker(
         manager.createNotificationChannel(channel)
     }
 
-    private fun postNotification(ruleId: Long, title: String, message: String) {
+    private fun postNotification(ruleId: Long, title: String, message: String, route: String) {
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val launchIntent = applicationContext.packageManager
             .getLaunchIntentForPackage(applicationContext.packageName)
         val pendingIntent = launchIntent?.let {
+            it.data = Uri.parse("vibeastock://reminder/$ruleId")
+            it.putExtra(EXTRA_ROUTE, validReminderRoute(route) ?: "/mobile/reminders")
+            it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             PendingIntent.getActivity(
                 applicationContext,
                 ruleId.hashCode(),

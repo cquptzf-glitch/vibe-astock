@@ -1,5 +1,4 @@
 import { Archive, BarChart3, BellRing, BrainCircuit, CalendarCheck2, NotebookPen, Settings2 } from "lucide-react";
-import { useState } from "react";
 
 import { AiWorkspace } from "./AiWorkspace";
 import { DailyReviewPanel } from "./DailyReviewPanel";
@@ -11,10 +10,13 @@ import { SettingsPanel } from "./SettingsPanel";
 import "./journal-workspace.css";
 import "./library.css";
 
-type ViewMode = "records" | "daily" | "review" | "ai" | "library" | "reminders" | "settings";
+export type JournalView = "records" | "daily" | "review" | "ai" | "library" | "reminders" | "settings";
 
-export function JournalWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
-  const [view, setView] = useState<ViewMode>("records");
+export function JournalWorkspace({ onOpenSymbol, view, onViewChange: setView }: {
+  onOpenSymbol: (symbol: string) => void;
+  view: JournalView;
+  onViewChange: (view: JournalView) => void;
+}) {
 
   return (
     <section className="journal-workspace">

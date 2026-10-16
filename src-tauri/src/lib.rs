@@ -26,7 +26,7 @@ pub fn run() {
             app.manage(core);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::mobile_api, commands::share_text])
+        .invoke_handler(tauri::generate_handler![commands::mobile_api, commands::share_text, commands::take_reminder_navigation])
         .run(tauri::generate_context!())
         .expect("error while running Vibe AStock mobile");
 }

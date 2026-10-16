@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::marker::PhantomData;
 use tauri::{plugin::PluginApi, AppHandle, Runtime};
 
-use crate::{rule_count, ReminderSyncStatus, Result};
+use crate::{rule_count, ReminderNavigation, ReminderSyncStatus, Result};
 
 pub struct VibeReminders<R: Runtime>(PhantomData<R>);
 
@@ -21,6 +21,10 @@ impl<R: Runtime> VibeReminders<R> {
             rule_count: rule_count(snapshot),
             interval_minutes: 0,
         })
+    }
+
+    pub fn take_navigation(&self) -> Result<ReminderNavigation> {
+        Ok(ReminderNavigation { route: None })
     }
 
     pub fn status(&self) -> Result<ReminderSyncStatus> {

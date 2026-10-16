@@ -1,5 +1,4 @@
 import { BarChart3, CalendarDays, Layers3, Radar, ScanSearch } from "lucide-react";
-import { useState } from "react";
 
 import { BacktestPanel } from "./BacktestPanel";
 import { CalendarPanel } from "./CalendarPanel";
@@ -8,10 +7,13 @@ import { RotationPanel } from "./RotationPanel";
 import { SectorPanel } from "./SectorPanel";
 import "./discovery.css";
 
-type DiscoveryView = "rotation" | "sector" | "candidate" | "calendar" | "backtest";
+export type DiscoveryView = "rotation" | "sector" | "candidate" | "calendar" | "backtest";
 
-export function DiscoveryWorkspace({ onOpenSymbol }: { onOpenSymbol?: (symbol: string) => void }) {
-  const [view, setView] = useState<DiscoveryView>("rotation");
+export function DiscoveryWorkspace({ onOpenSymbol, view, onViewChange: setView }: {
+  onOpenSymbol?: (symbol: string) => void;
+  view: DiscoveryView;
+  onViewChange: (view: DiscoveryView) => void;
+}) {
 
   return (
     <section className="discovery-workspace">

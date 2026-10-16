@@ -5,7 +5,7 @@ use tauri::{
     AppHandle, Runtime,
 };
 
-use crate::{rule_count, ReminderSyncStatus, Result};
+use crate::{rule_count, ReminderNavigation, ReminderSyncStatus, Result};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +34,11 @@ impl<R: Runtime> VibeReminders<R> {
         // keeps the count deterministic even if an older plugin omits it.
         status.rule_count = rule_count;
         Ok(status)
+    }
+
+    pub fn take_navigation(&self) -> Result<ReminderNavigation> {
+        self.0.run_mobile_plugin("takeNavigation", ())
+            .map_err(Into::into)
     }
 
     pub fn status(&self) -> Result<ReminderSyncStatus> {

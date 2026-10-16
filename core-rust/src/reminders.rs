@@ -36,12 +36,26 @@ pub fn native_snapshot(db_path: &Path) -> Result<Value> {
          ORDER BY id ASC",
     )?;
     let rows = stmt.query_map([], row_json)?;
-    let items = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut items = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    for item in &mut items {
+        item["route"] = Value::String(notification_route(item));
+    }
     Ok(json!({
         "schema": 1,
         "generated_at": Utc::now().to_rfc3339(),
         "rules": items,
     }))
+}
+
+fn notification_route(rule: &Value) -> String {
+    if rule["kind"] == "daily_review" {
+        return "/mobile/journal/daily".to_string();
+    }
+    rule["symbol"]
+        .as_str()
+        .and_then(|raw| normalize_stock_symbol(raw).ok())
+        .map(|key| format!("/mobile/stock/{}", key.normalized))
+        .unwrap_or_else(|| "/mobile/reminders".to_string())
 }
 
 pub fn save(db_path: &Path, body: &Value) -> Result<Value> {
@@ -265,8 +279,28 @@ mod tests {
         .unwrap();
         assert_eq!(saved["symbol"], "600519");
         assert_eq!(saved["quote_key"], "sh600519");
-        assert_eq!(native_snapshot(&path).unwrap()["rules"].as_array().unwrap().len(), 1);
+        let snapshot = native_snapshot(&path).unwrap();
+        assert_eq!(snapshot["rules"].as_array().unwrap().len(), 1);
+        assert_eq!(snapshot["rules"][0]["route"], "/mobile/stock/SH600519");
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn notification_routes_use_shared_symbol_normalization() {
+        for (symbol, expected) in [
+            ("600519", "SH600519"),
+            ("000001.SZ", "SZ000001"),
+            ("430047", "BJ430047"),
+            ("920002", "BJ920002"),
+        ] {
+            assert_eq!(
+                notification_route(&json!({"kind": "price_above", "symbol": symbol})),
+                format!("/mobile/stock/{expected}")
+            );
+        }
+        assert_eq!(notification_route(&json!({"symbol": "SZ600519"})), "/mobile/reminders");
+        assert_eq!(notification_route(&json!({"symbol": "../settings"})), "/mobile/reminders");
+        assert_eq!(notification_route(&json!({"kind": "daily_review"})), "/mobile/journal/daily");
     }
 
     #[test]

@@ -38,19 +38,20 @@ Android APK PASS
 | AI journal review | Legacy provider/review paths | `ai_review.rs` | Payload preview + opt-in scope + Rust/Android CI | **Migrated for mobile** |
 | General AI chat | No direct legacy mobile equivalent | `ai_chat.rs` | Local history + explicit-message-only context | **Rust-only extension; streaming/tools/threads pending** |
 | Android Keystore credential storage | N/A | `tauri-plugin-vibe-secure-storage` + `secure_ai.rs` | Rust regression coverage + Android build; device smoke still needed | **Integrated; device hardening pending** |
-| Android notifications | N/A | Tauri notification plugin | Android compile/runtime permission UI | **Integrated permission/test channel; business reminders pending** |
+| Android notifications | N/A | Tauri notification plugin + reminder rules/native worker | Permissions UI + WorkManager business notifications; notification targets now routed | **Mobile extension; device smoke pending** |
 | File import/export / backup | Legacy desktop flows | `core-rust/src/backup.rs` + Dialog/FS + `SettingsPanel` | schema validation + transactional restore tests | **Migrated as mobile versioned JSON backup** |
 | Android native sharing | Legacy share-card flows are richer | `tauri-plugin-vibe-share` + `nativeShare.ts` | Android build + text share path | **Integrated text sharing; image/share-card parity pending** |
-| WorkManager / background scheduler | Desktop scheduler/alerts concepts | Not yet implemented on Android | None | **Pending / high priority** |
-| Intraday watch / abnormal | Legacy PC watch flows | Not yet migrated | None | **Pending** |
+| WorkManager / background scheduler | Desktop scheduler/alerts concepts | reminders.rs + tauri-plugin-vibe-reminders | Rust rule/snapshot tests; native scheduling and notification route JUnit in CI | **Mobile extension; Doze/device timing pending** |
+| Intraday watch / abnormal | Legacy PC watch flows | monitor.rs + MonitorPanel.tsx | Batch quote/missing fields/risk-state tests; 60-second foreground refresh | **Mobile watch implemented; full abnormal parity pending** |
 | Signals | Legacy PC signals flows | Not yet migrated | None | **Pending** |
 | Sector detail / constituents | Legacy PC sectors flows | Rotation summary only | None for full detail | **Partial / pending** |
-| Candidates | Legacy PC candidates flows | Not yet migrated | None | **Pending** |
-| Calendar | Legacy trade/calendar flows | Not yet migrated | None | **Pending** |
-| Stock research deterministic data | profile/financials/announcements/estimates/valuation scripts | quote/K-line only on mobile | None for remaining endpoints | **Pending** |
-| Lite backtest | Python `backtest/` | Not yet migrated | None | **Pending; implement in Rust, do not bundle Python** |
-| Notes / reports / inbox | Legacy desktop local/product flows | Not yet migrated | None | **Pending; redesign as mobile-local document storage** |
+| Candidates | Legacy PC candidates flows | research.rs + CandidatePanel.tsx | Basic deterministic mobile candidate route; frozen legacy coverage pending | **Partial mobile implementation** |
+| Calendar | Legacy trade/calendar flows | calendar.rs + CalendarPanel.tsx | Local event CRUD tests; full exchange/announcement calendar parity pending | **Mobile extension; partial PC scope** |
+| Stock research deterministic data | profile/financials/announcements/estimates/valuation scripts | research.rs + ResearchPanel.tsx | Basic mobile research endpoints; frozen provider parity pending | **Partial; estimates/valuation/full research pending** |
+| Lite backtest | Python backtest/ | backtest.rs + BacktestPanel.tsx | Rust SMA/bar tests; next-open execution; no taxes/fees/slippage | **Mobile Lite extension; advanced parity pending** |
+| Notes / reports / inbox | Legacy desktop local/product flows | documents.rs + LibraryPanel.tsx | SQLite CRUD + versioned backup tests | **Mobile local document extension** |
 | Debate / deep research | Node/Agent/Python workflows | Not migrated | None | **Pending / redesign rather than runtime port** |
+| Mobile routes / Back / notification navigation | N/A | mobileRoutes.ts + nativeNavigation.ts + reminder intent handoff | JS history/StrictMode tests, Rust target tests, Kotlin route tests; Android CI and device checks recorded in handoff | **Mobile extension; device smoke pending** |
 | Full PC backend contract | `orchestrator/` + Python scripts | Mobile Rust Core only covers selected domains | End-to-end parity suite pending | **Pending** |
 | Production Android release | Desktop release is separate | Debug-signed ARM64 APK CI | APK build/signature verification | **Not production-ready: release signing/AAB/version unification pending** |
 

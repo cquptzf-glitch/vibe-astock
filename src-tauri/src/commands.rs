@@ -46,6 +46,14 @@ fn sync_reminders(app: &AppHandle, state: &AppCore) -> Result<Value, String> {
 }
 
 #[tauri::command]
+pub fn take_reminder_navigation(app: AppHandle) -> Result<Option<String>, String> {
+    app.vibe_reminders()
+        .take_navigation()
+        .map(|navigation| navigation.route)
+        .map_err(|_| "读取提醒入口失败".to_string())
+}
+
+#[tauri::command]
 pub fn share_text(app: AppHandle, request: ShareTextCommand) -> Result<Value, String> {
     let title = request.title.as_deref().map(str::trim).filter(|value| !value.is_empty());
     let text = request.text.trim();

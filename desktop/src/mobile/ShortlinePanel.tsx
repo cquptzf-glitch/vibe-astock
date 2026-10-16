@@ -34,6 +34,8 @@ interface LimitUpResult {
 
 interface ShortlinePanelProps {
   onOpenSymbol: (symbol: string) => void;
+  view: "monitor" | "limit-up";
+  onViewChange: (view: "monitor" | "limit-up") => void;
 }
 
 async function mobileApi<T>(path: string): Promise<T> {
@@ -67,8 +69,7 @@ function boardLabel(days: number): string {
   return `${days}板`;
 }
 
-export function ShortlinePanel({ onOpenSymbol }: ShortlinePanelProps) {
-  const [view, setView] = useState<"monitor" | "limit-up">("monitor");
+export function ShortlinePanel({ onOpenSymbol, view, onViewChange: setView }: ShortlinePanelProps) {
   const [data, setData] = useState<LimitUpResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

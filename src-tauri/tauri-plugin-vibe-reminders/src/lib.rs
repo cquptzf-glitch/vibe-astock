@@ -22,6 +22,11 @@ pub struct ReminderSyncStatus {
     pub interval_minutes: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReminderNavigation {
+    pub route: Option<String>,
+}
+
 pub trait VibeRemindersExt<R: Runtime> {
     fn vibe_reminders(&self) -> &VibeReminders<R>;
 }

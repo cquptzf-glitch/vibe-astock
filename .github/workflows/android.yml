@@ -95,6 +95,9 @@ jobs:
         with:
           targets: aarch64-linux-android
 
+      - name: Test Rust core
+        run: cargo test --locked --manifest-path core-rust/Cargo.toml
+
       - name: Cache Tauri CLI
         id: tauri-cli-cache
         uses: actions/cache@v4
@@ -109,14 +112,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --prefix desktop
 
+      - name: Install shared test dependencies
+        run: npm ci --prefix orchestrator
+
       - name: Typecheck and build frontend
         run: npm run build --prefix desktop
 
       - name: Test frontend
         run: npm test --prefix desktop
-
-      - name: Test Rust core
-        run: cargo test --manifest-path core-rust/Cargo.toml
 
       - name: Initialize Android project
         run: cargo tauri android init --ci
@@ -125,6 +128,10 @@ jobs:
         # CI keeps the Android debug signing path so artifacts remain directly
         # installable. Production signing is handled separately from this job.
         run: cargo tauri android build --ci --debug --apk --split-per-abi --target aarch64
+
+      - name: Test native reminder navigation
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :tauri-plugin-vibe-reminders:testDebugUnitTest
 
       - name: Prepare, inspect and verify APK
         shell: bash

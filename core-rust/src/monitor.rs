@@ -301,7 +301,7 @@ fn render_position_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> 
 
 fn number(value: Option<&&str>) -> Option<f64> {
     let text = value?.trim();
-    if text.is_empty() || *text == "-" {
+    if text.is_empty() || text == "-" {
         return None;
     }
     text.parse::<f64>().ok().filter(|n| n.is_finite())

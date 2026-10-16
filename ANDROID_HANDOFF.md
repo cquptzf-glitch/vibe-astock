@@ -1161,3 +1161,27 @@ APK CI run 是否成功
 - Lite 回测明确不计手续费、印花税、滑点，不作为桌面完整 Agent 回测的替代品。
 
 后续优先：先完成当前 Android CI 的 Rust/Gradle 真机链路验证，再继续产业资讯/产业信号、完整资金流/异动、估值历史、研究数据和高级回测。
+
+
+### 2026-10-16 后续增量：移动路由、返回与通知定位（0.1.14）
+
+本轮完成：
+
+- 新增 mobileRoutes.ts / useMobileNavigation.ts，以 hash URL + 浏览器 history 管理页面；主导航、发现、短线、自选/持仓及日志子栏目均从路由恢复。
+- 支持 /mobile/stock/:symbol、/mobile/journal/daily、/mobile/settings 等应用内定位；保存最近页面，不保存表单草稿或额外业务数据。
+- 从候选/盯盘/持仓打开个股后可返回来源栏目；首次直接进入个股/通知目标会先建立行情首页返回记录。Android Back 使用 Tauri/WebView 自带 history 返回行为，首页无历史时交回系统。
+- 个股请求在路由切换后忽略过期响应；新股票加载时不显示上一只股票的行情，并提供重试入口。
+- Rust reminder native_snapshot 增加 route 字段，股票目标复用 SymbolKey，日复盘目标为 /mobile/journal/daily；无新增 SQLite 表或 migration。
+- 原生提醒 PendingIntent 携带白名单页面和每条规则独立 URI；load/onNewIntent 接收冷启动/热启动目标；React 挂载后通过 take_reminder_navigation 一次性读取，避免冷启动与 StrictMode 重挂载丢通知。
+- 未新增 Android 系统权限或插件；不注册外部可调用的通用 URL scheme。此处 deep-link 指应用内部 hash 及通知定位，外部网页/App Links 留待后续。
+- 修复接手时的 monitor 数值解析编译错误和 ResearchError 缺少 Debug 导致的测试编译错误。
+- Android CI 补装 orchestrator 的共享测试依赖，解决 agent_error.test.ts 导入 ajv 失败；保留完整前端测试，并增加原生提醒路由 JUnit 测试。
+- 新增 Rust 通知路由及快照测试、前端 history/刷新/无效路由/通知重挂载测试、工作台渲染测试、Kotlin 白名单路由测试。
+
+验证约定：
+
+- 本地仅执行 Rust cargo test / cargo check；前端检查、Kotlin 测试和 APK 编译均在 GitHub Android CI 中执行。
+- 本轮 CI 链接与最终结果将在构建结束后补记；未创建 Release。
+- 设备上的 Android Back/手势、点击通知冷/热启动及 Activity recreation 仍需真机验收，单元测试与编译不代表已完成真机验证。
+
+后续优先：通知真机验收 → 产业资讯/产业信号 → 行情供应商 fixture hardening → 更完整 Signals/Intraday/研究数据。正式签名/AAB、AI 流式输出与高级回测仍未完成。
