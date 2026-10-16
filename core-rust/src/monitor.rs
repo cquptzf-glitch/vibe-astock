@@ -15,6 +15,8 @@ struct QuoteRow {
     price: Option<f64>,
     change_pct: Option<f64>,
     amount_yuan: Option<f64>,
+    limit_up: Option<f64>,
+    limit_down: Option<f64>,
     quote_date: Option<String>,
 }
 
@@ -150,6 +152,8 @@ async fn fetch_batch(client: &Client, symbols: &[crate::symbol::SymbolKey]) -> R
         let price = number(fields.get(3));
         let change_pct = number(fields.get(32));
         let amount_yuan = number(fields.get(37)).map(|v| v * 10_000.0);
+        let limit_up = number(fields.get(47));
+        let limit_down = number(fields.get(48));
         let quote_date = fields
             .get(30)
             .copied()
@@ -164,6 +168,8 @@ async fn fetch_batch(client: &Client, symbols: &[crate::symbol::SymbolKey]) -> R
                 price,
                 change_pct,
                 amount_yuan,
+                limit_up,
+                limit_down,
                 quote_date,
             },
         );
@@ -227,6 +233,8 @@ fn render_watch_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> Val
         "price": quote.and_then(|q| q.price),
         "change_pct": quote.and_then(|q| q.change_pct),
         "amount_yuan": quote.and_then(|q| q.amount_yuan),
+        "limit_up": quote.and_then(|q| q.limit_up),
+        "limit_down": quote.and_then(|q| q.limit_down),
         "quote_date": quote.and_then(|q| q.quote_date.as_deref()),
         "is_today": quote.and_then(|q| q.quote_date.as_deref()).is_some_and(|date| date == today),
         "available": quote.is_some_and(|q| q.price.is_some()),
@@ -264,6 +272,8 @@ fn render_position_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> 
         "planned_target": planned_target,
         "price": price,
         "change_pct": quote.and_then(|q| q.change_pct),
+        "limit_up": quote.and_then(|q| q.limit_up),
+        "limit_down": quote.and_then(|q| q.limit_down),
         "market_value": market_value,
         "unrealized_pnl": unrealized_pnl,
         "unrealized_pct": unrealized_pct,
@@ -319,6 +329,8 @@ mod tests {
             price: Some(1490.0),
             change_pct: Some(-1.0),
             amount_yuan: Some(1_000_000.0),
+            limit_up: Some(1600.0),
+            limit_down: Some(1400.0),
             quote_date: Some("2026-10-16".into()),
         };
         let value = render_position_item(&item, Some(&quote), "2026-10-16");
