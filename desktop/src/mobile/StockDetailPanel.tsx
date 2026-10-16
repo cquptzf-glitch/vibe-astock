@@ -163,6 +163,7 @@ export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unkn
   const symbol = quote.symbol ?? "";
 
   async function shareSnapshot() {
+    if (!latest || !stats) return;
     const lines = [
       `【${displayName}${symbol ? ` ${symbol}` : ""}】`,
       `${quote.market ? `${quote.market} · ` : ""}${latest.date} K线收盘 ${price(latest.close)}`,
