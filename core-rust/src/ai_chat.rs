@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use chrono::Utc;
 use reqwest::Client;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -69,9 +69,10 @@ pub fn history(db_path: &Path) -> Result<Value> {
         })
     })?;
     let messages = rows.collect::<std::result::Result<Vec<_>, _>>()?;
+    let count = messages.len();
     Ok(json!({
         "messages": messages,
-        "count": messages.len(),
+        "count": count,
         "storage": "mobile_sqlite",
         "local_data_attached": false
     }))
@@ -107,7 +108,7 @@ pub async fn send(client: &Client, db_path: &Path, body: &Value) -> std::result:
     let mut messages = Vec::with_capacity(history.len() + 2);
     messages.push(json!({ "role": "system", "content": SYSTEM_PROMPT }));
     for item in &history {
-        messages.push(json!({ "role": item.role, "content": item.content }));
+        messages.push(json!({ "role": &item.role, "content": &item.content }));
     }
     messages.push(json!({ "role": "user", "content": content }));
 
@@ -117,7 +118,7 @@ pub async fn send(client: &Client, db_path: &Path, body: &Value) -> std::result:
         .timeout(Duration::from_secs(60))
         .header("Accept", "application/json")
         .json(&json!({
-            "model": config.model,
+            "model": &config.model,
             "messages": messages
         }));
     if !config.api_key.is_empty() {
