@@ -117,8 +117,8 @@ function formatMarketCap(value: number | null, source: string | null): string {
 function isDirectSymbol(value: string): boolean {
   const normalized = value.trim().toUpperCase().replace(/\s+/g, "");
   return /^\d{6}$/.test(normalized)
-    || /^(SH|SZ)[.:]?\d{6}$/.test(normalized)
-    || /^\d{6}\.(SH|SZ)$/.test(normalized);
+    || /^(SH|SZ|BJ)\d{6}$/.test(normalized)
+    || /^\d{6}\.(SH|SZ|BJ)$/.test(normalized);
 }
 
 function Sparkline({ rows }: { rows: unknown[][] }) {
@@ -268,7 +268,7 @@ export function MobileApp() {
       setSuggestions(items);
       const first = items[0];
       if (!first) {
-        setError(`没有找到沪深 A 股：${keyword}`);
+        setError(`没有找到沪深北 A 股：${keyword}`);
         return;
       }
       await openSymbol(first.symbol);
@@ -320,7 +320,7 @@ export function MobileApp() {
       <header className="mobile-header">
         <div>
           <div className="mobile-brand">Vibe AStock</div>
-          <div className="mobile-subtitle">Android · Rust Core · v0.1.8</div>
+          <div className="mobile-subtitle">Android · Rust Core · v0.1.9</div>
         </div>
         <div className={`mobile-status ${health?.ok ? "ok" : ""}`}>
           <Wifi size={14} />
@@ -338,7 +338,7 @@ export function MobileApp() {
             <div className="mobile-section-title" style={{ marginTop: 22 }}>
               <div>
                 <h1>个股行情</h1>
-                <p>支持代码、名称和拼音搜索；腾讯实时行情失败时自动降级东财。</p>
+                <p>支持沪深北代码、名称和拼音搜索；腾讯实时行情失败时自动降级东财。</p>
               </div>
             </div>
 
@@ -354,7 +354,7 @@ export function MobileApp() {
                 inputMode="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="代码 / 名称 / 拼音，如 300308、茅台、GZMT"
+                placeholder="代码 / 名称 / 拼音，如 300308、430047、茅台"
                 aria-label="股票搜索"
                 autoComplete="off"
               />
@@ -385,7 +385,7 @@ export function MobileApp() {
                 <h1>选一只股票继续</h1>
                 <p>行情、搜索与 K 线都由手机内 Rust Core 直接访问公开数据源，不依赖电脑端服务。</p>
                 <div className="mobile-chips">
-                  <span>名称/拼音搜索</span><span>腾讯行情</span><span>东财降级</span><span>前复权 K 线</span><span>SQLite 自选</span>
+                  <span>沪深北 A 股</span><span>名称/拼音搜索</span><span>腾讯行情</span><span>东财降级</span><span>前复权 K 线</span><span>SQLite 自选</span>
                 </div>
               </div>
             )}
