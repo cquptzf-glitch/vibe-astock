@@ -119,7 +119,9 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
       if (cancelled) return;
       const nextErrors: Partial<Record<ResearchTab, string>> = {};
       results.forEach((result, index) => {
-        const key = tasks[index][0];
+        const task = tasks[index];
+        if (!task) return;
+        const key = task[0];
         if (result.status === "rejected") {
           nextErrors[key] = result.reason instanceof Error ? result.reason.message : String(result.reason);
           return;
