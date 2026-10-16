@@ -1,4 +1,4 @@
-name: Android APK
+name: Android CI APK
 
 on:
   workflow_dispatch:
@@ -12,10 +12,10 @@ on:
       - ".github/workflows/android.yml"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: android-apk-${{ github.ref }}
+  group: android-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,12 +25,29 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.11"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.11-arm64.apk"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve app version
+        shell: bash
+        run: |
+          APP_VERSION="$(python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          with pathlib.Path("src-tauri/Cargo.toml").open("rb") as handle:
+              print(tomllib.load(handle)["package"]["version"])
+          PY
+          )"
+          if [ -z "$APP_VERSION" ]; then
+            echo "Unable to resolve src-tauri package version" >&2
+            exit 1
+          fi
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "ANDROID_APK_NAME=vibe-astock-android-mvp-v${APP_VERSION}-arm64.apk" >> "$GITHUB_ENV"
+          echo "Resolved Android app version: $APP_VERSION"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -95,6 +112,9 @@ jobs:
       - name: Typecheck and build frontend
         run: npm run build --prefix desktop
 
+      - name: Test frontend
+        run: npm test --prefix desktop
+
       - name: Test Rust core
         run: cargo test --manifest-path core-rust/Cargo.toml
 
@@ -102,8 +122,8 @@ jobs:
         run: cargo tauri android init --ci
 
       - name: Build installable size-optimized APK
-        # Keep the Android debug signing path for sideloadable CI artifacts, while
-        # src-tauri/Cargo.toml strips/optimizes the Rust dev profile aggressively.
+        # CI keeps the Android debug signing path so artifacts remain directly
+        # installable. Production signing is handled separately from this job.
         run: cargo tauri android build --ci --debug --apk --split-per-abi --target aarch64
 
       - name: Prepare, inspect and verify APK
@@ -130,6 +150,7 @@ jobs:
           {
             echo "## Android APK size"
             echo ""
+            echo "- Version: \`${APP_VERSION}\`"
             echo "- File: \`${ANDROID_APK_NAME}\`"
             echo "- Size: **${SIZE_MIB} MiB** (${SIZE_BYTES} bytes)"
             echo ""
@@ -138,9 +159,6 @@ jobs:
             printf '%s\n' "$APK_ENTRIES"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-
-          echo "Largest APK entries:"
-          printf '%s\n' "$APK_ENTRIES"
 
           if [ "$SIZE_BYTES" -gt 83886080 ]; then
             echo "::warning::APK remains larger than 80 MiB; inspect the size report above."
@@ -157,65 +175,9 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.11-arm64
+          name: vibe-astock-android-mvp-v${{ env.APP_VERSION }}-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
           if-no-files-found: error
           retention-days: 30
-
-      - name: Publish Android MVP prerelease
-        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-android]')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.11
-
-          Android local-data backup and restore release built from the `android-mvp` branch.
-
-          ### New in v0.1.11
-          - Adds versioned JSON export for local watchlist, Trading Journal, fills, daily reviews and AI chat history
-          - Adds Android system Save/Open document pickers through Tauri Dialog + File System plugins
-          - Validates backup format, schema version, row limits, stock symbols, references and numeric fields before restore
-          - Restores local business data in one SQLite transaction so a failed import cannot leave a half-restored database
-          - Uses explicit replace mode with a user-visible record-count preview and confirmation before destructive restore
-          - Never exports or imports API Keys, Android Keystore material or AI model configuration
-          - Preserves the current device AI configuration and Keystore credential during business-data restore
-          - Adds regression tests proving credentials stay out of backup payloads and device AI config survives restore
-
-          ### Already included
-          - Android Keystore-backed AI credential storage with AES-256-GCM
-          - Unified SH / SZ / BJ stock routing with legacy parity tests
-          - Market overview, limit-up ladder and concept/industry rotation
-          - Realtime quote, adjusted K-line, code/name/pinyin symbol search
-          - Local watchlist, portfolio, Trading Journal and journal risk review
-          - Local daily review and OpenAI-compatible AI chat/review flows
-          - Android native notifications and local data/settings status
-
-          ### Build note
-          - CI artifacts remain debug-signed so they are directly installable without committing a production signing key
-          - Rust native code is stripped and size-optimized in the sideload build
-          - Production distribution still needs a persistent private release signing certificate
-
-          ### Installation
-          - Android 7.0+ (minSdk 24)
-          - ARM64 devices only
-          - Direct sideload APK intended for functional testing
-
-          The `.sha256` file is provided for download integrity verification.
-          EOF
-          )
-
-          if gh release view "$ANDROID_RELEASE_TAG" >/dev/null 2>&1; then
-            gh release delete "$ANDROID_RELEASE_TAG" --cleanup-tag --yes
-          fi
-
-          gh release create "$ANDROID_RELEASE_TAG" \
-            "dist/${ANDROID_APK_NAME}" \
-            "dist/${ANDROID_APK_NAME}.sha256" \
-            --target "$GITHUB_SHA" \
-            --title "Vibe AStock Android MVP v0.1.11" \
-            --notes "$NOTES" \
-            --prerelease

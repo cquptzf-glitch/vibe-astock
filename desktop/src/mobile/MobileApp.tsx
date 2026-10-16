@@ -169,6 +169,7 @@ export function MobileApp() {
   const turnover = evidenceNumber(quote, "turnover_pct");
   const marketCap = evidenceNumber(quote, "total_market_cap");
   const isWatched = Boolean(activeSymbol && watchlist.some((item) => item.symbol === activeSymbol));
+  const appVersion = health?.version?.replace(/-mobile$/, "") ?? "…";
 
   async function loadWatchlist() {
     const result = await api<WatchListResult>("/mobile/watchlist");
@@ -320,7 +321,7 @@ export function MobileApp() {
       <header className="mobile-header">
         <div>
           <div className="mobile-brand">Vibe AStock</div>
-          <div className="mobile-subtitle">Android · Rust Core · v0.1.9</div>
+          <div className="mobile-subtitle">Android · Rust Core · v{appVersion}</div>
         </div>
         <div className={`mobile-status ${health?.ok ? "ok" : ""}`}>
           <Wifi size={14} />

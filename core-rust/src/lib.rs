@@ -23,6 +23,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{fs, path::PathBuf, time::Duration};
 
+const APP_VERSION: &str = env!("VIBE_APP_VERSION");
+
 #[derive(Debug, Deserialize)]
 pub struct MobileApiRequest {
     pub path: String,
@@ -69,7 +71,7 @@ impl AppCore {
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.11")
+            .user_agent(format!("Mozilla/5.0 VibeAStock-Mobile/{APP_VERSION}"))
             .build()?;
 
         Ok(Self { client, db_path })
@@ -103,14 +105,15 @@ impl AppCore {
             .get("__secure_key_present")
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        let mobile_version = format!("{APP_VERSION}-mobile");
 
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.1.11-mobile"
+                "version": mobile_version
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.1.11-mobile",
+                "version": mobile_version,
                 "provider": {
                     "profile": null,
                     "kind": null,
