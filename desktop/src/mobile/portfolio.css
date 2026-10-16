@@ -1,0 +1,263 @@
+.mobile-stock-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid #252b33;
+  border-radius: 14px;
+  background: #101419;
+}
+
+.mobile-stock-tabs button {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  color: #7f8894;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.mobile-stock-tabs button.active {
+  color: #f7f8fa;
+  background: #242a31;
+}
+
+.portfolio-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.portfolio-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.portfolio-title-row > div > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #e47a58;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.portfolio-title-row h2 {
+  margin: 5px 0 0;
+  font-size: 18px;
+}
+
+.portfolio-title-row p {
+  margin: 5px 0 0;
+  color: #777f8a;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.portfolio-title-row > button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #2b323b;
+  border-radius: 12px;
+  color: #89929e;
+  background: #12161b;
+}
+
+.portfolio-title-row > button:disabled {
+  opacity: 0.5;
+}
+
+.portfolio-error,
+.portfolio-empty {
+  padding: 16px;
+  border: 1px solid #292f37;
+  border-radius: 14px;
+  color: #8d96a1;
+  background: #12161b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.portfolio-error {
+  color: #ffb0a2;
+  border-color: rgba(228, 87, 46, 0.3);
+}
+
+.portfolio-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 76px;
+  text-align: center;
+}
+
+.portfolio-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #252b33;
+  border-radius: 15px;
+  background: #12161b;
+}
+
+.portfolio-summary > div {
+  padding: 14px;
+}
+
+.portfolio-summary > div:nth-child(odd) {
+  border-right: 1px solid #252b33;
+}
+
+.portfolio-summary > div:nth-child(-n + 2) {
+  border-bottom: 1px solid #252b33;
+}
+
+.portfolio-summary span,
+.portfolio-summary strong,
+.portfolio-summary small {
+  display: block;
+}
+
+.portfolio-summary span {
+  color: #727b87;
+  font-size: 11px;
+}
+
+.portfolio-summary strong {
+  margin-top: 5px;
+  font-size: 18px;
+}
+
+.portfolio-summary small {
+  margin-top: 3px;
+  color: #626b77;
+  font-size: 10px;
+}
+
+.portfolio-risk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 12px;
+  padding: 11px 12px;
+  border: 1px solid #2b3138;
+  border-radius: 13px;
+  color: #919aa6;
+  background: #101419;
+  font-size: 11px;
+}
+
+.portfolio-risk svg {
+  color: #e7a64e;
+}
+
+.portfolio-risk b {
+  color: #f0a35f;
+  font-weight: 650;
+}
+
+.portfolio-list {
+  overflow: hidden;
+  border: 1px solid #252b33;
+  border-radius: 16px;
+  background: #12161b;
+}
+
+.portfolio-row {
+  display: block;
+  width: 100%;
+  padding: 15px 16px;
+  border: 0;
+  border-bottom: 1px solid #232930;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.portfolio-row:last-child {
+  border-bottom: 0;
+}
+
+.portfolio-main,
+.portfolio-pnl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.portfolio-name strong,
+.portfolio-name span,
+.portfolio-price strong,
+.portfolio-price span {
+  display: block;
+}
+
+.portfolio-name strong {
+  font-size: 15px;
+}
+
+.portfolio-name span,
+.portfolio-price span {
+  margin-top: 3px;
+  color: #707985;
+  font-size: 10px;
+}
+
+.portfolio-price {
+  text-align: right;
+}
+
+.portfolio-price strong {
+  font-size: 15px;
+}
+
+.portfolio-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin-top: 11px;
+  color: #69727d;
+  font-size: 10px;
+}
+
+.portfolio-metrics b {
+  color: #a1a9b3;
+  font-weight: 600;
+}
+
+.portfolio-pnl {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #20262d;
+}
+
+.portfolio-pnl span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.portfolio-pnl b {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.portfolio-pnl > svg {
+  color: #59616c;
+}
+
+.portfolio-note {
+  margin: 0;
+  color: #626b77;
+  font-size: 10px;
+  line-height: 1.6;
+}
