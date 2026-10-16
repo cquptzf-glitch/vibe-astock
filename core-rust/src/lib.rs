@@ -10,6 +10,7 @@ mod journal;
 mod journal_mutation;
 mod journal_review;
 mod market;
+mod monitor;
 mod quote;
 mod reminders;
 mod research;
@@ -288,6 +289,10 @@ impl AppCore {
             },
             ("GET", "/mobile/market-overview") => {
                 Ok(MobileApiResponse::ok(market::overview(&self.client).await?))
+            }
+            ("GET", "/mobile/monitor") => match monitor::snapshot(&self.client, &self.db_path).await {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(502, "monitor", error.to_string())),
             }
             ("GET", "/mobile/shortline/limit-up") => Ok(MobileApiResponse::ok(
                 shortline::limit_up_pool(&self.client, &request.path).await?,
