@@ -440,7 +440,7 @@ export function MobileApp() {
         )}
 
         {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} />}
-        {tab === "rotation" && <DiscoveryWorkspace />}
+        {tab === "rotation" && <DiscoveryWorkspace onOpenSymbol={openFromList} />}
 
         {tab === "watchlist" && (
           <section className="mobile-section">
