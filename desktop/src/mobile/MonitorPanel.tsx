@@ -9,6 +9,8 @@ type WatchRow = {
   price: number | null;
   change_pct: number | null;
   amount_yuan: number | null;
+  limit_up: number | null;
+  limit_down: number | null;
   quote_date: string | null;
   is_today: boolean;
   available: boolean;
@@ -165,6 +167,8 @@ export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) 
                 </div>
                 <div className="monitor-extra">
                   <span>成交额 <b>{amount(row.amount_yuan)}</b></span>
+                  {row.is_today && row.price !== null && row.limit_up !== null && row.price >= row.limit_up ? <span className="warning">涨停</span> : null}
+                  {row.is_today && row.price !== null && row.limit_down !== null && row.price <= row.limit_down ? <span className="down">跌停</span> : null}
                   <span>{row.available ? (row.is_today ? "今日行情" : "旧行情") : "暂无报价"}</span>
                   <ChevronRight size={16} />
                 </div>
@@ -178,6 +182,8 @@ export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) 
                 </div>
                 <div className="monitor-extra">
                   <span>成本 <b>{price(row.avg_cost)}</b></span>
+                  {row.is_today && row.price !== null && row.limit_up !== null && row.price >= row.limit_up ? <span className="warning">涨停</span> : null}
+                  {row.is_today && row.price !== null && row.limit_down !== null && row.price <= row.limit_down ? <span className="down">跌停</span> : null}
                   <span>浮盈亏 <b className={(row.unrealized_pnl ?? 0) >= 0 ? "up" : "down"}>{money(row.unrealized_pnl)}</b></span>
                   <span className={row.risk_state !== "normal" ? "warning" : ""}>{RISK_LABEL[row.risk_state]}</span>
                   <ChevronRight size={16} />
