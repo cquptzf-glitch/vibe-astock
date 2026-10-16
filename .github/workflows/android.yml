@@ -25,8 +25,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.9"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.9-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.10"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.10-arm64.apk"
 
     steps:
       - name: Checkout
@@ -157,7 +157,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.9-arm64
+          name: vibe-astock-android-mvp-v0.1.10-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -171,22 +171,23 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.9
+          ## Vibe AStock Android MVP v0.1.10
 
-          Tenth installable Android MVP built from the `android-mvp` branch.
+          Android secure-credential hardening release built from the `android-mvp` branch.
 
-          ### New in v0.1.9
-          - Unifies stock routing behind one Rust `SymbolKey` contract across quote, K-line, search and watchlist storage
-          - Adds Beijing Stock Exchange routing alongside Shanghai and Shenzhen: SH / SZ / BJ
-          - Supports BSE code segments including 43 / 83 / 87 / 92 and preserves the migrated legacy parity contract
-          - Removes the duplicate quote-side `SymbolInfo` parser so Tencent and Eastmoney cannot silently disagree on market routing
-          - Parses and validates a symbol once at the `/fetch` boundary; contradictory market spellings now return HTTP 400
-          - Extends Tencent Smartbox search to accept BSE A-share results when exchange and code segment agree
-          - Validates and canonicalizes watchlist symbols with the same shared router
-          - Updates the Android stock UI to accept `BJ430047` and `430047.BJ` and label SH/SZ/BJ consistently
-          - Keeps the optimized ARM64 sideload build and APK size report introduced in v0.1.8
+          ### New in v0.1.10
+          - Moves AI API Keys out of plaintext SQLite into a native Android Keystore-backed secure storage plugin
+          - Uses a non-exportable AndroidKeyStore AES-256 key with AES-GCM encryption; disk persistence contains only IV + ciphertext
+          - Keeps model Base URL / model metadata in SQLite while credentials are resolved only inside the native Tauri shell
+          - Injects API Keys into Rust Core only for the in-memory AI request that needs them; keys are never returned by the mobile API
+          - Preserves provider isolation: changing API Base URL never reuses a credential from another provider
+          - Migrates legacy v0.1.9-and-earlier SQLite API Keys on startup and scrubs plaintext only after Keystore data is confirmed usable
+          - Handles restored/corrupt secure ciphertext by discarding unusable secure data rather than exposing it
+          - Adds Rust regression tests proving new AI config saves never persist API Keys and legacy SQL keys can be scrubbed after migration
+          - Updates Android privacy/status UI to report the actual Keystore-backed credential state
 
           ### Already included
+          - Unified SH / SZ / BJ stock routing with legacy parity tests
           - Market overview and breadth
           - Limit-up pool and consecutive-limit ladder with latest-trading-day fallback
           - Concept/industry rotation with today vs. 5-day fund-flow observation labels
@@ -197,13 +198,12 @@ jobs:
           - Local portfolio derived from journal fills with realtime quote refresh
           - Local journal performance/discipline/risk dashboard
           - Local daily review and OpenAI-compatible AI chat/review flows
-          - Settings/data summary view for local storage and credential status
+          - Android native notifications and local data/settings status
 
-          ### Build and security note
+          ### Build note
           - CI artifacts remain debug-signed so they are directly installable without committing a production signing key
-          - Rust native code is stripped and size-optimized even in this test-signing build
-          - Production distribution will use the release Android variant with a persistent private signing certificate
-          - Model credentials remain in Android app-private SQLite; Android Keystore migration is still production hardening work
+          - Rust native code is stripped and size-optimized in the sideload build
+          - Production distribution still needs a persistent private release signing certificate
 
           ### Installation
           - Android 7.0+ (minSdk 24)
@@ -222,6 +222,6 @@ jobs:
             "dist/${ANDROID_APK_NAME}" \
             "dist/${ANDROID_APK_NAME}.sha256" \
             --target "$GITHUB_SHA" \
-            --title "Vibe AStock Android MVP v0.1.9" \
+            --title "Vibe AStock Android MVP v0.1.10" \
             --notes "$NOTES" \
             --prerelease
