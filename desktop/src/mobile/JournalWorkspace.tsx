@@ -1,4 +1,4 @@
-import { Archive, BarChart3, BrainCircuit, CalendarCheck2, NotebookPen, Settings2 } from "lucide-react";
+import { Archive, BarChart3, BellRing, BrainCircuit, CalendarCheck2, NotebookPen, Settings2 } from "lucide-react";
 import { useState } from "react";
 
 import { AiWorkspace } from "./AiWorkspace";
@@ -6,11 +6,12 @@ import { DailyReviewPanel } from "./DailyReviewPanel";
 import { JournalPanelV2 } from "./JournalPanelV2";
 import { JournalReviewPanel } from "./JournalReviewPanel";
 import { LibraryPanel } from "./LibraryPanel";
+import { ReminderPanel } from "./ReminderPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import "./journal-workspace.css";
 import "./library.css";
 
-type ViewMode = "records" | "daily" | "review" | "ai" | "library" | "settings";
+type ViewMode = "records" | "daily" | "review" | "ai" | "library" | "reminders" | "settings";
 
 export function JournalWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
   const [view, setView] = useState<ViewMode>("records");
@@ -60,6 +61,14 @@ export function JournalWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: stri
         </button>
         <button
           role="tab"
+          aria-selected={view === "reminders"}
+          className={view === "reminders" ? "active" : ""}
+          onClick={() => setView("reminders")}
+        >
+          <BellRing size={14} /> 提醒
+        </button>
+        <button
+          role="tab"
           aria-selected={view === "settings"}
           className={view === "settings" ? "active" : ""}
           onClick={() => setView("settings")}
@@ -73,6 +82,7 @@ export function JournalWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: stri
       {view === "review" && <JournalReviewPanel onOpenSymbol={onOpenSymbol} />}
       {view === "ai" && <AiWorkspace />}
       {view === "library" && <LibraryPanel />}
+      {view === "reminders" && <ReminderPanel />}
       {view === "settings" && <SettingsPanel />}
     </section>
   );
