@@ -1,3 +1,4 @@
+mod ai_chat;
 mod ai_review;
 mod daily_review;
 mod data_summary;
@@ -58,6 +59,7 @@ impl AppCore {
         journal::init(&db_path)?;
         daily_review::init(&db_path)?;
         ai_review::init(&db_path)?;
+        ai_chat::init(&db_path)?;
 
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
@@ -151,6 +153,22 @@ impl AppCore {
             ("DELETE", "/mobile/ai/config") => {
                 Ok(MobileApiResponse::ok(ai_review::clear_config(&self.db_path)?))
             }
+            ("GET", "/mobile/ai/chat") => {
+                Ok(MobileApiResponse::ok(ai_chat::history(&self.db_path)?))
+            }
+            ("DELETE", "/mobile/ai/chat") => {
+                Ok(MobileApiResponse::ok(ai_chat::clear(&self.db_path)?))
+            }
+            ("POST", "/mobile/ai/chat") => match ai_chat::send(&self.client, &self.db_path, &request.body).await {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(ai_chat::ChatError::BadRequest(message)) => {
+                    Ok(MobileApiResponse::error(400, "ai_chat", message))
+                }
+                Err(ai_chat::ChatError::Upstream(message)) => {
+                    Ok(MobileApiResponse::error(502, "ai_chat_upstream", message))
+                }
+                Err(ai_chat::ChatError::Internal(error)) => Err(error),
+            },
             ("POST", "/mobile/ai/review/preview") => match ai_review::preview(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "ai_preview", error.to_string())),
