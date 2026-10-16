@@ -35,6 +35,7 @@ pub fn list(db_path: &Path, path: &str) -> Result<Value> {
     let rows = stmt.query_map(params![from.format("%Y-%m-%d").to_string(), to.format("%Y-%m-%d").to_string()], |row| {
         let date: String = row.get(1)?;
         let status: String = row.get(6)?;
+        let overdue = date < today_text && status != "done";
         Ok(json!({
             "id": row.get::<_, i64>(0)?,
             "date": date,
@@ -46,7 +47,7 @@ pub fn list(db_path: &Path, path: &str) -> Result<Value> {
             "source": row.get::<_, String>(7)?,
             "created_at": row.get::<_, String>(8)?,
             "updated_at": row.get::<_, String>(9)?,
-            "overdue": date < today_text && status != "done",
+            "overdue": overdue,
         }))
     })?;
     let items = rows.collect::<rusqlite::Result<Vec<_>>>()?;
