@@ -123,20 +123,20 @@ pub fn migrate_legacy<R: Runtime>(app: &AppHandle<R>, core: &AppCore) -> Result<
         });
 
         if !usable_for_legacy_provider {
-            // Overwrite an absent/corrupt/different-provider record with the credential that
-            // belongs to the SQLite provider being migrated. Only scrub SQLite after the
-            // Keystore round-trip proves the new record can be read back and scoped correctly.
+            // Absent, corrupt or differently-scoped secure data is replaced with the
+            // credential that belongs to the SQLite provider being migrated.
             save(app, &base_url, &api_key)?;
+            let migrated = load(app)?
+                .filter(|credential| {
+                    normalize_scope(&credential.base_url) == legacy_scope
+                        && credential.api_key.trim() == api_key.trim()
+                })
+                .ok_or_else(|| "Android Keystore 凭据迁移校验失败，旧版 Key 已保留".to_string())?;
+            let _ = migrated;
         }
 
-        let migrated = load(app)?
-            .filter(|credential| {
-                normalize_scope(&credential.base_url) == legacy_scope
-                    && credential.api_key.trim() == api_key.trim()
-            })
-            .ok_or_else(|| "Android Keystore 凭据迁移校验失败，旧版 Key 已保留".to_string())?;
-        let _ = migrated;
-
+        // If a valid same-provider Keystore key already exists, it is newer authoritative
+        // state. In both cases SQLite is scrubbed only after secure data is known usable.
         core.clear_legacy_ai_key()
             .map_err(|error| format!("擦除旧版 SQLite API Key 失败: {error}"))?;
     }
