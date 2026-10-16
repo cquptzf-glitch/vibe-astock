@@ -2,6 +2,7 @@ mod ai_chat;
 mod ai_config;
 mod ai_review;
 mod backup;
+mod backtest;
 mod calendar;
 mod daily_review;
 mod data_summary;
@@ -293,6 +294,10 @@ impl AppCore {
             ("GET", "/mobile/monitor") => match monitor::snapshot(&self.client, &self.db_path).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(502, "monitor", error.to_string())),
+            }
+            ("POST", "/mobile/backtest") => match backtest::run(&self.client, &request.body).await {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "backtest", error.to_string())),
             }
             ("GET", "/mobile/shortline/limit-up") => Ok(MobileApiResponse::ok(
                 shortline::limit_up_pool(&self.client, &request.path).await?,
