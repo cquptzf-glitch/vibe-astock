@@ -122,7 +122,7 @@ async fn fetch_batch(client: &Client, symbols: &[crate::symbol::SymbolKey]) -> R
     }
     let query = symbols.iter().map(|key| key.tencent.as_str()).collect::<Vec<_>>().join(",");
     let response = client
-        .get("https://qt.gtimg.cn/q")
+        .get("https://qt.gtimg.cn")
         .query(&[("q", query.as_str())])
         .header("Referer", "https://gu.qq.com/")
         .send()
