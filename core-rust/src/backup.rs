@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 3;
+const SCHEMA_VERSION: u32 = 4;
 const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
@@ -40,6 +40,8 @@ struct BackupData {
     documents: Vec<DocumentRow>,
     #[serde(default)]
     calendar_events: Vec<CalendarEventRow>,
+    #[serde(default)]
+    reminders: Vec<ReminderRow>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,6 +126,21 @@ struct CalendarEventRow {
     updated_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ReminderRow {
+    id: i64,
+    kind: String,
+    symbol: Option<String>,
+    name: String,
+    threshold: Option<f64>,
+    tolerance_pct: f64,
+    enabled: bool,
+    cooldown_minutes: i64,
+    review_hour: Option<i64>,
+    created_at: String,
+    updated_at: String,
+}
+
 fn open(db_path: &Path) -> Result<Connection> {
     Connection::open(db_path).context("open mobile sqlite for backup")
 }
@@ -151,6 +168,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             ai_messages: read_ai_messages(&conn)?,
             documents: read_documents(&conn)?,
             calendar_events: read_calendar_events(&conn)?,
+            reminders: read_reminders(&conn)?,
         },
     };
     validate_envelope(&backup)?;
@@ -185,10 +203,11 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM mobile_ai_messages", [])?;
     tx.execute("DELETE FROM mobile_documents", [])?;
     tx.execute("DELETE FROM mobile_calendar_events", [])?;
+    tx.execute("DELETE FROM mobile_reminders", [])?;
     tx.execute(
         "DELETE FROM sqlite_sequence WHERE name IN (
             'journal_entries', 'journal_fills', 'mobile_ai_messages',
-            'mobile_documents', 'mobile_calendar_events'
+            'mobile_documents', 'mobile_calendar_events', 'mobile_reminders'
         )",
         [],
     )?;
@@ -311,6 +330,42 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
         )?;
     }
 
+    for row in &backup.data.reminders {
+        let (symbol, quote_key) = if row.kind == "daily_review" {
+            (None, None)
+        } else {
+            let raw_symbol = row
+                .symbol
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| anyhow!("备份中的股票提醒缺少 symbol: {}", row.id))?;
+            let key = normalize_stock_symbol(raw_symbol)
+                .map_err(|error| anyhow!("备份中的提醒代码无效 {raw_symbol}: {error}"))?;
+            (Some(key.digits), Some(key.tencent))
+        };
+        tx.execute(
+            "INSERT INTO mobile_reminders(
+                id, kind, symbol, name, threshold, tolerance_pct, enabled,
+                cooldown_minutes, review_hour, quote_key, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                row.id,
+                &row.kind,
+                symbol,
+                &row.name,
+                row.threshold,
+                row.tolerance_pct,
+                if row.enabled { 1_i64 } else { 0_i64 },
+                row.cooldown_minutes,
+                row.review_hour,
+                quote_key,
+                &row.created_at,
+                &row.updated_at,
+            ],
+        )?;
+    }
+
     tx.commit().context("commit backup restore")?;
 
     Ok(json!({
@@ -363,6 +418,7 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         || backup.data.ai_messages.len() > 100_000
         || backup.data.documents.len() > 100_000
         || backup.data.calendar_events.len() > 100_000
+        || backup.data.reminders.len() > 10_000
     {
         return Err(anyhow!("备份记录数量超过安全上限"));
     }
@@ -482,6 +538,49 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         normalize_optional_symbol(row.symbol.as_deref(), "日历关联代码")?;
     }
 
+    let mut reminder_ids = HashSet::new();
+    for row in &backup.data.reminders {
+        if row.id <= 0 || !reminder_ids.insert(row.id) {
+            return Err(anyhow!("提醒规则包含无效或重复 ID: {}", row.id));
+        }
+        if !matches!(
+            row.kind.as_str(),
+            "price_above" | "price_below" | "stop_near" | "target_near" | "daily_review"
+        ) {
+            return Err(anyhow!("提醒规则 kind 无效: {}", row.kind));
+        }
+        ensure_text(&row.name, 300, "提醒名称")?;
+        if !row.tolerance_pct.is_finite() || !(0.05..=20.0).contains(&row.tolerance_pct) {
+            return Err(anyhow!("提醒 tolerance_pct 无效: {}", row.id));
+        }
+        if !(15..=10_080).contains(&row.cooldown_minutes) {
+            return Err(anyhow!("提醒 cooldown_minutes 无效: {}", row.id));
+        }
+        if row.kind == "daily_review" {
+            if row.symbol.is_some() || row.threshold.is_some() {
+                return Err(anyhow!("收盘复盘提醒不能包含股票代码或价格: {}", row.id));
+            }
+            if !row.review_hour.is_some_and(|hour| (0..=23).contains(&hour)) {
+                return Err(anyhow!("收盘复盘提醒 review_hour 无效: {}", row.id));
+            }
+        } else {
+            let symbol = row
+                .symbol
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| anyhow!("股票提醒缺少代码: {}", row.id))?;
+            normalize_stock_symbol(symbol)
+                .map_err(|error| anyhow!("提醒代码无效 {symbol}: {error}"))?;
+            if !row.threshold.is_some_and(|value| value.is_finite() && value > 0.0) {
+                return Err(anyhow!("股票提醒 threshold 无效: {}", row.id));
+            }
+            if row.review_hour.is_some() {
+                return Err(anyhow!("股票提醒不能包含 review_hour: {}", row.id));
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -524,13 +623,15 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "daily_reviews": backup.data.daily_reviews.len(),
             "ai_messages": backup.data.ai_messages.len(),
             "documents": backup.data.documents.len(),
-            "calendar_events": backup.data.calendar_events.len()
+            "calendar_events": backup.data.calendar_events.len(),
+            "reminders": backup.data.reminders.len()
         },
         "compatibility": {
             "current_schema_version": SCHEMA_VERSION,
             "legacy_backup": backup.schema_version < SCHEMA_VERSION,
             "legacy_missing_documents_are_empty": backup.schema_version == 1,
-            "legacy_missing_calendar_events_are_empty": backup.schema_version <= 2
+            "legacy_missing_calendar_events_are_empty": backup.schema_version <= 2,
+            "legacy_missing_reminders_are_empty": backup.schema_version <= 3
         },
         "security": {
             "credentials_included": false,
@@ -689,6 +790,32 @@ fn read_calendar_events(conn: &Connection) -> Result<Vec<CalendarEventRow>> {
     Ok(rows)
 }
 
+fn read_reminders(conn: &Connection) -> Result<Vec<ReminderRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, kind, symbol, name, threshold, tolerance_pct, enabled,
+                cooldown_minutes, review_hour, created_at, updated_at
+         FROM mobile_reminders ORDER BY id",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(ReminderRow {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                symbol: row.get(2)?,
+                name: row.get(3)?,
+                threshold: row.get(4)?,
+                tolerance_pct: row.get(5)?,
+                enabled: row.get::<_, i64>(6)? != 0,
+                cooldown_minutes: row.get(7)?,
+                review_hour: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -737,16 +864,29 @@ mod tests {
         )
         .unwrap();
         drop(conn);
+        crate::reminders::save(
+            &path,
+            &json!({
+                "kind": "price_below",
+                "symbol": "600519",
+                "name": "茅台止损观察",
+                "threshold": 1500.0,
+                "tolerance_pct": 1.0,
+                "cooldown_minutes": 60
+            }),
+        )
+        .unwrap();
 
         let backup = export(&path).unwrap();
         let text = serde_json::to_string(&backup).unwrap();
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
-        assert_eq!(backup["schema_version"], 3);
+        assert_eq!(backup["schema_version"], 4);
         assert_eq!(backup["data"]["watchlist"][0]["symbol"], "600519");
         assert_eq!(backup["data"]["documents"][0]["title"], "茅台跟踪");
         assert_eq!(backup["data"]["calendar_events"][0]["title"], "验证茅台假设");
+        assert_eq!(backup["data"]["reminders"][0]["name"], "茅台止损观察");
         let _ = std::fs::remove_file(path);
     }
 
@@ -778,6 +918,18 @@ mod tests {
         )
         .unwrap();
         drop(conn);
+        crate::reminders::save(
+            &source,
+            &json!({
+                "kind": "price_above",
+                "symbol": "000001",
+                "name": "平安突破",
+                "threshold": 15.0,
+                "enabled": true,
+                "cooldown_minutes": 30
+            }),
+        )
+        .unwrap();
         let backup = export(&source).unwrap();
 
         let target = temp_db("target");
@@ -797,6 +949,11 @@ mod tests {
         crate::calendar::save(
             &target,
             &json!({"date": "2026-10-30", "kind": "reminder", "title": "旧事件"}),
+        )
+        .unwrap();
+        crate::reminders::save(
+            &target,
+            &json!({"kind": "daily_review", "name": "旧提醒", "review_hour": 16}),
         )
         .unwrap();
 
@@ -827,6 +984,10 @@ mod tests {
         .unwrap();
         assert_eq!(calendar["count"], 1);
         assert_eq!(calendar["items"][0]["title"], "公司事件");
+        let reminders = crate::reminders::list(&target).unwrap();
+        assert_eq!(reminders["count"], 1);
+        assert_eq!(reminders["items"][0]["name"], "平安突破");
+        assert_eq!(reminders["items"][0]["quote_key"], "sz000001");
 
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(target);
@@ -842,26 +1003,46 @@ mod tests {
         let data = legacy["data"].as_object_mut().unwrap();
         data.remove("documents");
         data.remove("calendar_events");
+        data.remove("reminders");
         let preview = validate(&legacy).unwrap();
         assert_eq!(preview["valid"], true);
         assert_eq!(preview["compatibility"]["legacy_backup"], true);
         assert_eq!(preview["counts"]["documents"], 0);
         assert_eq!(preview["counts"]["calendar_events"], 0);
+        assert_eq!(preview["counts"]["reminders"], 0);
         let _ = std::fs::remove_file(path);
     }
 
     #[test]
-    fn accepts_legacy_v2_backup_without_calendar_events() {
+    fn accepts_legacy_v2_backup_without_calendar_or_reminders() {
         let path = temp_db("legacy-v2");
         init_all(&path);
         let current = export(&path).unwrap();
         let mut legacy = current;
         legacy["schema_version"] = json!(2);
-        legacy["data"].as_object_mut().unwrap().remove("calendar_events");
+        let data = legacy["data"].as_object_mut().unwrap();
+        data.remove("calendar_events");
+        data.remove("reminders");
         let preview = validate(&legacy).unwrap();
         assert_eq!(preview["valid"], true);
         assert_eq!(preview["counts"]["calendar_events"], 0);
+        assert_eq!(preview["counts"]["reminders"], 0);
         assert_eq!(preview["compatibility"]["legacy_missing_calendar_events_are_empty"], true);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn accepts_legacy_v3_backup_without_reminders() {
+        let path = temp_db("legacy-v3");
+        init_all(&path);
+        let current = export(&path).unwrap();
+        let mut legacy = current;
+        legacy["schema_version"] = json!(3);
+        legacy["data"].as_object_mut().unwrap().remove("reminders");
+        let preview = validate(&legacy).unwrap();
+        assert_eq!(preview["valid"], true);
+        assert_eq!(preview["counts"]["reminders"], 0);
+        assert_eq!(preview["compatibility"]["legacy_missing_reminders_are_empty"], true);
         let _ = std::fs::remove_file(path);
     }
 }
