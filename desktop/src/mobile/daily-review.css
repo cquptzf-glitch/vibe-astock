@@ -1,0 +1,266 @@
+.daily-review-panel {
+  padding: 18px 16px 24px;
+}
+
+.daily-review-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.daily-review-title > div > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #e47a58;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.daily-review-title h1 {
+  margin: 5px 0 0;
+  font-size: 20px;
+}
+
+.daily-review-title p {
+  margin: 5px 0 0;
+  color: #777f8a;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.daily-review-title > button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #2b323b;
+  border-radius: 12px;
+  color: #89929e;
+  background: #12161b;
+}
+
+.daily-review-error,
+.daily-review-message {
+  margin-top: 12px;
+  padding: 11px 13px;
+  border: 1px solid #2b3138;
+  border-radius: 12px;
+  color: #9099a5;
+  background: #12161b;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.daily-review-error {
+  color: #ffb0a2;
+  border-color: rgba(228, 87, 46, .3);
+}
+
+.daily-review-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.daily-review-cards > div {
+  padding: 13px;
+  border: 1px solid #252b33;
+  border-radius: 14px;
+  background: #12161b;
+}
+
+.daily-review-cards svg {
+  color: #e46a43;
+}
+
+.daily-review-cards span,
+.daily-review-cards strong,
+.daily-review-cards small {
+  display: block;
+}
+
+.daily-review-cards span {
+  margin-top: 8px;
+  color: #737c87;
+  font-size: 10px;
+}
+
+.daily-review-cards strong {
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.daily-review-cards small {
+  margin-top: 3px;
+  color: #626b77;
+  font-size: 10px;
+}
+
+.daily-review-block {
+  margin-top: 13px;
+  overflow: hidden;
+  border: 1px solid #252b33;
+  border-radius: 15px;
+  background: #12161b;
+}
+
+.daily-review-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #232930;
+  color: #cbd1d7;
+  font-size: 12px;
+}
+
+.daily-review-heading svg {
+  color: #e46a43;
+}
+
+.daily-review-heading span {
+  margin-left: auto;
+  color: #6e7782;
+  font-size: 10px;
+}
+
+.daily-review-empty {
+  padding: 18px 14px;
+  color: #737c87;
+  font-size: 11px;
+  text-align: center;
+}
+
+.daily-review-leaders button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  border-bottom: 1px solid #20262d;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.daily-review-leaders button:last-child {
+  border-bottom: 0;
+}
+
+.daily-review-leaders strong,
+.daily-review-leaders span {
+  display: block;
+}
+
+.daily-review-leaders strong {
+  font-size: 13px;
+}
+
+.daily-review-leaders span {
+  margin-top: 3px;
+  color: #68717c;
+  font-size: 10px;
+}
+
+.daily-review-leaders b {
+  color: #e77b58;
+  font-size: 12px;
+}
+
+.daily-review-rotation > div {
+  padding: 11px 14px;
+  border-bottom: 1px solid #20262d;
+}
+
+.daily-review-rotation > div:last-child {
+  border-bottom: 0;
+}
+
+.daily-review-rotation span {
+  color: #8f98a3;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.daily-review-rotation p {
+  margin: 5px 0 0;
+  color: #c3c9d0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.daily-review-block.editor {
+  padding-bottom: 13px;
+}
+
+.daily-review-block.editor label {
+  display: block;
+  padding: 11px 14px 0;
+}
+
+.daily-review-block.editor label > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #858e99;
+  font-size: 11px;
+}
+
+.daily-review-block.editor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 94px;
+  resize: vertical;
+  padding: 10px 11px;
+  border: 1px solid #2b323b;
+  border-radius: 11px;
+  outline: none;
+  color: #d8dce1;
+  background: #0e1216;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.daily-review-block.editor textarea:focus {
+  border-color: rgba(228, 106, 67, .65);
+}
+
+.daily-review-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  margin: 12px 14px 0;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  background: #d85f39;
+  font-weight: 650;
+  font-size: 12px;
+}
+
+.daily-review-save:disabled {
+  opacity: .45;
+}
+
+.daily-review-note {
+  margin: 12px 2px 0;
+  color: #616a75;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+@media (min-width: 680px) {
+  .daily-review-panel {
+    padding-right: 22px;
+    padding-left: 22px;
+  }
+}
