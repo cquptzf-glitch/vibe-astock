@@ -220,6 +220,8 @@ fn quote_from_envelope(value: &Value) -> Option<QuoteRow> {
         price: number_for("price"),
         change_pct: number_for("change_pct"),
         amount_yuan,
+        limit_up: number_for("limit_up"),
+        limit_down: number_for("limit_down"),
         quote_date,
     })
 }
