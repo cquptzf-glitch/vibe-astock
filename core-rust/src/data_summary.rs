@@ -20,7 +20,7 @@ fn sidecar(db_path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(format!("{}{}", db_path.display(), suffix))
 }
 
-pub fn summary(db_path: &Path) -> Result<Value> {
+pub fn summary(db_path: &Path, ai_key_present: bool) -> Result<Value> {
     let conn = open(db_path)?;
     let watchlist = scalar_i64(&conn, "SELECT COUNT(*) FROM watchlist")?;
     let journal_entries = scalar_i64(&conn, "SELECT COUNT(*) FROM journal_entries")?;
@@ -42,11 +42,6 @@ pub fn summary(db_path: &Path) -> Result<Value> {
         &conn,
         "SELECT COUNT(*) FROM mobile_ai_config
          WHERE id = 1 AND TRIM(base_url) <> '' AND TRIM(model) <> ''",
-    )? > 0;
-    let ai_key_present = scalar_i64(
-        &conn,
-        "SELECT COUNT(*) FROM mobile_ai_config
-         WHERE id = 1 AND LENGTH(TRIM(api_key)) > 0",
     )? > 0;
 
     let db_bytes = file_size(db_path);
@@ -74,7 +69,7 @@ pub fn summary(db_path: &Path) -> Result<Value> {
         "ai": {
             "configured": ai_configured,
             "key_present": ai_key_present,
-            "storage": "sqlite_app_private",
+            "storage": "android_keystore_aes_256_gcm",
             "key_echoed": false
         }
     }))
