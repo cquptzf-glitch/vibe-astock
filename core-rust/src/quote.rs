@@ -20,14 +20,16 @@ impl From<anyhow::Error> for FetchError {
 
 pub async fn fetch_endpoint(client: &Client, body: &Value) -> std::result::Result<Value, FetchError> {
     let endpoint = body.get("endpoint").and_then(Value::as_str).unwrap_or("");
-    let symbol = body.get("symbol").and_then(Value::as_str).unwrap_or("");
-    if symbol.trim().is_empty() {
+    let raw_symbol = body.get("symbol").and_then(Value::as_str).unwrap_or("");
+    if raw_symbol.trim().is_empty() {
         return Err(FetchError::BadRequest("fetch.symbol 不能为空".into()));
     }
+    let symbol = normalize_stock_symbol(raw_symbol)
+        .map_err(|error| FetchError::BadRequest(error.to_string()))?;
 
     let started = Instant::now();
     let envelope = match endpoint {
-        "tx_quote" | "quote" | "fetch_quote" => fetch_quote(client, symbol).await?,
+        "tx_quote" | "quote" | "fetch_quote" => fetch_quote(client, &symbol).await?,
         "em_kline" | "kline" | "fetch_kline" => {
             let bars = body
                 .get("args")
@@ -35,7 +37,7 @@ pub async fn fetch_endpoint(client: &Client, body: &Value) -> std::result::Resul
                 .and_then(Value::as_u64)
                 .unwrap_or(250)
                 .clamp(20, 1000) as usize;
-            fetch_kline(client, symbol, bars).await?
+            fetch_kline(client, &symbol, bars).await?
         }
         _ => return Err(FetchError::NotMigrated(endpoint.to_string())),
     };
@@ -48,7 +50,7 @@ pub async fn fetch_endpoint(client: &Client, body: &Value) -> std::result::Resul
     }))
 }
 
-async fn fetch_quote(client: &Client, symbol: &str) -> Result<Value> {
+async fn fetch_quote(client: &Client, symbol: &SymbolKey) -> Result<Value> {
     match fetch_tencent_quote(client, symbol).await {
         Ok(value) => Ok(value),
         Err(primary_error) => {
@@ -75,8 +77,7 @@ async fn fetch_quote(client: &Client, symbol: &str) -> Result<Value> {
     }
 }
 
-async fn fetch_tencent_quote(client: &Client, raw_symbol: &str) -> Result<Value> {
-    let symbol = normalize_stock_symbol(raw_symbol)?;
+async fn fetch_tencent_quote(client: &Client, symbol: &SymbolKey) -> Result<Value> {
     let url = format!("https://qt.gtimg.cn/q={}", symbol.tencent);
     let bytes = client.get(url).send().await?.error_for_status()?.bytes().await?;
     let (decoded, _, _) = GBK.decode(&bytes);
@@ -113,7 +114,7 @@ async fn fetch_tencent_quote(client: &Client, raw_symbol: &str) -> Result<Value>
         ("amount", amount, "万元", "not_applicable"),
     ];
     let (evidence, missing) = evidence_set(
-        &symbol,
+        symbol,
         &now,
         &period,
         "tencent",
@@ -150,8 +151,7 @@ async fn fetch_tencent_quote(client: &Client, raw_symbol: &str) -> Result<Value>
     }))
 }
 
-async fn fetch_eastmoney_quote(client: &Client, raw_symbol: &str) -> Result<Value> {
-    let symbol = normalize_stock_symbol(raw_symbol)?;
+async fn fetch_eastmoney_quote(client: &Client, symbol: &SymbolKey) -> Result<Value> {
     let response = client
         .get("https://push2.eastmoney.com/api/qt/stock/get")
         .query(&[
@@ -194,7 +194,7 @@ async fn fetch_eastmoney_quote(client: &Client, raw_symbol: &str) -> Result<Valu
         ("amount", value_number(data.get("f48")), "元", "not_applicable"),
     ];
     let (evidence, missing) = evidence_set(
-        &symbol,
+        symbol,
         &now,
         &period,
         "eastmoney",
@@ -222,8 +222,7 @@ async fn fetch_eastmoney_quote(client: &Client, raw_symbol: &str) -> Result<Valu
     }))
 }
 
-async fn fetch_kline(client: &Client, raw_symbol: &str, bars: usize) -> Result<Value> {
-    let symbol = normalize_stock_symbol(raw_symbol)?;
+async fn fetch_kline(client: &Client, symbol: &SymbolKey, bars: usize) -> Result<Value> {
     let bars_string = bars.to_string();
     let response = client
         .get("https://push2his.eastmoney.com/api/qt/stock/kline/get")
@@ -279,7 +278,7 @@ async fn fetch_kline(client: &Client, raw_symbol: &str, bars: usize) -> Result<V
         .to_string();
     let evidence = vec![
         evidence(
-            &symbol,
+            symbol,
             &now,
             &period,
             "eastmoney",
@@ -290,7 +289,7 @@ async fn fetch_kline(client: &Client, raw_symbol: &str, bars: usize) -> Result<V
             "not_applicable",
         ),
         evidence(
-            &symbol,
+            symbol,
             &now,
             &period,
             "eastmoney",
@@ -301,7 +300,7 @@ async fn fetch_kline(client: &Client, raw_symbol: &str, bars: usize) -> Result<V
             "qfq",
         ),
         evidence(
-            &symbol,
+            symbol,
             &now,
             &format!("{}..{}", start, period),
             "eastmoney",
