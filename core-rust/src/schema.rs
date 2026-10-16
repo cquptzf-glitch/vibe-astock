@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 2;
+pub const CURRENT_SCHEMA_VERSION: i64 = 3;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -14,7 +14,7 @@ const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "mobile_ai_messages",
 ];
 
-const REQUIRED_TABLES: [&str; 7] = [
+const REQUIRED_V2_TABLES: [&str; 7] = [
     "watchlist",
     "journal_entries",
     "journal_fills",
@@ -22,6 +22,17 @@ const REQUIRED_TABLES: [&str; 7] = [
     "mobile_ai_config",
     "mobile_ai_messages",
     "mobile_documents",
+];
+
+const REQUIRED_TABLES: [&str; 8] = [
+    "watchlist",
+    "journal_entries",
+    "journal_fills",
+    "mobile_daily_reviews",
+    "mobile_ai_config",
+    "mobile_ai_messages",
+    "mobile_documents",
+    "mobile_calendar_events",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -40,8 +51,13 @@ pub fn migrate(db_path: &Path) -> Result<()> {
         0 => {
             verify_tables(&conn, &LEGACY_REQUIRED_TABLES)?;
             migrate_1_to_2(&conn)?;
+            migrate_2_to_3(&conn)?;
         }
-        1 => migrate_1_to_2(&conn)?,
+        1 => {
+            migrate_1_to_2(&conn)?;
+            migrate_2_to_3(&conn)?;
+        }
+        2 => migrate_2_to_3(&conn)?,
         CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
         other => {
             return Err(anyhow!(
@@ -83,8 +99,32 @@ fn migrate_1_to_2(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_mobile_documents_symbol
             ON mobile_documents(symbol) WHERE symbol IS NOT NULL;"
     )?;
+    verify_tables(conn, &REQUIRED_V2_TABLES)?;
+    conn.pragma_update(None, "user_version", 2)?;
+    Ok(())
+}
+
+fn migrate_2_to_3(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mobile_calendar_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('company', 'ledger', 'macro', 'reminder')),
+            title TEXT NOT NULL,
+            detail TEXT NOT NULL DEFAULT '',
+            symbol TEXT,
+            status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'done')),
+            source TEXT NOT NULL DEFAULT 'manual',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_mobile_calendar_date
+            ON mobile_calendar_events(date, status, id);
+        CREATE INDEX IF NOT EXISTS idx_mobile_calendar_symbol
+            ON mobile_calendar_events(symbol) WHERE symbol IS NOT NULL;"
+    )?;
     verify_tables(conn, &REQUIRED_TABLES)?;
-    conn.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)?;
+    conn.pragma_update(None, "user_version", 3)?;
     Ok(())
 }
 
@@ -157,18 +197,13 @@ mod tests {
             .query_row("SELECT id FROM watchlist", [], |row| row.get(0))
             .expect("sentinel preserved");
         assert_eq!(sentinel, 42);
-        let docs: i64 = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='mobile_documents')",
-            [],
-            |row| row.get(0),
-        ).expect("documents table");
-        assert_eq!(docs, 1);
+        assert!(missing_tables(&conn, &REQUIRED_TABLES).unwrap().is_empty());
         drop(conn);
         let _ = fs::remove_file(path);
     }
 
     #[test]
-    fn upgrades_schema_one_to_two() {
+    fn upgrades_schema_one_to_current() {
         let path = temp_db("schema-one");
         let conn = Connection::open(&path).expect("open temp db");
         create_legacy_tables(&conn);
@@ -177,7 +212,24 @@ mod tests {
 
         migrate(&path).expect("upgrade v1");
         let conn = Connection::open(&path).expect("reopen");
+        assert_eq!(user_version(&conn).unwrap(), CURRENT_SCHEMA_VERSION);
+        assert!(missing_tables(&conn, &REQUIRED_TABLES).unwrap().is_empty());
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn upgrades_schema_two_to_three() {
+        let path = temp_db("schema-two");
+        let conn = Connection::open(&path).unwrap();
+        create_legacy_tables(&conn);
+        migrate_1_to_2(&conn).unwrap();
         assert_eq!(user_version(&conn).unwrap(), 2);
+        drop(conn);
+
+        migrate(&path).unwrap();
+        let conn = Connection::open(&path).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 3);
         assert!(missing_tables(&conn, &REQUIRED_TABLES).unwrap().is_empty());
         drop(conn);
         let _ = fs::remove_file(path);
