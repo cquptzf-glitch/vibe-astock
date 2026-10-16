@@ -131,7 +131,7 @@ function isDirectSymbol(value: string): boolean {
 
 function Sparkline({ rows }: { rows: unknown[][] }) {
   const points = useMemo(() => {
-    const closes = rows
+    const closes = rows.slice(-60)
       .map((row) => Number(row[2]))
       .filter((value) => Number.isFinite(value));
     if (closes.length < 2) return "";
@@ -267,7 +267,7 @@ export function MobileApp() {
         try {
           const klineResult = await api<FetchResult>("/fetch", {
             method: "POST",
-            body: JSON.stringify({ endpoint: "kline", symbol, args: { bars: 60 }, refresh: true }),
+            body: JSON.stringify({ endpoint: "kline", symbol, args: { bars: 100 }, refresh: true }),
           });
           if (cancelled) return;
           const rows = klineResult.envelope.extra?.rows;

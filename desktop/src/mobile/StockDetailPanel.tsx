@@ -55,11 +55,11 @@ function average(values: number[]): number | null {
 }
 
 function tailAverage(bars: Bar[], count: number): number | null {
-  return average(bars.slice(-count).map((bar) => bar.close));
+  return bars.length < count ? null : average(bars.slice(-count).map((bar) => bar.close));
 }
 
 function changeFrom(bars: Bar[], sessions: number): number | null {
-  if (bars.length < 2) return null;
+  if (bars.length <= sessions) return null;
   const latest = bars[bars.length - 1]!.close;
   const index = Math.max(0, bars.length - 1 - sessions);
   const base = bars[index]?.close;
@@ -154,7 +154,7 @@ export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unkn
   }, [bars]);
 
   const amount = quote.evidence.find((item) => item.field === "amount")?.value;
-  const amountNumber = typeof amount === "number" ? amount : Number(amount);
+  const amountNumber = amount == null ? Number.NaN : typeof amount === "number" ? amount : Number(amount);
 
   if (!latest || !stats) return null;
   const trendPositive = stats.trend === "多头排列";
@@ -191,7 +191,7 @@ export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unkn
       <div className="stock-detail-head">
         <div>
           <span className="stock-detail-kicker"><BarChart3 size={14} /> 个股详情</span>
-          <h2>价格结构 · 近 60 日观察</h2>
+          <h2>价格结构 · 近 60 日</h2>
         </div>
         <div className="stock-detail-actions">
           <button className="stock-share-button" type="button" onClick={() => void shareSnapshot()} aria-label="分享个股行情">

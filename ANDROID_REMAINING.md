@@ -1,6 +1,6 @@
 # Android 未完成功能清单
 
-当前开发版本：0.1.17（紧凑界面、显式设置入口、白色/深色/跟随系统）。最近已发布版本为 [Android 0.1.16 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.16)；0.1.17 的 CI/截图与发布结果待验证后更新。每轮开发结束必须同步本文、ANDROID_HANDOFF.md 与 PARITY_MATRIX.md，并在回复中确认未完成清单、实际构建结果及发布版本；没有通过的检查不得写成通过。本文以当前代码为准，交接文档早期章节是历史快照。
+当前开发版本：0.1.18（窄屏个股继续收紧）。最近已发布 [Android 0.1.17 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.17)，54 项 Rust、430 项前端测试、18 张浏览器截图与交互、跨平台及 Android CI 通过；0.1.18 结果待验证后更新。每轮开发结束必须同步本文、ANDROID_HANDOFF.md 与 PARITY_MATRIX.md，并在回复中确认未完成清单、实际构建结果及发布版本；没有通过的检查不得写成通过。本文以当前代码为准，交接文档早期章节是历史快照。
 
 ## 尚未实现或需要较大移植的产品功能
 

@@ -109,3 +109,15 @@ test("行情概览显示六指数和成交额，部分涨跌数据不画虚假�
     assert.match(textOf(html), /指数5/);
   });
 });
+
+test("个股卡片完整交易日窗口不足时保留缺值，不把缺失成交额显示为零", async () => {
+  await withRenderer(async (r) => {
+    const { StockDetailPanel } = await r.load("/src/mobile/StockDetailPanel.tsx");
+    const rows = Array.from({ length: 5 }, (_, i) => [`2026-10-${10 + i}`, 10 + i, 11 + i, 12 + i, 9 + i, 100]);
+    const text = textOf(r.html(StockDetailPanel, { quote: { symbol: "600519", market: "SH", evidence: [{ field: "amount", value: null }], primary_source: "eastmoney" }, rows }));
+    assert.match(text, /近 5 日 —/);
+    assert.match(text, /近 60 日 —/);
+    assert.match(text, /MA20 —/);
+    assert.doesNotMatch(text, /当前行情成交额字段/);
+  });
+});

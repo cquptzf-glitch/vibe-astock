@@ -154,3 +154,25 @@ html[data-mobile-density="compact"] .mobile-app .mobile-stock-tabs { margin: 8px
   html[data-mobile-density="compact"] .mobile-app .mo-index-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .mobile-app *, .mobile-app *::before, .mobile-app *::after { animation: none !important; scroll-behavior: auto !important; } }
+
+/* Stock detail uses one-line tab bars and compact analytical grids. */
+.mobile-app .mobile-stock-tabs { display: flex; gap: 4px; padding: 4px; }
+.mobile-app .mobile-stock-tabs > button { flex: 1 1 0; min-width: 0; white-space: nowrap; padding: 6px 4px; font-size: 12px; }
+:root .mobile-app :is(.up, .positive) { color: var(--mobile-up); }
+:root .mobile-app :is(.down, .negative) { color: var(--mobile-down); }
+html[data-mobile-density="compact"] .mobile-app .stock-detail-card { box-shadow: none; }
+html[data-mobile-density="compact"] .mobile-app .stock-detail-head { gap: 7px; align-items: flex-start; flex-wrap: nowrap; }
+html[data-mobile-density="compact"] .mobile-app .stock-detail-head h2 { font-size: 16px; margin-top: 3px; }
+html[data-mobile-density="compact"] .mobile-app .stock-detail-returns,
+html[data-mobile-density="compact"] .mobile-app .stock-detail-grid { gap: 5px; margin-top: 8px; }
+html[data-mobile-density="compact"] .mobile-app .stock-detail-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html[data-mobile-density="compact"] .mobile-app .stock-detail-returns > div,
+html[data-mobile-density="compact"] .mobile-app .stock-detail-grid > div { padding: 7px 8px; border-radius: 7px; }
+html[data-mobile-density="compact"] .mobile-app .stock-candles { height: 124px; margin-top: 8px; }
+html[data-mobile-density="compact"] .mobile-app .stock-range-box { margin-top: 8px; padding: 8px; border-radius: 8px; }
+html[data-mobile-density="compact"] .mobile-app .stock-insights h2 { font-size: 16px; margin-bottom: 8px; }
+html[data-mobile-density="compact"] .mobile-app .stock-insights .discovery-results > p { margin: 8px 0; font-size: 12px; }
+html[data-mobile-density="compact"] .mobile-app .mobile-metrics > div:last-child:nth-child(3n + 1) { grid-column: 1 / -1; }
+@media (max-width: 359px) {
+  html[data-mobile-density="compact"] .mobile-app .mobile-metrics > div:last-child:nth-child(3n + 1) { grid-column: auto; }
+}

@@ -147,7 +147,7 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
       <div className="mobile-section-title" style={{ marginBottom: 10 }}>
         <div>
           <h1 style={{ fontSize: 18 }}>个股研究</h1>
-          <p>公司资料、财务、公告和机构预测由手机端 Rust Core 直接取数。</p>
+          <p>资料、财务、公告与机构预测，按需查看。</p>
         </div>
         <button
           type="button"

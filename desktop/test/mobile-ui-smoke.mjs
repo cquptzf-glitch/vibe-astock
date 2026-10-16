@@ -104,6 +104,11 @@ try {
       await page.getByRole("button", { name: "返回", exact: true }).click();
       await page.getByRole("button", { name: "贵州茅台", exact: false }).first().click();
       await page.getByText("量价与资金观察", { exact: true }).waitFor();
+      for (const tabs of await page.locator(".mobile-stock-tabs").all()) {
+        const tops = await tabs.locator("button").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top));
+        assert.ok(Math.max(...tops) - Math.min(...tops) < 2, "stock tabs must remain in one row");
+      }
+      assert.equal(await page.locator(".stock-detail-grid").evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length), 3);
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-stock.png"), fullPage: true });
       await context.close();
