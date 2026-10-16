@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Activity, RefreshCw, TrendingDown, TrendingUp } from "lucide-react";
 import "./overview.css";
+import { fmtYuan } from "./discoveryData";
+import { usePresentation } from "./presentation";
+import { useForegroundRefresh } from "./useForegroundRefresh";
 
 interface MarketIndex {
   code: string;
@@ -17,7 +20,7 @@ interface DistributionItem {
   count: number | null;
 }
 
-interface MarketOverviewData {
+export interface MarketOverviewData {
   status: "ok" | "partial";
   source: string;
   fetched_at: string;
@@ -89,12 +92,15 @@ export function MarketOverview() {
     void refresh();
   }, [refresh]);
 
-  const breadthTotal = useMemo(() => {
-    if (!data) return 0;
-    return (data.breadth.exchange.up ?? 0) + (data.breadth.exchange.down ?? 0) + (data.breadth.exchange.flat ?? 0);
-  }, [data]);
+  const { refreshSeconds } = usePresentation();
+  useForegroundRefresh(refresh, refreshSeconds);
+  return <MarketOverviewView data={data} loading={loading} error={error} onRefresh={() => void refresh()} />;
+}
 
-  const upRatio = breadthTotal > 0 ? ((data?.breadth.exchange.up ?? 0) / breadthTotal) * 100 : 50;
+export function MarketOverviewView({ data, loading, error, onRefresh }: { data: MarketOverviewData | null; loading: boolean; error: string; onRefresh: () => void }) {
+  const counts = data ? [data.breadth.exchange.up, data.breadth.exchange.down, data.breadth.exchange.flat] : [];
+  const breadthTotal = counts.length === 3 && counts.every((v) => v !== null && Number.isFinite(v)) ? counts.reduce<number>((sum, v) => sum + (v ?? 0), 0) : null;
+  const upRatio = breadthTotal !== null && breadthTotal > 0 && data?.breadth.exchange.up != null ? data.breadth.exchange.up / breadthTotal * 100 : null;
 
   return (
     <section className="mo-wrap">
@@ -102,9 +108,9 @@ export function MarketOverview() {
         <div>
           <div className="mo-eyebrow">市场概览</div>
           <h2>{data?.trading_date ?? "A 股"}</h2>
-          <p>{data?.stale ? "当前为最近交易日数据" : "实时市场快照"}</p>
+          <p>{data?.stale ? "最近交易日快照" : "市场快照"}{data?.fetched_at ? " · " + new Date(data.fetched_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : ""}</p>
         </div>
-        <button className="mo-refresh" onClick={() => void refresh()} disabled={loading} aria-label="刷新市场概览">
+        <button className="mo-refresh" onClick={onRefresh} disabled={loading} aria-label="刷新市场概览">
           <RefreshCw size={17} className={loading ? "spin" : ""} />
         </button>
       </div>
@@ -113,7 +119,7 @@ export function MarketOverview() {
 
       <div className="mo-index-grid">
         {(data?.indexes ?? []).map((item) => <IndexCard key={item.code} item={item} />)}
-        {!data && !error && Array.from({ length: 4 }).map((_, index) => <div className="mo-index-card skeleton" key={index} />)}
+        {!data && !error && Array.from({ length: 6 }).map((_, index) => <div className="mo-index-card skeleton" key={index} />)}
       </div>
 
       {data && (
@@ -123,12 +129,13 @@ export function MarketOverview() {
               <div className="mo-breadth-side up"><TrendingUp size={15} />上涨 <strong>{num(data.breadth.exchange.up, 0)}</strong></div>
               <div className="mo-breadth-side down"><TrendingDown size={15} />下跌 <strong>{num(data.breadth.exchange.down, 0)}</strong></div>
             </div>
-            <div className="mo-breadth-bar" aria-label="上涨下跌比例">
-              <span style={{ width: `${Math.max(2, Math.min(98, upRatio))}%` }} />
+            <div className={upRatio === null ? "mo-breadth-bar unavailable" : "mo-breadth-bar"} aria-label={upRatio === null ? "涨跌比例缺少完整数据" : "上涨下跌比例"}>
+              {upRatio !== null && <span style={{ width: `${Math.max(0, Math.min(100, upRatio))}%` }} />}
             </div>
             <div className="mo-breadth-foot">
               <span>平盘 {num(data.breadth.exchange.flat, 0)}</span>
-              <span>样本 {breadthTotal.toLocaleString("zh-CN")} 家</span>
+              <span>样本 {breadthTotal === null ? "—" : breadthTotal.toLocaleString("zh-CN")} 家</span>
+              <span className="mo-total-amount">沪深北成交 {fmtYuan(data.breadth.exchange.amount_yuan)} 元</span>
             </div>
           </div>
 

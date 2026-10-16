@@ -12,13 +12,16 @@ import {
   Search,
   Star,
   Trash2,
-  Wifi,
 } from "lucide-react";
 
 import { BoardDetailPanel } from "./BoardDetailPanel";
 import { DiscoveryWorkspace, type DiscoveryView } from "./DiscoveryWorkspace";
 import { JournalWorkspace, type JournalView } from "./JournalWorkspace";
 import { MarketOverview } from "./MarketOverview";
+import { MobileHeader, HomeShortcuts } from "./MobileHeader";
+import { SettingsPanel } from "./SettingsPanel";
+import { WatchQuotesPanel } from "./WatchQuotesPanel";
+import { usePresentation } from "./presentation";
 import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
@@ -26,6 +29,7 @@ import { StockDetailPanel } from "./StockDetailPanel";
 import { StockInsightsPanel } from "./StockInsightsPanel";
 import { useMobileNavigation } from "./useMobileNavigation";
 import "./mobile.css";
+import "./mobile-presentation.css";
 
 type Tab = "market" | "shortline" | "rotation" | "watchlist" | "journal";
 
@@ -153,6 +157,7 @@ function Sparkline({ rows }: { rows: unknown[][] }) {
 
 export function MobileApp() {
   const { route, navigate, back } = useMobileNavigation();
+  const presentation = usePresentation();
   const page = route.page;
   const isStock = page === "stock";
   const discoveryPages: DiscoveryView[] = ["rotation", "sector", "candidate", "calendar", "backtest", "news", "signals"];
@@ -345,16 +350,9 @@ export function MobileApp() {
 
   return (
     <div className="mobile-app">
-      <header className="mobile-header">
-        <div>
-          <div className="mobile-brand">Vibe AStock</div>
-          <div className="mobile-subtitle">Android · Rust Core · v{appVersion}</div>
-        </div>
-        <div className={`mobile-status ${health?.ok ? "ok" : ""}`}>
-          <Wifi size={14} />
-          {health?.ok ? "本地核心已就绪" : "正在连接"}
-        </div>
-      </header>
+      <MobileHeader version={appVersion} ready={Boolean(health?.ok)} theme={presentation.resolvedTheme}
+        onToggleTheme={() => presentation.update({ theme: presentation.resolvedTheme === "dark" ? "light" : "dark" })}
+        onOpenSettings={() => navigate({ page: "settings" })} />
 
       <main className="mobile-main">
         {page !== "market" && (
@@ -368,7 +366,7 @@ export function MobileApp() {
           <section className="mobile-section">
             {!isStock && <MarketOverview />}
 
-            <div className="mobile-section-title" style={{ marginTop: 22 }}>
+            <div className="mobile-section-title mobile-stock-search-heading">
               <div>
                 <h1>个股行情</h1>
                 <p>支持沪深北代码、名称和拼音搜索；腾讯实时行情失败时自动降级东财。</p>
@@ -412,16 +410,10 @@ export function MobileApp() {
               </div>
             )}
 
-            {!isStock && !quote && !loading && (
-              <div className="mobile-hero-card">
-                <ChartNoAxesCombined size={34} />
-                <h1>选一只股票继续</h1>
-                <p>行情、搜索与 K 线都由手机内 Rust Core 直接访问公开数据源，不依赖电脑端服务。</p>
-                <div className="mobile-chips">
-                  <span>沪深北 A 股</span><span>名称/拼音搜索</span><span>腾讯行情</span><span>东财降级</span><span>前复权 K 线</span><span>SQLite 自选</span>
-                </div>
-              </div>
-            )}
+            {!isStock && <>
+              <HomeShortcuts onNavigate={(page) => navigate({ page })} />
+              <WatchQuotesPanel watchlist={watchlist} limit={6} onOpenSymbol={openFromList} onOpenAll={() => navigate({ page: "watch" })} />
+            </>}
 
             {isStock && loading && <div className="mobile-empty" role="status">正在加载 {route.symbol} 行情…</div>}
             {isStock && !loading && error && (
@@ -494,10 +486,14 @@ export function MobileApp() {
             </div>
 
             {stockView === "watch" && (
+              <WatchQuotesPanel watchlist={watchlist} onOpenSymbol={openFromList} />
+            )}
+
+            {stockView === "watch" && (
               watchlist.length === 0 ? (
                 <div className="mobile-empty">查询股票后点右上角星标，即可加入自选。</div>
               ) : (
-                <div className="mobile-watch-list">
+                <details className="watch-manage"><summary>管理自选 · 删除或打开股票</summary><div className="mobile-watch-list">
                   {watchlist.map((item) => (
                     <div className="mobile-watch-row" key={item.symbol}>
                       <button className="mobile-watch-open" onClick={() => openFromList(item.symbol)}>
@@ -509,7 +505,7 @@ export function MobileApp() {
                       </button>
                     </div>
                   ))}
-                </div>
+                </div></details>
               )
             )}
 
@@ -517,7 +513,8 @@ export function MobileApp() {
           </section>
         )}
 
-        {tab === "journal" && <JournalWorkspace onOpenSymbol={openFromList} view={journalPages.includes(page as JournalView) ? page as JournalView : "records"} onViewChange={(view) => navigate({ page: view })} />}
+        {page === "settings" && <SettingsPanel onOpenAi={() => navigate({ page: "ai" })} onOpenReminders={() => navigate({ page: "reminders" })} />}
+        {tab === "journal" && page !== "settings" && <JournalWorkspace onOpenSymbol={openFromList} view={journalPages.includes(page as JournalView) ? page as JournalView : "records"} onViewChange={(view) => navigate({ page: view })} />}
       </main>
 
       <nav className="mobile-nav" style={{ gridTemplateColumns: "repeat(5, 1fr)" }} aria-label="主导航">

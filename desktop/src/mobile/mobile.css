@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
 }
 
 html,
@@ -7,7 +7,7 @@ body,
 #root {
   min-height: 100%;
   margin: 0;
-  background: #0b0d10;
+  background: var(--mobile-canvas);
 }
 
 body {
@@ -21,10 +21,9 @@ input {
 
 .mobile-app {
   min-height: 100dvh;
-  color: #f5f7fa;
-  background:
-    radial-gradient(circle at top right, rgba(228, 87, 46, 0.14), transparent 32%),
-    #0b0d10;
+  color: var(--mobile-text);
+  background: radial-gradient(circle at top right, rgba(228, 87, 46, 0.14), transparent 32%),
+    var(--mobile-canvas);
   padding-bottom: calc(74px + env(safe-area-inset-bottom));
 }
 
@@ -37,8 +36,8 @@ input {
   justify-content: space-between;
   gap: 12px;
   padding: calc(12px + env(safe-area-inset-top)) 18px 12px;
-  background: rgba(11, 13, 16, 0.9);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--mobile-card);
+  border-bottom: 1px solid var(--mobile-border);
   backdrop-filter: blur(18px);
 }
 
@@ -50,7 +49,7 @@ input {
 
 .mobile-subtitle {
   margin-top: 2px;
-  color: #7f8793;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -59,14 +58,14 @@ input {
   align-items: center;
   gap: 6px;
   padding: 6px 9px;
-  border: 1px solid #303641;
+  border: 1px solid var(--mobile-border);
   border-radius: 999px;
-  color: #929aa6;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
 .mobile-status.ok {
-  color: #7dd7a8;
+  color: var(--mobile-down);
   border-color: rgba(66, 181, 120, 0.34);
   background: rgba(66, 181, 120, 0.08);
 }
@@ -87,10 +86,10 @@ input {
   min-height: 44px;
   margin: 8px 16px 0;
   padding: 8px 12px;
-  border: 1px solid #303641;
+  border: 1px solid var(--mobile-border);
   border-radius: 10px;
-  color: #f5f7fa;
-  background: #13171c;
+  color: var(--mobile-text);
+  background: var(--mobile-card);
 }
 
 .mobile-back:focus-visible {
@@ -103,7 +102,7 @@ input {
   padding: 11px 12px;
   border: 1px solid rgba(246, 94, 94, 0.28);
   border-radius: 12px;
-  color: #ffb3b3;
+  color: var(--mobile-up);
   background: rgba(118, 29, 29, 0.18);
   font-size: 13px;
   line-height: 1.5;
@@ -115,13 +114,13 @@ input {
   align-items: center;
   gap: 10px;
   padding: 7px 7px 7px 13px;
-  border: 1px solid #2a3038;
+  border: 1px solid var(--mobile-border);
   border-radius: 15px;
-  background: #13171c;
+  background: var(--mobile-card);
 }
 
 .mobile-search svg {
-  color: #777f8b;
+  color: var(--mobile-muted);
 }
 
 .mobile-search input {
@@ -129,13 +128,13 @@ input {
   min-width: 0;
   border: 0;
   outline: 0;
-  color: #f6f7f8;
+  color: var(--mobile-text);
   background: transparent;
   font-size: 15px;
 }
 
 .mobile-search input::placeholder {
-  color: #626a75;
+  color: var(--mobile-muted);
 }
 
 .mobile-search button {
@@ -157,9 +156,9 @@ input {
 .mobile-roadmap-card,
 .mobile-empty {
   margin-top: 16px;
-  border: 1px solid #252b33;
+  border: 1px solid var(--mobile-border);
   border-radius: 18px;
-  background: linear-gradient(180deg, #15191f, #111419);
+  background: linear-gradient(180deg, var(--mobile-card), var(--mobile-card));
 }
 
 .mobile-hero-card {
@@ -168,7 +167,7 @@ input {
 }
 
 .mobile-hero-card > svg {
-  color: #e4572e;
+  color: var(--mobile-accent);
 }
 
 .mobile-hero-card h1 {
@@ -179,7 +178,7 @@ input {
 .mobile-hero-card p {
   margin: 0 auto;
   max-width: 420px;
-  color: #8f98a4;
+  color: var(--mobile-muted);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -194,10 +193,10 @@ input {
 
 .mobile-chips span {
   padding: 5px 8px;
-  border: 1px solid #2b323b;
+  border: 1px solid var(--mobile-border);
   border-radius: 999px;
-  color: #a8b0bb;
-  background: #0e1115;
+  color: var(--mobile-text);
+  background: var(--mobile-card);
   font-size: 11px;
 }
 
@@ -224,7 +223,7 @@ input {
 }
 
 .mobile-symbol-line span {
-  color: #737d89;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -242,11 +241,11 @@ input {
 }
 
 .up {
-  color: #ef6b5a;
+  color: var(--mobile-accent);
 }
 
 .down {
-  color: #56c58f;
+  color: var(--mobile-down);
 }
 
 .mobile-star,
@@ -254,20 +253,20 @@ input {
   display: grid;
   place-items: center;
   border: 0;
-  color: #818a96;
+  color: var(--mobile-muted);
   background: transparent;
 }
 
 .mobile-star {
   width: 42px;
   height: 42px;
-  border: 1px solid #2b313a;
+  border: 1px solid var(--mobile-border);
   border-radius: 13px;
-  background: #0e1115;
+  background: var(--mobile-card);
 }
 
 .mobile-star.active {
-  color: #f0b44b;
+  color: var(--mobile-warning);
 }
 
 .mobile-chart-wrap {
@@ -276,7 +275,7 @@ input {
 
 .mobile-card-label {
   margin-bottom: 8px;
-  color: #727b86;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -300,16 +299,16 @@ input {
   place-items: center;
   height: 128px;
   border-radius: 12px;
-  color: #646c77;
-  background: #0d1014;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
   font-size: 12px;
 }
 
 .mobile-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: 1px solid #242a31;
-  border-bottom: 1px solid #242a31;
+  border-top: 1px solid var(--mobile-border);
+  border-bottom: 1px solid var(--mobile-border);
 }
 
 .mobile-metrics div {
@@ -317,11 +316,11 @@ input {
 }
 
 .mobile-metrics div:nth-child(odd) {
-  border-right: 1px solid #242a31;
+  border-right: 1px solid var(--mobile-border);
 }
 
 .mobile-metrics div:nth-child(-n + 2) {
-  border-bottom: 1px solid #242a31;
+  border-bottom: 1px solid var(--mobile-border);
 }
 
 .mobile-metrics span,
@@ -330,7 +329,7 @@ input {
 }
 
 .mobile-metrics span {
-  color: #6f7884;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -344,7 +343,7 @@ input {
   align-items: center;
   gap: 6px;
   padding: 12px 18px 14px;
-  color: #737c88;
+  color: var(--mobile-muted);
   font-size: 10px;
   line-height: 1.5;
 }
@@ -364,36 +363,36 @@ input {
 
 .mobile-section-title p {
   margin: 5px 0 0;
-  color: #777f8a;
+  color: var(--mobile-muted);
   font-size: 12px;
 }
 
 .mobile-section-title > span {
   padding: 5px 8px;
   border-radius: 999px;
-  color: #a3abb5;
-  background: #171b20;
+  color: var(--mobile-muted);
+  background: var(--mobile-soft);
   font-size: 11px;
 }
 
 .mobile-empty {
   padding: 32px 22px;
-  color: #737c87;
+  color: var(--mobile-muted);
   text-align: center;
   font-size: 13px;
 }
 
 .mobile-watch-list {
   overflow: hidden;
-  border: 1px solid #252b33;
+  border: 1px solid var(--mobile-border);
   border-radius: 16px;
-  background: #12161b;
+  background: var(--mobile-card);
 }
 
 .mobile-watch-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  border-bottom: 1px solid #232930;
+  border-bottom: 1px solid var(--mobile-border);
 }
 
 .mobile-watch-row:last-child {
@@ -431,13 +430,13 @@ input {
 
 .mobile-watch-open span {
   margin-top: 3px;
-  color: #6f7883;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
 .mobile-watch-open > svg {
   flex: 0 0 auto;
-  color: #626b77;
+  color: var(--mobile-muted);
 }
 
 .mobile-delete {
@@ -454,7 +453,7 @@ input {
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid #242a31;
+  border-bottom: 1px solid var(--mobile-border);
 }
 
 .mobile-info-card > div:last-child {
@@ -462,16 +461,16 @@ input {
 }
 
 .mobile-info-card svg {
-  color: #e46a43;
+  color: var(--mobile-accent);
 }
 
 .mobile-info-card span {
-  color: #a7aeb8;
+  color: var(--mobile-muted);
   font-size: 13px;
 }
 
 .mobile-info-card strong {
-  color: #7e8792;
+  color: var(--mobile-muted);
   font-size: 12px;
   font-weight: 550;
 }
@@ -487,7 +486,7 @@ input {
 
 .mobile-roadmap-card p {
   margin: 7px 0 0;
-  color: #7f8894;
+  color: var(--mobile-muted);
   font-size: 12px;
   line-height: 1.65;
 }
@@ -501,8 +500,8 @@ input {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   padding: 7px 14px calc(7px + env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(12, 14, 17, 0.94);
+  border-top: 1px solid var(--mobile-border);
+  background: var(--mobile-card);
   backdrop-filter: blur(20px);
 }
 
@@ -512,13 +511,13 @@ input {
   align-items: center;
   gap: 3px;
   border: 0;
-  color: #737c87;
+  color: var(--mobile-muted);
   background: transparent;
   font-size: 10px;
 }
 
 .mobile-nav button.active {
-  color: #ef714b;
+  color: var(--mobile-accent);
 }
 
 .spin {

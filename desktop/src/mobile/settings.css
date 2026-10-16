@@ -13,7 +13,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #e47a58;
+  color: var(--mobile-accent);
   font-size: 12px;
   font-weight: 700;
 }
@@ -25,7 +25,7 @@
 
 .settings-title-row p {
   margin: 5px 0 0;
-  color: #777f8a;
+  color: var(--mobile-muted);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -36,10 +36,10 @@
   place-items: center;
   width: 38px;
   height: 38px;
-  border: 1px solid #2b323b;
+  border: 1px solid var(--mobile-border);
   border-radius: 12px;
-  color: #89929e;
-  background: #12161b;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
 }
 
 .settings-title-row > button:disabled {
@@ -51,21 +51,21 @@
 .settings-loading {
   margin-top: 14px;
   padding: 14px;
-  border: 1px solid #292f37;
+  border: 1px solid var(--mobile-border);
   border-radius: 14px;
-  color: #8d96a1;
-  background: #12161b;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .settings-error {
-  color: #ffb0a2;
+  color: var(--mobile-warning);
   border-color: rgba(228, 87, 46, .3);
 }
 
 .settings-message {
-  color: #aab2bb;
+  color: var(--mobile-text);
 }
 
 .settings-loading {
@@ -83,13 +83,13 @@
 
 .settings-cards > div {
   padding: 14px;
-  border: 1px solid #252b33;
+  border: 1px solid var(--mobile-border);
   border-radius: 15px;
-  background: #12161b;
+  background: var(--mobile-card);
 }
 
 .settings-cards svg {
-  color: #e46a43;
+  color: var(--mobile-accent);
 }
 
 .settings-cards span,
@@ -100,7 +100,7 @@
 
 .settings-cards span {
   margin-top: 9px;
-  color: #747d88;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -111,16 +111,16 @@
 
 .settings-cards small {
   margin-top: 3px;
-  color: #626b77;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
 .settings-block {
   margin-top: 14px;
   overflow: hidden;
-  border: 1px solid #252b33;
+  border: 1px solid var(--mobile-border);
   border-radius: 15px;
-  background: #12161b;
+  background: var(--mobile-card);
 }
 
 .settings-block.compact {
@@ -132,18 +132,18 @@
   align-items: center;
   gap: 7px;
   padding: 13px 14px;
-  border-bottom: 1px solid #232930;
-  color: #cdd2d8;
+  border-bottom: 1px solid var(--mobile-border);
+  color: var(--mobile-text);
   font-size: 13px;
 }
 
 .settings-heading svg {
-  color: #e46a43;
+  color: var(--mobile-accent);
 }
 
 .settings-heading > span {
   margin-left: auto;
-  color: #747d88;
+  color: var(--mobile-muted);
   font-size: 10px;
   font-weight: 600;
 }
@@ -154,7 +154,7 @@
 
 .settings-notification-body p {
   margin: 0;
-  color: #7b8490;
+  color: var(--mobile-muted);
   font-size: 11px;
   line-height: 1.7;
 }
@@ -173,10 +173,10 @@
   gap: 6px;
   min-height: 40px;
   padding: 0 10px;
-  border: 1px solid #303740;
+  border: 1px solid var(--mobile-border);
   border-radius: 10px;
-  color: #bcc3cb;
-  background: #171c22;
+  color: var(--mobile-text);
+  background: var(--mobile-soft);
   font-size: 11px;
   font-weight: 650;
 }
@@ -184,7 +184,7 @@
 .settings-actions button.primary {
   border-color: #cf633f;
   color: #fff;
-  background: #d85f39;
+  background: var(--mobile-primary-fill);
 }
 
 .settings-actions button:disabled {
@@ -197,7 +197,7 @@
   justify-content: space-between;
   gap: 14px;
   padding: 11px 14px;
-  border-bottom: 1px solid #20262d;
+  border-bottom: 1px solid var(--mobile-border);
 }
 
 .settings-list > div:last-child {
@@ -205,12 +205,12 @@
 }
 
 .settings-list span {
-  color: #79828d;
+  color: var(--mobile-muted);
   font-size: 12px;
 }
 
 .settings-list b {
-  color: #c9ced5;
+  color: var(--mobile-text);
   font-size: 12px;
   font-weight: 650;
 }
@@ -222,7 +222,7 @@
 .settings-notes p,
 .settings-tip {
   margin: 0;
-  color: #7b8490;
+  color: var(--mobile-muted);
   font-size: 11px;
   line-height: 1.7;
 }

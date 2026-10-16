@@ -2,6 +2,8 @@ import { AlertTriangle, BriefcaseBusiness, ChevronRight, RefreshCw, Star } from 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import "./monitor.css";
+import { usePresentation } from "./presentation";
+import { useForegroundRefresh } from "./useForegroundRefresh";
 
 type WatchRow = {
   symbol: string;
@@ -83,6 +85,7 @@ const RISK_LABEL: Record<PositionRow["risk_state"], string> = {
 };
 
 export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
+  const { refreshSeconds } = usePresentation();
   const [data, setData] = useState<MonitorData | null>(null);
   const [tab, setTab] = useState<"watch" | "position">("watch");
   const [loading, setLoading] = useState(false);
@@ -116,9 +119,9 @@ export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) 
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 60_000);
-    return () => window.clearInterval(timer);
+
   }, [refresh]);
+  useForegroundRefresh(refresh, refreshSeconds);
 
   const riskCount = useMemo(
     () => (data?.positions ?? []).filter((row) => ["stop_reached", "target_reached", "stop_near", "target_near"].includes(row.risk_state)).length,
@@ -140,7 +143,7 @@ export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) 
         <div>
           <div className="monitor-kicker"><Star size={15} /> 盘中盯盘</div>
           <h1>自选 · 持仓动态</h1>
-          <p>打开本页后每 60 秒刷新一次；离开页面自动停止。价格类状态只使用今日行情。</p>
+          <p>{refreshSeconds ? `前台每 ${refreshSeconds} 秒刷新；后台暂停。` : "仅手动刷新。"}价格类状态只使用今日行情。</p>
         </div>
         <button className="monitor-refresh" type="button" onClick={() => void refresh()} disabled={loading} aria-label="刷新盯盘">
           <RefreshCw size={17} className={loading ? "spin" : ""} />

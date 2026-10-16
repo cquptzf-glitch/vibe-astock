@@ -131,6 +131,29 @@ jobs:
       - name: Test frontend
         run: npm test --prefix desktop
 
+      - name: Verify compact and light mobile UI
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/mobile-ui" --no-package-lock playwright@1.56.1
+          "$RUNNER_TEMP/mobile-ui/node_modules/.bin/playwright" install --with-deps chromium
+          npm run preview --prefix desktop -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/mobile-ui-server.log" 2>&1 &
+          UI_SERVER_PID=$!
+          trap 'kill "$UI_SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173 > /dev/null; then break; fi
+            sleep 1
+          done
+          VIBE_UI_RUNTIME="$RUNNER_TEMP/mobile-ui" VIBE_UI_OUTPUT="dist/mobile-ui" node desktop/test/mobile-ui-smoke.mjs
+
+      - name: Upload mobile UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe-astock-mobile-ui-v${{ env.APP_VERSION }}
+          path: dist/mobile-ui
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Initialize Android project
         run: cargo tauri android init --ci
 

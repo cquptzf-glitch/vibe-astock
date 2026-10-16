@@ -7,23 +7,23 @@
   align-items: flex-start;
   gap: 9px;
   margin-top: 12px;
-  border: 1px solid #29313a;
+  border: 1px solid var(--mobile-border);
   border-radius: 11px;
-  background: #11161b;
+  background: var(--mobile-card);
   padding: 10px 11px;
-  color: #7f8995;
+  color: var(--mobile-muted);
 }
 
 .reminder-scheduler.active {
   border-color: rgba(53, 177, 119, 0.35);
   background: rgba(53, 177, 119, 0.06);
-  color: #68c99c;
+  color: var(--mobile-down);
 }
 
 .reminder-scheduler.error {
   border-color: rgba(224, 77, 77, 0.35);
   background: rgba(224, 77, 77, 0.06);
-  color: #ef8b8b;
+  color: var(--mobile-accent);
 }
 
 .reminder-scheduler > div {
@@ -36,7 +36,7 @@
 }
 
 .reminder-scheduler strong {
-  color: #dfe5ea;
+  color: var(--mobile-text);
   font-size: 11px;
 }
 
@@ -80,7 +80,7 @@
 .reminder-switch,
 .reminder-footer-fields label,
 .reminder-review-grid label {
-  color: #8f99a5;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -99,10 +99,10 @@
 .reminder-footer-fields button,
 .reminder-actions button {
   min-height: 34px;
-  border: 1px solid #2b323b;
+  border: 1px solid var(--mobile-border);
   border-radius: 9px;
-  background: #151a20;
-  color: #aeb6c0;
+  background: var(--mobile-soft);
+  color: var(--mobile-text);
   font-size: 11px;
 }
 
@@ -110,7 +110,7 @@
 .reminder-footer-fields button.primary {
   border-color: rgba(228, 87, 46, 0.52);
   background: rgba(228, 87, 46, 0.12);
-  color: #ffb099;
+  color: var(--mobile-warning);
 }
 
 .reminder-form-grid {
@@ -124,17 +124,17 @@
 .reminder-footer-fields input {
   min-width: 0;
   min-height: 38px;
-  border: 1px solid #2b323b;
+  border: 1px solid var(--mobile-border);
   border-radius: 9px;
-  background: #101419;
-  color: #e4e8ec;
+  background: var(--mobile-card);
+  color: var(--mobile-text);
   padding: 0 10px;
   outline: none;
 }
 
 .reminder-form-grid input:focus,
 .reminder-footer-fields input:focus {
-  border-color: #5a6572;
+  border-color: var(--mobile-border);
 }
 
 .reminder-review-grid label {
@@ -146,14 +146,14 @@
 
 .reminder-hint {
   margin: 8px 0 0;
-  color: #707a86;
+  color: var(--mobile-muted);
   font-size: 10px;
   line-height: 1.55;
 }
 
 .reminder-footer-fields {
   margin-top: 12px;
-  border-top: 1px solid #262d35;
+  border-top: 1px solid var(--mobile-border);
   padding-top: 12px;
 }
 
@@ -191,7 +191,7 @@
 
 .reminder-summary {
   margin: 12px 2px 7px;
-  color: #7f8995;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -204,9 +204,9 @@
 }
 
 .reminder-row {
-  border: 1px solid #252c34;
+  border: 1px solid var(--mobile-border);
   border-radius: 11px;
-  background: #12171c;
+  background: var(--mobile-card);
   padding: 8px;
 }
 
@@ -234,7 +234,7 @@
   place-items: center;
   border-radius: 9px;
   background: rgba(228, 87, 46, 0.1);
-  color: #e98062;
+  color: var(--mobile-accent);
 }
 
 .reminder-open > div:last-child {
@@ -249,7 +249,7 @@
 
 .reminder-open strong {
   overflow: hidden;
-  color: #e3e7eb;
+  color: var(--mobile-text);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -257,13 +257,13 @@
 
 .reminder-open span {
   margin-top: 3px;
-  color: #89939e;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
 .reminder-open small {
   margin-top: 2px;
-  color: #606a75;
+  color: var(--mobile-muted);
   font-size: 9px;
 }
 

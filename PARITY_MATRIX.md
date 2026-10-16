@@ -56,6 +56,7 @@ Android APK PASS
 | Lite backtest | Python backtest/ | backtest.rs + BacktestPanel.tsx | Rust SMA/bar tests; next-open execution; no taxes/fees/slippage | **Mobile Lite extension; advanced parity pending** |
 | Notes / reports / inbox | Legacy desktop local/product flows | documents.rs + LibraryPanel.tsx | SQLite CRUD + versioned backup tests | **Mobile local document extension** |
 | Debate / deep research | Node/Agent/Python workflows | Not migrated | None | **Pending / redesign rather than runtime port** |
+| Mobile presentation / settings | Mobile extension | presentation.ts + AppearanceSettings + MobileHeader + shared theme tokens | Store/SSR regressions; CI browser theme/density/navigation and 18 fixture screenshots | **Implemented; device visual/lifecycle checks pending** |
 | Mobile routes / Back / notification navigation | N/A | mobileRoutes.ts + nativeNavigation.ts + reminder intent handoff | JS history/StrictMode tests, Rust target tests, Kotlin route tests; Android CI and device checks recorded in handoff | **Mobile extension; device smoke pending** |
 | Full PC backend contract | `orchestrator/` + Python scripts | Mobile Rust Core only covers selected domains | End-to-end parity suite pending | **Pending** |
 | Production Android release | Desktop release is separate | Debug-signed ARM64 APK CI + immutable GitHub preview Release | APK build/signature/SHA256 verification; publishing only after tests | **Preview delivery implemented; production signing/AAB/device upgrades pending** |

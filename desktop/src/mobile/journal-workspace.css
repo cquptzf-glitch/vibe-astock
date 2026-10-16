@@ -23,14 +23,14 @@
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: var(--mobile-muted, #7b8494);
+  color: var(--mobile-muted);
   font-weight: 600;
   font-size: 10px;
   white-space: nowrap;
 }
 
 .journal-workspace-tabs button.active {
-  background: var(--mobile-card, rgba(255, 255, 255, 0.08));
+  background: var(--mobile-card, var(--mobile-soft));
   color: inherit;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
 }

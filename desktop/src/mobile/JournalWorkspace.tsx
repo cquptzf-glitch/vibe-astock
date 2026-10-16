@@ -85,7 +85,7 @@ export function JournalWorkspace({ onOpenSymbol, view, onViewChange: setView }: 
       {view === "ai" && <AiWorkspace />}
       {view === "library" && <LibraryPanel />}
       {view === "reminders" && <ReminderPanel />}
-      {view === "settings" && <SettingsPanel />}
+      {view === "settings" && <SettingsPanel onOpenAi={() => setView("ai")} onOpenReminders={() => setView("reminders")} />}
     </section>
   );
 }

@@ -20,9 +20,9 @@
 .discovery-tabs button,
 .mobile-sector-grid button,
 .mobile-sector-step-actions button {
-  border: 1px solid #2b323b;
-  color: #aeb6c0;
-  background: #151a20;
+  border: 1px solid var(--mobile-border);
+  color: var(--mobile-text);
+  background: var(--mobile-soft);
 }
 
 .discovery-tabs button {
@@ -39,7 +39,7 @@
 .discovery-tabs button.active,
 .mobile-sector-grid button.active {
   border-color: rgba(228, 87, 46, 0.52);
-  color: #ffb099;
+  color: var(--mobile-warning);
   background: rgba(228, 87, 46, 0.12);
 }
 
@@ -72,7 +72,7 @@
 
 .mobile-sector-tagline {
   margin: 8px 0 12px;
-  color: #939da8;
+  color: var(--mobile-muted);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -110,7 +110,7 @@
 }
 
 .mobile-sector-step-head span {
-  color: #707a86;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -141,12 +141,12 @@
 
 .mobile-sector-prompt {
   margin-top: 11px;
-  border-top: 1px solid #262d35;
+  border-top: 1px solid var(--mobile-border);
   padding-top: 9px;
 }
 
 .mobile-sector-prompt summary {
-  color: #7f8995;
+  color: var(--mobile-muted);
   cursor: pointer;
   font-size: 11px;
 }
@@ -157,7 +157,7 @@
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #aeb7c1;
+  color: var(--mobile-text);
   font-family: inherit;
   font-size: 11px;
   line-height: 1.58;
@@ -198,16 +198,16 @@
 }
 
 .candidate-filter-grid label {
-  border: 1px solid #272e36;
+  border: 1px solid var(--mobile-border);
   border-radius: 10px;
   padding: 9px;
-  color: #79828d;
-  background: #11151a;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
 }
 
 .candidate-filter-grid label.enabled {
-  border-color: #353d47;
-  color: #b8c0ca;
+  border-color: var(--mobile-border);
+  color: var(--mobile-text);
 }
 
 .candidate-filter-grid label > span {
@@ -229,12 +229,12 @@
 .candidate-filter-grid input[type="number"],
 .candidate-filter-grid input[inputmode="decimal"] {
   min-width: 0;
-  border: 1px solid #2b333c;
+  border: 1px solid var(--mobile-border);
   border-radius: 7px;
   padding: 6px;
   outline: 0;
-  color: #d8dde4;
-  background: #0d1115;
+  color: var(--mobile-text);
+  background: var(--mobile-card);
   font-size: 10px;
 }
 
@@ -244,7 +244,7 @@
 
 .candidate-filter-grid em,
 .candidate-filter-grid small {
-  color: #626c78;
+  color: var(--mobile-muted);
   font-size: 9px;
   font-style: normal;
 }
@@ -259,7 +259,7 @@
   border: 1px solid rgba(228, 87, 46, 0.42);
   border-radius: 9px;
   padding: 9px 10px;
-  color: #ffb099;
+  color: var(--mobile-warning);
   background: rgba(228, 87, 46, 0.1);
   font-size: 11px;
   font-weight: 600;
@@ -284,7 +284,7 @@
   gap: 10px;
   width: 100%;
   border: 0;
-  border-bottom: 1px solid #242a31;
+  border-bottom: 1px solid var(--mobile-border);
   padding: 11px 14px;
   color: inherit;
   background: transparent;
@@ -314,7 +314,7 @@
 .candidate-row span {
   margin-top: 4px;
   overflow: hidden;
-  color: #757f8a;
+  color: var(--mobile-muted);
   font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -332,11 +332,11 @@
 .calendar-editor textarea {
   box-sizing: border-box;
   width: 100%;
-  border: 1px solid #2b333c;
+  border: 1px solid var(--mobile-border);
   border-radius: 8px;
   outline: 0;
-  color: #d8dde4;
-  background: #0d1115;
+  color: var(--mobile-text);
+  background: var(--mobile-card);
   font: inherit;
   font-size: 11px;
 }
@@ -380,7 +380,7 @@
 }
 
 .calendar-day-head span {
-  color: #7b8590;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -389,14 +389,14 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 9px;
   align-items: start;
-  border-top: 1px solid #242a31;
+  border-top: 1px solid var(--mobile-border);
   padding: 11px 10px 11px 12px;
 }
 
 .calendar-status {
   border: 0;
   padding: 1px 0 0;
-  color: #7c8792;
+  color: var(--mobile-muted);
   background: transparent;
 }
 
@@ -413,13 +413,13 @@
 
 .calendar-event > div span {
   margin-top: 3px;
-  color: #737e89;
+  color: var(--mobile-muted);
   font-size: 9px;
 }
 
 .calendar-event > div p {
   margin: 6px 0 0;
-  color: #99a2ac;
+  color: var(--mobile-muted);
   font-size: 10px;
   line-height: 1.5;
 }
@@ -434,7 +434,7 @@
 
 .calendar-event.overdue:not(.done) .calendar-status,
 .calendar-event.overdue:not(.done) > div span {
-  color: #e28a70;
+  color: var(--mobile-accent);
 }
 
 @media (max-width: 430px) {

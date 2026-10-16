@@ -60,7 +60,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function AiReviewPanel() {
+export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean } = {}) {
   const [config, setConfig] = useState<AiConfig | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("");
@@ -171,9 +171,9 @@ export function AiReviewPanel() {
     <section className="ai-review">
       <div className="ai-review-title">
         <div>
-          <span><BrainCircuit size={15} /> AI 交易复盘</span>
-          <h1>先预览，再主动发送</h1>
-          <p>默认只发送聚合统计；原始成交明细和交易备注不会发送。</p>
+          <span><BrainCircuit size={15} /> {settingsOnly ? "模型设置" : "AI 交易复盘"}</span>
+          <h1>{settingsOnly ? "配置模型 API" : "先预览，再主动发送"}</h1>
+          <p>{settingsOnly ? "配置 Base URL、模型名称和设备安全存储的 API Key。" : "默认只发送聚合统计；原始成交明细和交易备注不会发送。"}</p>
         </div>
         <button onClick={() => void loadConfig()} disabled={loading} aria-label="刷新模型配置">
           <RefreshCw size={17} className={loading ? "spin" : ""} />
@@ -227,6 +227,7 @@ export function AiReviewPanel() {
         </div>
       </section>
 
+      {!settingsOnly && <>
       <section className="ai-review-card">
         <div className="ai-review-heading">
           <div><ShieldCheck size={16} /><strong>发送范围</strong></div>
@@ -302,6 +303,7 @@ export function AiReviewPanel() {
           <p>仅用于复盘历史交易行为，不构成投资建议。</p>
         </section>
       )}
+      </>}
     </section>
   );
 }

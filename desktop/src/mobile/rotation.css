@@ -28,7 +28,7 @@
 
 .rotation-title-row p {
   margin: 6px 0 0;
-  color: #7f8793;
+  color: var(--mobile-muted);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -39,10 +39,10 @@
   place-items: center;
   width: 40px;
   height: 40px;
-  border: 1px solid #2a3038;
+  border: 1px solid var(--mobile-border);
   border-radius: 12px;
-  color: #a0a8b3;
-  background: #12161b;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
 }
 
 .rotation-refresh:disabled {
@@ -55,9 +55,9 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
-  border: 1px solid #272d35;
+  border: 1px solid var(--mobile-border);
   border-radius: 13px;
-  background: #101419;
+  background: var(--mobile-card);
 }
 
 .rotation-type-tabs {
@@ -73,7 +73,7 @@
   padding: 9px 10px;
   border: 0;
   border-radius: 9px;
-  color: #77808c;
+  color: var(--mobile-muted);
   background: transparent;
   font-size: 12px;
   font-weight: 650;
@@ -81,8 +81,8 @@
 
 .rotation-type-tabs button.active,
 .rotation-period-tabs button.active {
-  color: #eef1f5;
-  background: #1d232b;
+  color: var(--mobile-text);
+  background: var(--mobile-soft);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
@@ -96,9 +96,9 @@
 .rotation-summary > div {
   min-width: 0;
   padding: 13px 9px 11px;
-  border: 1px solid #282e36;
+  border: 1px solid var(--mobile-border);
   border-radius: 14px;
-  background: linear-gradient(180deg, #171b21, #12161b);
+  background: linear-gradient(180deg, var(--mobile-soft), var(--mobile-card));
 }
 
 .rotation-summary span,
@@ -108,7 +108,7 @@
 }
 
 .rotation-summary span {
-  color: #767f8a;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -119,14 +119,14 @@
 
 .rotation-summary small {
   margin-top: 3px;
-  color: #666f7a;
+  color: var(--mobile-muted);
   font-size: 9px;
   line-height: 1.35;
 }
 
-.rotation-summary .persistent strong { color: #ff8a6a; }
-.rotation-summary .new-hot strong { color: #e4b460; }
-.rotation-summary .cooling strong { color: #69c99a; }
+.rotation-summary .persistent strong { color: var(--mobile-accent); }
+.rotation-summary .new-hot strong { color: var(--mobile-warning); }
+.rotation-summary .cooling strong { color: var(--mobile-down); }
 
 .rotation-focus {
   margin-top: 11px;
@@ -138,7 +138,7 @@
 
 .rotation-focus > span {
   display: block;
-  color: #a67b6d;
+  color: var(--mobile-up);
   font-size: 9px;
 }
 
@@ -152,8 +152,8 @@
 .rotation-focus b {
   padding: 4px 7px;
   border-radius: 8px;
-  color: #dcdddF;
-  background: rgba(255, 255, 255, 0.055);
+  color: var(--mobile-text);
+  background: var(--mobile-soft);
   font-size: 10px;
   font-weight: 600;
 }
@@ -161,9 +161,9 @@
 .rotation-list {
   overflow: hidden;
   margin-top: 11px;
-  border: 1px solid #272d35;
+  border: 1px solid var(--mobile-border);
   border-radius: 16px;
-  background: #11151a;
+  background: var(--mobile-card);
 }
 
 .rotation-row {
@@ -172,7 +172,7 @@
   align-items: center;
   gap: 8px;
   padding: 13px 12px;
-  border-bottom: 1px solid #232930;
+  border-bottom: 1px solid var(--mobile-border);
 }
 
 .rotation-row:last-child {
@@ -180,14 +180,14 @@
 }
 
 .rotation-rank {
-  color: #5f6873;
+  color: var(--mobile-muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
 .rotation-row:nth-child(-n + 3) .rotation-rank {
-  color: #e47956;
+  color: var(--mobile-accent);
   font-weight: 760;
 }
 
@@ -218,17 +218,17 @@
 }
 
 .rotation-name-line .signal.persistent {
-  color: #ff997f;
+  color: var(--mobile-accent);
   background: rgba(228, 87, 46, 0.12);
 }
 
 .rotation-name-line .signal.new_hot {
-  color: #e9bd68;
+  color: var(--mobile-warning);
   background: rgba(186, 137, 46, 0.12);
 }
 
 .rotation-name-line .signal.cooling {
-  color: #76cfa2;
+  color: var(--mobile-down);
   background: rgba(66, 181, 120, 0.11);
 }
 
@@ -237,7 +237,7 @@
   flex-wrap: wrap;
   gap: 5px 9px;
   margin-top: 5px;
-  color: #68717d;
+  color: var(--mobile-muted);
   font-size: 9px;
 }
 
@@ -262,24 +262,24 @@
 }
 
 .rotation-values > span.net-up {
-  color: #ef765f;
+  color: var(--mobile-accent);
 }
 
 .rotation-values > span.net-down {
-  color: #61c795;
+  color: var(--mobile-down);
 }
 
 .rotation-values > small {
-  color: #626b76;
+  color: var(--mobile-muted);
   font-size: 8px;
 }
 
 .rotation-loading,
 .rotation-error {
   margin-top: 16px;
-  border: 1px solid #262c34;
+  border: 1px solid var(--mobile-border);
   border-radius: 16px;
-  background: #12161b;
+  background: var(--mobile-card);
 }
 
 .rotation-loading {
@@ -289,7 +289,7 @@
   gap: 8px;
   min-height: 150px;
   padding: 18px;
-  color: #7e8792;
+  color: var(--mobile-muted);
   font-size: 12px;
 }
 
@@ -302,12 +302,12 @@
 }
 
 .rotation-error strong {
-  color: #ffc0c0;
+  color: var(--mobile-up);
   font-size: 13px;
 }
 
 .rotation-error span {
-  color: #bc8e8e;
+  color: var(--mobile-up);
   font-size: 11px;
   line-height: 1.55;
 }
@@ -318,7 +318,7 @@
   padding: 7px 10px;
   border: 1px solid rgba(246, 94, 94, 0.28);
   border-radius: 9px;
-  color: #ffb7b7;
+  color: var(--mobile-up);
   background: transparent;
   font-size: 11px;
 }
@@ -328,7 +328,7 @@
   align-items: center;
   gap: 5px;
   margin-top: 10px;
-  color: #626b76;
+  color: var(--mobile-muted);
   font-size: 9px;
 }
 

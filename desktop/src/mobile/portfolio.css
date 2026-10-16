@@ -4,24 +4,24 @@
   gap: 8px;
   margin-bottom: 14px;
   padding: 4px;
-  border: 1px solid #252b33;
+  border: 1px solid var(--mobile-border);
   border-radius: 14px;
-  background: #101419;
+  background: var(--mobile-card);
 }
 
 .mobile-stock-tabs button {
   padding: 9px 12px;
   border: 0;
   border-radius: 10px;
-  color: #7f8894;
+  color: var(--mobile-muted);
   background: transparent;
   font-size: 13px;
   font-weight: 650;
 }
 
 .mobile-stock-tabs button.active {
-  color: #f7f8fa;
-  background: #242a31;
+  color: var(--mobile-text);
+  background: var(--mobile-soft);
 }
 
 .portfolio-panel {
@@ -40,7 +40,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #e47a58;
+  color: var(--mobile-accent);
   font-size: 12px;
   font-weight: 700;
 }
@@ -52,7 +52,7 @@
 
 .portfolio-title-row p {
   margin: 5px 0 0;
-  color: #777f8a;
+  color: var(--mobile-muted);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -63,10 +63,10 @@
   place-items: center;
   width: 38px;
   height: 38px;
-  border: 1px solid #2b323b;
+  border: 1px solid var(--mobile-border);
   border-radius: 12px;
-  color: #89929e;
-  background: #12161b;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
 }
 
 .portfolio-title-row > button:disabled {
@@ -76,16 +76,16 @@
 .portfolio-error,
 .portfolio-empty {
   padding: 16px;
-  border: 1px solid #292f37;
+  border: 1px solid var(--mobile-border);
   border-radius: 14px;
-  color: #8d96a1;
-  background: #12161b;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .portfolio-error {
-  color: #ffb0a2;
+  color: var(--mobile-warning);
   border-color: rgba(228, 87, 46, 0.3);
 }
 
@@ -102,9 +102,9 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow: hidden;
-  border: 1px solid #252b33;
+  border: 1px solid var(--mobile-border);
   border-radius: 15px;
-  background: #12161b;
+  background: var(--mobile-card);
 }
 
 .portfolio-summary > div {
@@ -112,11 +112,11 @@
 }
 
 .portfolio-summary > div:nth-child(odd) {
-  border-right: 1px solid #252b33;
+  border-right: 1px solid var(--mobile-border);
 }
 
 .portfolio-summary > div:nth-child(-n + 2) {
-  border-bottom: 1px solid #252b33;
+  border-bottom: 1px solid var(--mobile-border);
 }
 
 .portfolio-summary span,
@@ -126,7 +126,7 @@
 }
 
 .portfolio-summary span {
-  color: #727b87;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -137,7 +137,7 @@
 
 .portfolio-summary small {
   margin-top: 3px;
-  color: #626b77;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -147,27 +147,27 @@
   align-items: center;
   gap: 7px 12px;
   padding: 11px 12px;
-  border: 1px solid #2b3138;
+  border: 1px solid var(--mobile-border);
   border-radius: 13px;
-  color: #919aa6;
-  background: #101419;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
   font-size: 11px;
 }
 
 .portfolio-risk svg {
-  color: #e7a64e;
+  color: var(--mobile-warning);
 }
 
 .portfolio-risk b {
-  color: #f0a35f;
+  color: var(--mobile-warning);
   font-weight: 650;
 }
 
 .portfolio-list {
   overflow: hidden;
-  border: 1px solid #252b33;
+  border: 1px solid var(--mobile-border);
   border-radius: 16px;
-  background: #12161b;
+  background: var(--mobile-card);
 }
 
 .portfolio-row {
@@ -175,7 +175,7 @@
   width: 100%;
   padding: 15px 16px;
   border: 0;
-  border-bottom: 1px solid #232930;
+  border-bottom: 1px solid var(--mobile-border);
   color: inherit;
   background: transparent;
   text-align: left;
@@ -207,7 +207,7 @@
 .portfolio-name span,
 .portfolio-price span {
   margin-top: 3px;
-  color: #707985;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -224,19 +224,19 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px 12px;
   margin-top: 11px;
-  color: #69727d;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
 .portfolio-metrics b {
-  color: #a1a9b3;
+  color: var(--mobile-muted);
   font-weight: 600;
 }
 
 .portfolio-pnl {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #20262d;
+  border-top: 1px solid var(--mobile-border);
 }
 
 .portfolio-pnl span {
@@ -252,12 +252,12 @@
 }
 
 .portfolio-pnl > svg {
-  color: #59616c;
+  color: var(--mobile-muted);
 }
 
 .portfolio-note {
   margin: 0;
-  color: #626b77;
+  color: var(--mobile-muted);
   font-size: 10px;
   line-height: 1.6;
 }

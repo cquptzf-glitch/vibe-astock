@@ -11,7 +11,7 @@
 }
 
 .mo-eyebrow {
-  color: #e46a43;
+  color: var(--mobile-accent);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .08em;
@@ -25,7 +25,7 @@
 
 .mo-heading p {
   margin: 3px 0 0;
-  color: #737c87;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
@@ -34,10 +34,10 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  border: 1px solid #293039;
+  border: 1px solid var(--mobile-border);
   border-radius: 11px;
-  color: #89929e;
-  background: #11151a;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
 }
 
 .mo-refresh:disabled {
@@ -49,7 +49,7 @@
   margin-bottom: 12px;
   padding: 9px 11px;
   border-radius: 10px;
-  color: #e6bd95;
+  color: var(--mobile-warning);
   background: rgba(180, 109, 47, .12);
   font-size: 11px;
   line-height: 1.5;
@@ -65,8 +65,8 @@
 .mo-breadth-card,
 .mo-sentiment-grid,
 .mo-distribution-card {
-  border: 1px solid #252b33;
-  background: linear-gradient(180deg, #15191f, #111419);
+  border: 1px solid var(--mobile-border);
+  background: linear-gradient(180deg, var(--mobile-card), var(--mobile-card));
 }
 
 .mo-index-card {
@@ -77,14 +77,14 @@
 
 .mo-index-card.skeleton {
   opacity: .45;
-  background: linear-gradient(90deg, #15191f, #1d2229, #15191f);
+  background: linear-gradient(90deg, var(--mobile-card), var(--mobile-soft), var(--mobile-card));
   background-size: 200% 100%;
   animation: mo-shimmer 1.2s infinite linear;
 }
 
 .mo-index-name {
   overflow: hidden;
-  color: #8b949f;
+  color: var(--mobile-muted);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -106,17 +106,17 @@
 .mo-index-change.up,
 .mo-breadth-side.up,
 .mo-sentiment-grid strong.up {
-  color: #ef6b5a;
+  color: var(--mobile-accent);
 }
 
 .mo-index-change.down,
 .mo-breadth-side.down,
 .mo-sentiment-grid strong.down {
-  color: #56c58f;
+  color: var(--mobile-down);
 }
 
 .mo-index-change.flat {
-  color: #8a929c;
+  color: var(--mobile-muted);
 }
 
 .mo-breadth-card {
@@ -160,7 +160,7 @@
 }
 
 .mo-breadth-foot {
-  color: #6d7580;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -173,7 +173,7 @@
 
 .mo-sentiment-grid > div {
   padding: 12px 5px;
-  border-right: 1px solid #242a31;
+  border-right: 1px solid var(--mobile-border);
   text-align: center;
 }
 
@@ -187,7 +187,7 @@
 }
 
 .mo-sentiment-grid span {
-  color: #737c88;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -206,12 +206,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #9ca4ae;
+  color: var(--mobile-muted);
   font-size: 11px;
 }
 
 .mo-card-title svg {
-  color: #e46a43;
+  color: var(--mobile-accent);
 }
 
 .mo-distribution-list {
@@ -225,7 +225,7 @@
   min-width: 0;
   padding: 7px 4px;
   border-radius: 9px;
-  background: #0c0f13;
+  background: var(--mobile-card);
   text-align: center;
 }
 
@@ -236,7 +236,7 @@
 
 .mo-distribution-item span {
   overflow: hidden;
-  color: #66707b;
+  color: var(--mobile-muted);
   font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -244,7 +244,7 @@
 
 .mo-distribution-item strong {
   margin-top: 3px;
-  color: #bac1ca;
+  color: var(--mobile-text);
   font-size: 12px;
 }
 

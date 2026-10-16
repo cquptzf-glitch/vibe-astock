@@ -21,15 +21,15 @@
   min-height: 38px;
   border: 0;
   border-radius: 10px;
-  color: #79828d;
+  color: var(--mobile-muted);
   background: transparent;
   font-size: 11px;
   font-weight: 650;
 }
 
 .ai-workspace-tabs button.active {
-  color: #d8dde3;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--mobile-text);
+  background: var(--mobile-soft);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
 }
 

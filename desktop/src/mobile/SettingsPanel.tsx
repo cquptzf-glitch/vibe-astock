@@ -12,6 +12,8 @@ import {
 import { useEffect, useState } from "react";
 
 import "./settings.css";
+import { AppearanceSettings } from "./AppearanceSettings";
+import { AiReviewPanel } from "./AiReviewPanel";
 
 type DataSummary = {
   source: string;
@@ -101,11 +103,13 @@ function bytes(value: number): string {
 }
 
 function notificationApi(): NotificationApi | null {
+  if (typeof window === "undefined") return null;
   const tauri = window.__TAURI__ as unknown as { notification?: NotificationApi } | undefined;
   return tauri?.notification ?? null;
 }
 
 function backupFileApi(): { dialog: DialogApi; fs: FsApi } | null {
+  if (typeof window === "undefined") return null;
   const tauri = window.__TAURI__ as unknown as { dialog?: DialogApi; fs?: FsApi } | undefined;
   if (!tauri?.dialog || !tauri.fs) return null;
   return { dialog: tauri.dialog, fs: tauri.fs };
@@ -119,7 +123,7 @@ function permissionLabel(permission: NotificationPermission, supported: boolean)
   return "检测中";
 }
 
-export function SettingsPanel() {
+export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => void; onOpenReminders?: () => void } = {}) {
   const [data, setData] = useState<DataSummary | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [loading, setLoading] = useState(false);
@@ -128,6 +132,7 @@ export function SettingsPanel() {
   const [notificationSupported, setNotificationSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("unknown");
   const [backupBusy, setBackupBusy] = useState<"" | "export" | "import">("");
+  const [showModelSettings, setShowModelSettings] = useState(false);
 
   async function refreshNotification() {
     const plugin = notificationApi();
@@ -298,6 +303,12 @@ export function SettingsPanel() {
         </button>
       </div>
 
+      <AppearanceSettings />
+      <div className="settings-quick-links">
+        <button type="button" onClick={() => setShowModelSettings((value) => !value)} aria-expanded={showModelSettings} aria-controls="mobile-model-settings"><KeyRound size={16} /> 模型 API 设置</button>
+        {onOpenReminders && <button type="button" onClick={onOpenReminders}><BellRing size={16} /> 提醒规则设置</button>}
+      </div>
+      <div id="mobile-model-settings" hidden={!showModelSettings}>{showModelSettings && <><AiReviewPanel settingsOnly />{onOpenAi && <button className="discovery-action" type="button" onClick={onOpenAi}>进入 AI 助手</button>}</>}</div>
       {error && <div className="settings-error">{error}</div>}
       {message && <div className="settings-message">{message}</div>}
       {!data && loading && <div className="settings-loading"><RefreshCw size={18} className="spin" /> 正在读取本地状态…</div>}
@@ -384,7 +395,7 @@ export function SettingsPanel() {
 
           <section className="settings-block compact">
             <div className="settings-heading"><KeyRound size={16} /><strong>模型设置</strong></div>
-            <p className="settings-tip">模型 Base URL、模型名称和 API Key 在上方“AI”页配置。更换 Base URL 时，旧 Key 会自动清除，除非同时输入新的 Key。</p>
+            <p className="settings-tip">点击本页“模型 API 设置”直接展开配置表单，填写 Base URL、模型名称和 API Key。更换 Base URL 时，旧 Key 会自动清除，除非同时输入新的 Key。</p>
           </section>
         </>
       )}

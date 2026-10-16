@@ -10,8 +10,14 @@ pub async fn overview(client: &Client) -> Result<Value> {
     let today = china_today();
     let request_date = today.replace('-', "");
     let mut errors = Vec::<Value>::new();
+    let (index_result, distribution_result, zt_result, zb_result, dt_result) = futures_util::join!(
+        fetch_index_and_breadth(client), fetch_distribution(client),
+        fetch_pool_count(client, "getTopicZTPool", "fbt:asc", &request_date),
+        fetch_pool_count(client, "getTopicZBPool", "fbt:asc", &request_date),
+        fetch_pool_count(client, "getTopicDTPool", "fund:asc", &request_date)
+    );
 
-    let (indexes, exchange_breadth) = match fetch_index_and_breadth(client).await {
+    let (indexes, exchange_breadth) = match index_result {
         Ok(value) => value,
         Err(error) => {
             errors.push(json!({ "part": "indexes", "message": error.to_string() }));
@@ -19,7 +25,7 @@ pub async fn overview(client: &Client) -> Result<Value> {
         }
     };
 
-    let (distribution, distribution_date) = match fetch_distribution(client).await {
+    let (distribution, distribution_date) = match distribution_result {
         Ok(value) => value,
         Err(error) => {
             errors.push(json!({ "part": "distribution", "message": error.to_string() }));
@@ -28,7 +34,7 @@ pub async fn overview(client: &Client) -> Result<Value> {
     };
 
     let mut pool_dates = Vec::new();
-    let zt = match fetch_pool_count(client, "getTopicZTPool", "fbt:asc", &request_date).await {
+    let zt = match zt_result {
         Ok(value) => {
             if let Some(date) = &value.1 { pool_dates.push(date.clone()); }
             Some(value.0)
@@ -38,7 +44,7 @@ pub async fn overview(client: &Client) -> Result<Value> {
             None
         }
     };
-    let zb = match fetch_pool_count(client, "getTopicZBPool", "fbt:asc", &request_date).await {
+    let zb = match zb_result {
         Ok(value) => {
             if let Some(date) = &value.1 { pool_dates.push(date.clone()); }
             Some(value.0)
@@ -48,7 +54,7 @@ pub async fn overview(client: &Client) -> Result<Value> {
             None
         }
     };
-    let dt = match fetch_pool_count(client, "getTopicDTPool", "fund:asc", &request_date).await {
+    let dt = match dt_result {
         Ok(value) => {
             if let Some(date) = &value.1 { pool_dates.push(date.clone()); }
             Some(value.0)
@@ -71,7 +77,7 @@ pub async fn overview(client: &Client) -> Result<Value> {
     let stale = trading_date != today;
 
     Ok(json!({
-        "status": if errors.is_empty() { "ok" } else { "partial" },
+        "status": if errors.is_empty() && exchange_breadth.get("complete").and_then(Value::as_bool)==Some(true) { "ok" } else { "partial" },
         "source": "eastmoney",
         "fetched_at": Utc::now().to_rfc3339(),
         "trading_date": trading_date,
@@ -109,47 +115,44 @@ async fn fetch_index_and_breadth(client: &Client) -> Result<(Vec<Value>, Value)>
         .error_for_status()?
         .json()
         .await?;
-    ensure_rc_ok(&root, "东财指数")?;
+    parse_index_and_breadth(&root)
+}
+
+fn parse_index_and_breadth(root: &Value) -> Result<(Vec<Value>, Value)> {
+    ensure_rc_ok(root, "东财指数")?;
     let rows = diff_rows(root.pointer("/data/diff"));
-    if rows.is_empty() {
-        return Err(anyhow!("东财指数列表为空"));
-    }
-
+    if rows.is_empty() { return Err(anyhow!("东财指数列表为空")); }
     let mut indexes = Vec::new();
-    let mut up = 0_i64;
-    let mut down = 0_i64;
-    let mut flat = 0_i64;
-    let mut amount = 0.0_f64;
-    let mut breadth_rows = 0_i64;
-
+    let mut exchange_rows = std::collections::BTreeMap::new();
     for row in rows {
         let code = row.get("f12").and_then(value_text).unwrap_or_default();
         if matches!(code.as_str(), "000001" | "399106" | "899050") {
-            if let Some(v) = value_i64(row.get("f104")) { up += v; }
-            if let Some(v) = value_i64(row.get("f105")) { down += v; }
-            if let Some(v) = value_i64(row.get("f106")) { flat += v; }
-            if let Some(v) = value_f64(row.get("f6")) { amount += v; }
-            breadth_rows += 1;
+            exchange_rows.insert(code.clone(), row.clone());
         }
-
-        if matches!(code.as_str(), "000001" | "399001" | "399006" | "000300") {
-            indexes.push(json!({
-                "code": code,
-                "name": row.get("f14").and_then(value_text).unwrap_or_default(),
-                "price": value_f64(row.get("f2")),
-                "change_pct": value_f64(row.get("f3")),
-                "change": value_f64(row.get("f4")),
-                "amount_yuan": value_f64(row.get("f6"))
-            }));
+        if matches!(code.as_str(), "000001" | "399106" | "899050" | "399001" | "399006" | "000300") {
+            indexes.push(json!({"code":code,"name":row.get("f14").and_then(value_text).unwrap_or_default(),
+                "price":value_f64(row.get("f2")),"change_pct":value_f64(row.get("f3")),
+                "change":value_f64(row.get("f4")),"amount_yuan":value_f64(row.get("f6"))}));
         }
     }
-
-    let exchange = if breadth_rows > 0 {
-        json!({ "up": up, "down": down, "flat": flat, "amount_yuan": amount })
-    } else {
-        json!({ "up": null, "down": null, "flat": null, "amount_yuan": null })
+    let sum_counts = |field: &str| -> Option<i64> {
+        if exchange_rows.len() != 3 { return None; }
+        exchange_rows.values().try_fold(0_i64, |sum, row| {
+            let number = value_i64(row.get(field)).filter(|v| *v >= 0)?;
+            sum.checked_add(number)
+        })
     };
-    Ok((indexes, exchange))
+    let amount = if exchange_rows.len() == 3 {
+        exchange_rows.values().map(|row|value_f64(row.get("f6")).filter(|v|*v>=0.0)).collect::<Option<Vec<_>>>()
+            .map(|values|values.iter().sum::<f64>()).filter(|sum|sum.is_finite())
+    } else {None};
+    let up=sum_counts("f104");
+    let down=sum_counts("f105");
+    let flat=sum_counts("f106");
+    let exchange=json!({"up":up,"down":down,"flat":flat,"amount_yuan":amount,
+        "complete":up.is_some()&&down.is_some()&&flat.is_some()&&amount.is_some(),
+        "reported_markets":exchange_rows.len(),"expected_markets":3});
+    Ok((indexes,exchange))
 }
 
 async fn fetch_distribution(client: &Client) -> Result<(Vec<Value>, Option<String>)> {
@@ -285,5 +288,34 @@ fn format_yyyymmdd(raw: String) -> String {
         format!("{}-{}-{}", &raw[0..4], &raw[4..6], &raw[6..8])
     } else {
         raw
+    }
+}
+
+#[cfg(test)]
+mod index_tests {
+    use super::*;
+    #[test]
+    fn all_six_indexes_visible_and_exchange_totals_keep_missing_values() {
+        let mut root=json!({"rc":0,"data":{"diff":[
+            {"f12":"000001","f14":"上证指数","f2":3000,"f104":10,"f105":20,"f106":3,"f6":1000},
+            {"f12":"399106","f14":"深证综指","f2":2000,"f104":20,"f105":30,"f106":4,"f6":2000},
+            {"f12":"899050","f14":"北证50","f2":1000,"f104":30,"f105":40,"f106":5,"f6":3000},
+            {"f12":"399001","f14":"深证成指","f2":10000},
+            {"f12":"399006","f14":"创业板指","f2":2000},
+            {"f12":"000300","f14":"沪深300","f2":4000}] }});
+        let (indexes, exchange)=parse_index_and_breadth(&root).unwrap();
+        assert_eq!(indexes.len(),6);
+        assert_eq!(exchange["up"],60);
+        assert_eq!(exchange["amount_yuan"],6000.0);
+        assert_eq!(exchange["complete"],true);
+        root["data"]["diff"][1]["f104"]=json!("-");
+        let (_, missing)=parse_index_and_breadth(&root).unwrap();
+        assert!(missing["up"].is_null());
+        assert_eq!(missing["down"],90);
+        assert_eq!(missing["complete"],false);
+        root["data"]["diff"].as_array_mut().unwrap().remove(2);
+        let (_, incomplete)=parse_index_and_breadth(&root).unwrap();
+        assert!(incomplete["amount_yuan"].is_null());
+        assert_eq!(incomplete["reported_markets"],2);
     }
 }

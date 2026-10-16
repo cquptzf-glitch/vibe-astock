@@ -13,7 +13,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #ef714b;
+  color: var(--mobile-accent);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -28,7 +28,7 @@
 
 .shortline-title-row p {
   margin: 6px 0 0;
-  color: #7f8793;
+  color: var(--mobile-muted);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -39,10 +39,10 @@
   place-items: center;
   width: 40px;
   height: 40px;
-  border: 1px solid #2a3038;
+  border: 1px solid var(--mobile-border);
   border-radius: 12px;
-  color: #a0a8b3;
-  background: #12161b;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
 }
 
 .shortline-refresh:disabled {
@@ -58,10 +58,10 @@
 
 .shortline-meta-row span {
   padding: 5px 8px;
-  border: 1px solid #2a3038;
+  border: 1px solid var(--mobile-border);
   border-radius: 999px;
-  color: #8d96a2;
-  background: #11151a;
+  color: var(--mobile-muted);
+  background: var(--mobile-card);
   font-size: 10px;
 }
 
@@ -75,9 +75,9 @@
 .shortline-summary > div {
   min-width: 0;
   padding: 13px 8px 11px;
-  border: 1px solid #282e36;
+  border: 1px solid var(--mobile-border);
   border-radius: 14px;
-  background: linear-gradient(180deg, #171b21, #12161b);
+  background: linear-gradient(180deg, var(--mobile-soft), var(--mobile-card));
   text-align: center;
 }
 
@@ -88,19 +88,19 @@
 }
 
 .shortline-summary span {
-  color: #707a86;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
 .shortline-summary strong {
   margin-top: 4px;
-  color: #f0f2f5;
+  color: var(--mobile-text);
   font-size: 21px;
 }
 
 .shortline-summary small {
   min-height: 13px;
-  color: #717a85;
+  color: var(--mobile-muted);
   font-size: 9px;
 }
 
@@ -112,7 +112,7 @@
   padding: 9px 11px;
   border: 1px solid rgba(240, 180, 75, 0.22);
   border-radius: 11px;
-  color: #d5ae66;
+  color: var(--mobile-warning);
   background: rgba(110, 79, 24, 0.12);
   font-size: 11px;
 }
@@ -121,9 +121,9 @@
 .shortline-empty,
 .shortline-error {
   margin-top: 18px;
-  border: 1px solid #262c34;
+  border: 1px solid var(--mobile-border);
   border-radius: 16px;
-  background: #12161b;
+  background: var(--mobile-card);
 }
 
 .shortline-loading,
@@ -134,7 +134,7 @@
   gap: 8px;
   min-height: 140px;
   padding: 18px;
-  color: #7e8792;
+  color: var(--mobile-muted);
   font-size: 12px;
   text-align: center;
 }
@@ -148,12 +148,12 @@
 }
 
 .shortline-error strong {
-  color: #ffc0c0;
+  color: var(--mobile-up);
   font-size: 13px;
 }
 
 .shortline-error span {
-  color: #bc8e8e;
+  color: var(--mobile-up);
   font-size: 11px;
   line-height: 1.55;
 }
@@ -164,7 +164,7 @@
   padding: 7px 10px;
   border: 1px solid rgba(246, 94, 94, 0.28);
   border-radius: 9px;
-  color: #ffb7b7;
+  color: var(--mobile-up);
   background: transparent;
   font-size: 11px;
 }
@@ -177,9 +177,9 @@
 
 .shortline-board-group {
   overflow: hidden;
-  border: 1px solid #282e36;
+  border: 1px solid var(--mobile-border);
   border-radius: 16px;
-  background: #11151a;
+  background: var(--mobile-card);
 }
 
 .shortline-board-head {
@@ -187,8 +187,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 13px;
-  border-bottom: 1px solid #252b32;
-  background: #15191f;
+  border-bottom: 1px solid var(--mobile-border);
+  background: var(--mobile-card);
 }
 
 .shortline-board-head > div {
@@ -198,26 +198,26 @@
 }
 
 .shortline-board-head span {
-  color: #d9dde3;
+  color: var(--mobile-text);
   font-size: 13px;
   font-weight: 720;
 }
 
 .shortline-board-head span.hot {
-  color: #ff7558;
+  color: var(--mobile-accent);
 }
 
 .shortline-board-head em {
   padding: 2px 5px;
   border-radius: 999px;
-  color: #ff9c82;
+  color: var(--mobile-accent);
   background: rgba(228, 87, 46, 0.12);
   font-size: 9px;
   font-style: normal;
 }
 
 .shortline-board-head small {
-  color: #707985;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -230,7 +230,7 @@
   width: 100%;
   padding: 13px;
   border: 0;
-  border-bottom: 1px solid #232930;
+  border-bottom: 1px solid var(--mobile-border);
   color: inherit;
   background: transparent;
   text-align: left;
@@ -241,7 +241,7 @@
 }
 
 .shortline-stock:active {
-  background: #181d23;
+  background: var(--mobile-soft);
 }
 
 .shortline-stock-main {
@@ -264,7 +264,7 @@
 
 .shortline-stock-name span {
   margin-top: 3px;
-  color: #6d7682;
+  color: var(--mobile-muted);
   font-size: 10px;
 }
 
@@ -279,7 +279,7 @@
 
 .shortline-stock-price span {
   margin-top: 3px;
-  color: #ef6b5a;
+  color: var(--mobile-accent);
   font-size: 10px;
 }
 
@@ -293,8 +293,8 @@
 .shortline-tags span {
   padding: 3px 6px;
   border-radius: 7px;
-  color: #949da9;
-  background: #1b2026;
+  color: var(--mobile-muted);
+  background: var(--mobile-soft);
   font-size: 9px;
 }
 
@@ -304,7 +304,7 @@
   align-items: end;
   gap: 8px;
   margin-top: 10px;
-  color: #68717c;
+  color: var(--mobile-muted);
   font-size: 9px;
 }
 
@@ -316,7 +316,7 @@
   display: block;
   margin-top: 2px;
   overflow: hidden;
-  color: #969fab;
+  color: var(--mobile-muted);
   font-size: 10px;
   font-weight: 580;
   text-overflow: ellipsis;
@@ -325,7 +325,7 @@
 
 .shortline-stock-extra svg {
   align-self: center;
-  color: #525b67;
+  color: var(--mobile-muted);
 }
 
 @media (min-width: 680px) {
@@ -336,5 +336,5 @@
 }
 
 .shortline-tabs { display:flex; gap:7px; margin-bottom:10px; }
-.shortline-tabs button { border:1px solid var(--mobile-border,#e7e5e4); border-radius:999px; padding:7px 13px; background:transparent; color:var(--mobile-muted,#78716c); font-size:12px; }
-.shortline-tabs button.active { border-color:color-mix(in srgb, var(--mobile-accent,#f97316) 45%, transparent); background:color-mix(in srgb, var(--mobile-accent,#f97316) 10%, transparent); color:var(--mobile-accent,#f97316); }
+.shortline-tabs button { border: 1px solid var(--mobile-border); border-radius:999px; padding:7px 13px; background:transparent; color: var(--mobile-muted); font-size:12px; }
+.shortline-tabs button.active { border-color:color-mix(in srgb, var(--mobile-accent,#f97316) 45%, transparent); background:color-mix(in srgb, var(--mobile-accent,#f97316) 10%, transparent); color: var(--mobile-accent); }
