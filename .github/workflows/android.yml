@@ -25,8 +25,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.8"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.8-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.9"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.9-arm64.apk"
 
     steps:
       - name: Checkout
@@ -157,7 +157,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.8-arm64
+          name: vibe-astock-android-mvp-v0.1.9-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -171,22 +171,20 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.8
+          ## Vibe AStock Android MVP v0.1.9
 
-          Ninth installable Android MVP built from the `android-mvp` branch.
+          Tenth installable Android MVP built from the `android-mvp` branch.
 
-          ### New in v0.1.8
-          - Adds A-share symbol search by code, Chinese name and pinyin directly in Rust Core
-          - Adds a dedicated local portfolio view under “自选与持仓”
-          - Open positions are derived from Trading Journal fills instead of maintaining a second position database
-          - Portfolio refreshes realtime quotes and calculates latest market value, unrealized P/L and unrealized return
-          - Shows average cost, shares, planned stop/target, stop coverage and planned risk from the local review model
-          - Adds a Settings page with Rust Core version, SQLite footprint, watchlist/journal/fill/open-position counts and AI credential status
-          - Fixes the strict TypeScript error in v0.1.7 symbol search and removes the stale-suggestion submit edge case
-          - Optimizes the Rust Android dev profile for sideload builds: size optimization, stripped symbols, thin LTO, one codegen unit and abort panic strategy
-          - Builds only the ARM64 split APK and emits an APK size / largest-file report in GitHub Actions
-          - CI now cancels stale Android and cross-platform runs when a newer branch commit arrives
-          - Consolidates the proven legacy stock-symbol parity contract from the earlier Android refactor branch
+          ### New in v0.1.9
+          - Unifies stock routing behind one Rust `SymbolKey` contract across quote, K-line, search and watchlist storage
+          - Adds Beijing Stock Exchange routing alongside Shanghai and Shenzhen: SH / SZ / BJ
+          - Supports BSE code segments including 43 / 83 / 87 / 92 and preserves the migrated legacy parity contract
+          - Removes the duplicate quote-side `SymbolInfo` parser so Tencent and Eastmoney cannot silently disagree on market routing
+          - Parses and validates a symbol once at the `/fetch` boundary; contradictory market spellings now return HTTP 400
+          - Extends Tencent Smartbox search to accept BSE A-share results when exchange and code segment agree
+          - Validates and canonicalizes watchlist symbols with the same shared router
+          - Updates the Android stock UI to accept `BJ430047` and `430047.BJ` and label SH/SZ/BJ consistently
+          - Keeps the optimized ARM64 sideload build and APK size report introduced in v0.1.8
 
           ### Already included
           - Market overview and breadth
@@ -194,9 +192,12 @@ jobs:
           - Concept/industry rotation with today vs. 5-day fund-flow observation labels
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
           - Forward-adjusted K-line data and enhanced stock detail analysis
+          - Code / Chinese-name / pinyin symbol search
           - Local SQLite watchlist and editable Trading Journal with appendable fills
+          - Local portfolio derived from journal fills with realtime quote refresh
           - Local journal performance/discipline/risk dashboard
-          - Opt-in OpenAI-compatible AI journal review with payload preview and aggregate-only default scope
+          - Local daily review and OpenAI-compatible AI chat/review flows
+          - Settings/data summary view for local storage and credential status
 
           ### Build and security note
           - CI artifacts remain debug-signed so they are directly installable without committing a production signing key
@@ -221,6 +222,6 @@ jobs:
             "dist/${ANDROID_APK_NAME}" \
             "dist/${ANDROID_APK_NAME}.sha256" \
             --target "$GITHUB_SHA" \
-            --title "Vibe AStock Android MVP v0.1.8" \
+            --title "Vibe AStock Android MVP v0.1.9" \
             --notes "$NOTES" \
             --prerelease
