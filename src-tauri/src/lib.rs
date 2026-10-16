@@ -13,7 +13,7 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             let core = AppCore::new(data_dir)?;
             secure_ai::migrate_legacy(app.handle(), &core)
-                .map_err(|error| anyhow::anyhow!(error))?;
+                .map_err(std::io::Error::other)?;
             app.manage(core);
             Ok(())
         })
