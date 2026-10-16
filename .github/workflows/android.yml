@@ -1,4 +1,5 @@
 name: Android APK
+# Release trigger: v0.1.10
 
 on:
   workflow_dispatch:
