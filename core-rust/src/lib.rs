@@ -1,4 +1,5 @@
 mod ai_review;
+mod daily_review;
 mod data_summary;
 mod journal;
 mod journal_mutation;
@@ -55,6 +56,7 @@ impl AppCore {
         let db_path = data_dir.join("vibe-astock-mobile.sqlite3");
         storage::init(&db_path)?;
         journal::init(&db_path)?;
+        daily_review::init(&db_path)?;
         ai_review::init(&db_path)?;
 
         let client = Client::builder()
@@ -104,6 +106,14 @@ impl AppCore {
             ("GET", "/mobile/data/summary") => {
                 Ok(MobileApiResponse::ok(data_summary::summary(&self.db_path)?))
             }
+            ("GET", "/mobile/daily-review") => match daily_review::get(&self.db_path, &request.path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "daily_review", error.to_string())),
+            },
+            ("POST", "/mobile/daily-review") => match daily_review::save(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "daily_review", error.to_string())),
+            },
             ("GET", "/mobile/watchlist") => {
                 Ok(MobileApiResponse::ok(storage::list(&self.db_path)?))
             }
