@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Layers3, RefreshCw, Repeat2 } from "lucide-react";
 
 import "./rotation.css";
+import "./discovery-features.css";
 
 type BoardType = "concept" | "industry";
 type Period = "today" | "five_day";
@@ -78,7 +79,7 @@ function signalLabel(signal: Signal): string {
   return "";
 }
 
-export function RotationPanel() {
+export function RotationPanel({ onOpenBoard }: { onOpenBoard?: (code: string) => void } = {}) {
   const [boardType, setBoardType] = useState<BoardType>("concept");
   const [period, setPeriod] = useState<Period>("today");
   const [cache, setCache] = useState<Partial<Record<BoardType, RotationData>>>({});
@@ -172,7 +173,7 @@ export function RotationPanel() {
                   <div className="rotation-rank">{row.rank}</div>
                   <div className="rotation-row-main">
                     <div className="rotation-name-line">
-                      <strong>{row.name}</strong>
+                      {onOpenBoard ? <button type="button" className="rotation-open-board" onClick={() => onOpenBoard(row.code)} aria-label={`查看 ${row.name} 板块详情`}>{row.name} ›</button> : <strong>{row.name}</strong>}
                       {row.rotation_signal && <span className={`signal ${row.rotation_signal}`}>{signalLabel(row.rotation_signal)}</span>}
                     </div>
                     <div className="rotation-meta">

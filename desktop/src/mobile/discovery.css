@@ -10,8 +10,12 @@
 }
 
 .discovery-main-tabs {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
+
+.discovery-main-tabs > button { flex: 0 0 auto; min-width: 68px; min-height: 44px; padding: 8px 10px; }
 
 .discovery-tabs button,
 .mobile-sector-grid button,

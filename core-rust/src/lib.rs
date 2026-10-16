@@ -3,10 +3,14 @@ mod ai_config;
 mod ai_review;
 mod backup;
 mod backtest;
+mod boards;
 mod calendar;
 mod daily_review;
 mod data_summary;
 mod documents;
+mod discovery;
+mod industry_signals;
+mod news;
 mod journal;
 mod journal_mutation;
 mod journal_review;
@@ -302,6 +306,10 @@ impl AppCore {
             ("GET", "/mobile/shortline/limit-up") => Ok(MobileApiResponse::ok(
                 shortline::limit_up_pool(&self.client, &request.path).await?,
             )),
+            ("GET", "/mobile/news/catalog") => Ok(MobileApiResponse::ok(news::catalog()?)),
+            ("GET", "/mobile/news") => Ok(discovery_response(news::fetch(&self.client, &request.path).await)),
+            ("GET", "/mobile/industry/gpu-rent") => Ok(discovery_response(industry_signals::gpu_rent(&self.client, &request.path).await)),
+            ("GET", "/mobile/boards/detail") => Ok(discovery_response(boards::detail(&self.client, &request.path).await)),
             ("GET", "/mobile/rotation") => Ok(MobileApiResponse::ok(
                 rotation::snapshot(&self.client, &request.path).await?,
             )),
@@ -338,6 +346,17 @@ impl AppCore {
     }
 }
 
+fn discovery_response(result: std::result::Result<Value, discovery::DiscoveryError>) -> MobileApiResponse {
+    match result {
+        Ok(body) => MobileApiResponse { status: if body["status"] == "failed" { 502 } else { 200 }, body },
+        Err(discovery::DiscoveryError::BadRequest(message)) => MobileApiResponse::error(400, "bad_request", message),
+        Err(discovery::DiscoveryError::Upstream(error)) => {
+            let failure = discovery::failure("discovery", &error);
+            MobileApiResponse::error(502, "discovery_upstream", failure["message"].as_str().unwrap_or("数据源暂不可用"))
+        }
+    }
+}
+
 fn research_response(result: std::result::Result<Value, research::ResearchError>) -> MobileApiResponse {
     match result {
         Ok(value) => MobileApiResponse::ok(value),
@@ -347,5 +366,40 @@ fn research_response(result: std::result::Result<Value, research::ResearchError>
         Err(research::ResearchError::Upstream(error)) => {
             MobileApiResponse::error(502, "research_upstream", error.to_string())
         }
+    }
+}
+
+#[cfg(test)]
+mod discovery_contract_tests {
+    use super::*;
+    #[tokio::test]
+    async fn discovery_routes_reject_bad_inputs_before_network_access() {
+        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let directory = std::env::temp_dir().join(format!("vibe-discovery-contract-{nonce}"));
+        let app = AppCore::new(directory.clone()).unwrap();
+        for path in [
+            "/mobile/news?industry=unknown",
+            "/mobile/news?industry=ai&source=not-a-configured-source",
+            "/mobile/news?industry=ai&days=0",
+            "/mobile/industry/gpu-rent?days=100000",
+            "/mobile/boards/detail?code=BK0475%26fs=arbitrary",
+            "/mobile/boards/detail?code=BK0475&page=0",
+            "/mobile/boards/detail?code=BK0475&sort=not-a-field",
+        ] {
+            let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
+            assert_eq!(response.status,400,"{path}: {}",response.body);
+        }
+        let response=app.handle(MobileApiRequest {path:"/mobile/news/catalog".into(),method:"GET".into(),body:Value::Null}).await;
+        assert_eq!(response.status,200);
+        assert_eq!(response.body["industries"].as_array().unwrap().len(),12);
+        drop(app);
+        let _=std::fs::remove_dir_all(directory);
+    }
+    #[test]
+    fn source_total_failure_maps_to_502_without_hiding_partial_data() {
+        assert_eq!(discovery_response(Ok(json!({"status":"failed","message":"upstream"}))).status,502);
+        let partial=discovery_response(Ok(json!({"status":"partial","items":[1],"errors":[{"source":"x"}]})));
+        assert_eq!(partial.status,200);
+        assert_eq!(partial.body["items"],json!([1]));
     }
 }

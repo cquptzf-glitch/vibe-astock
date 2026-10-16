@@ -1188,3 +1188,35 @@ APK CI run 是否成功
 - 设备上的 Android Back/手势、点击通知冷/热启动及 Activity recreation 仍需真机验收，单元测试与编译不代表已完成真机验证。
 
 后续优先：通知真机验收 → 产业资讯/产业信号 → 行情供应商 fixture hardening → 更完整 Signals/Intraday/研究数据。正式签名/AAB、AI 流式输出与高级回测仍未完成。
+
+
+### 2026-10-16 后续增量：产业资讯、产业信号与板块详情（0.1.15）
+
+本轮一次完成三个业务模块及原文打开能力：
+
+1. **产业资讯**：Rust 解析 RSS / Atom，复用 datasources/rss_sources.json 的 12 个行业与 HTTPS 源；支持切换任意单源、3/7/30 天、已获取资讯关键词筛选和关注词筛选。综合模式每次并发请求前 4 个源，单源失败保留其他结果；全部失败返回 502；来源、时间缺失、去重与未来时间过滤都有明确处理。
+2. **产业信号 · GPU 租金**：B200 / H100 SXM / A100 SXM4，30/90/365 天历史、最新采样、约 7 日变化和趋势曲线。卡片与曲线共用同一末点，时间戳单位为秒；NaN/Inf、重复冲突与过期数据均处理。统计口径沿用 500.farm 分组后聚合的中位，B200 设备折旧参考线不套用于其他型号。本次未迁移 Kalshi 月均远期部分。
+3. **板块详情与成分股**：从行业/概念轮动榜点击进入，展示板块概览、近 90 个交易日不复权指数、50 条一页成分股、涨跌/主力净额/换手排序、成分股到个股详情跳转。本页涨跌分布明确标为分页统计；板块代码校验独立于股票 SymbolKey，股票市场仍复用唯一归一化实现。排序和分页在本次会话保留。
+4. **系统浏览器原文打开**：新增 tauri-plugin-opener；只开放 http/https URL，拒绝文件、脚本、带用户信息的链接；原文交给系统应用，不替换业务 WebView。
+
+新增 Core route：
+- GET /mobile/news/catalog
+- GET /mobile/news?industry=ai&days=7&source=...
+- GET /mobile/industry/gpu-rent?days=90
+- GET /mobile/boards/detail?code=BK0475&page=1&sort=change&order=desc
+
+新增移动路由：/mobile/discovery/news、/mobile/discovery/signals、/mobile/board/:code。发现栏目横向滚动，不增加底部主导航。
+
+持久化与原生权限：
+- 不新增 SQLite 表或 migration，不改备份结构，不向模型发送本地数据。
+- opener 仅增加限定 http/https 的 Tauri capability，不增加 Android 危险权限。
+- 每个源有请求超时和 2 MiB 响应上限；本轮不宣称已建立全局缓存/限流/离线体系。
+
+验证：
+- 本地仅运行 Rust：40 项单元/接口测试 + 1 项股票代码 parity，以及 cargo check 通过。
+- 新增离线 RSS/Atom legacy fixtures、GPU 历史样本和真实公开板块成分股样本；来源说明在 core-rust/tests/fixtures/README.md。
+- 新增前端呈现/缺值/部分失败/外链/板块返回导航测试，交给 GitHub CI 执行。
+- 已做公开数据源可达性探测：东财板块成分股/概览、500.farm B200 matrix 可返回数据；这不代表所有 RSS 来源和手机网络均已验收。
+- 本轮最终 CI run 与 APK artifact 待构建后补记。未创建 Release。
+
+仍待后续：Kalshi 远期、更多产业温度计、完整股票信号中心/盘中异动/资金流、估值历史、AI 流式与多会话、正式签名/AAB、真机生命周期验收。公司概况、公告、财务摘要和盈利预测已有基础接口，不应继续标为完全未迁移。

@@ -8,6 +8,7 @@ on:
     paths:
       - "desktop/**"
       - "core-rust/**"
+      - "datasources/rss_sources.json"
       - "src-tauri/**"
       - ".github/workflows/android.yml"
 

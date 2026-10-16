@@ -1,16 +1,19 @@
-import { BarChart3, CalendarDays, Layers3, Radar, ScanSearch } from "lucide-react";
+import { Activity, BarChart3, CalendarDays, Layers3, Newspaper, Radar, ScanSearch } from "lucide-react";
 
 import { BacktestPanel } from "./BacktestPanel";
 import { CalendarPanel } from "./CalendarPanel";
 import { CandidatePanel } from "./CandidatePanel";
+import { NewsPanel } from "./NewsPanel";
+import { GpuRentPanel } from "./GpuRentPanel";
 import { RotationPanel } from "./RotationPanel";
 import { SectorPanel } from "./SectorPanel";
 import "./discovery.css";
 
-export type DiscoveryView = "rotation" | "sector" | "candidate" | "calendar" | "backtest";
+export type DiscoveryView = "rotation" | "sector" | "candidate" | "calendar" | "backtest" | "news" | "signals";
 
-export function DiscoveryWorkspace({ onOpenSymbol, view, onViewChange: setView }: {
+export function DiscoveryWorkspace({ onOpenSymbol, onOpenBoard, view, onViewChange: setView }: {
   onOpenSymbol?: (symbol: string) => void;
+  onOpenBoard?: (code: string) => void;
   view: DiscoveryView;
   onViewChange: (view: DiscoveryView) => void;
 }) {
@@ -63,11 +66,15 @@ export function DiscoveryWorkspace({ onOpenSymbol, view, onViewChange: setView }
         >
           <BarChart3 size={14} /> 回测
         </button>
+        <button type="button" role="tab" aria-selected={view === "news"} className={view === "news" ? "active" : ""} onClick={() => setView("news")}><Newspaper size={14} /> 资讯</button>
+        <button type="button" role="tab" aria-selected={view === "signals"} className={view === "signals" ? "active" : ""} onClick={() => setView("signals")}><Activity size={14} /> 信号</button>
       </div>
 
-      {view === "rotation" && <RotationPanel />}
+      {view === "rotation" && <RotationPanel onOpenBoard={onOpenBoard} />}
       {view === "sector" && <SectorPanel />}
       {view === "candidate" && <CandidatePanel onOpenSymbol={onOpenSymbol ?? (() => undefined)} />}
+      {view === "news" && <NewsPanel />}
+      {view === "signals" && <GpuRentPanel />}
       {view === "calendar" && <CalendarPanel />}
       {view === "backtest" && <BacktestPanel />}
     </section>

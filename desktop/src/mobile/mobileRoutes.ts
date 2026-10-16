@@ -4,6 +4,9 @@ export const MOBILE_PATHS = {
   monitor: "/mobile/shortline",
   limitUp: "/mobile/shortline/limit-up",
   rotation: "/mobile/discovery/rotation",
+  news: "/mobile/discovery/news",
+  signals: "/mobile/discovery/signals",
+  board: "/mobile/board",
   sector: "/mobile/discovery/sector",
   candidate: "/mobile/discovery/candidate",
   calendar: "/mobile/discovery/calendar",
@@ -20,7 +23,7 @@ export const MOBILE_PATHS = {
 } as const;
 
 export type MobilePage = keyof typeof MOBILE_PATHS;
-export interface MobileRoute { page: MobilePage; symbol?: string }
+export interface MobileRoute { page: MobilePage; symbol?: string; board?: string }
 
 const SYMBOL = /^(?:\d{6}|(?:SH|SZ|BJ)\d{6}|\d{6}\.(?:SH|SZ|BJ))$/;
 
@@ -30,7 +33,12 @@ export function parseMobileRoute(input: string): MobileRoute | null {
   let path: string;
   try { path = decodeURIComponent(input.replace(/^#/, "")); } catch { return null; }
   for (const [page, candidate] of Object.entries(MOBILE_PATHS)) {
-    if (page !== "stock" && path === candidate) return { page: page as MobilePage };
+    if (page !== "stock" && page !== "board" && path === candidate) return { page: page as MobilePage };
+  }
+  const boardPrefix = MOBILE_PATHS.board + "/";
+  if (path.startsWith(boardPrefix)) {
+    const board = path.slice(boardPrefix.length).toUpperCase();
+    return /^BK[0-9]{4}$/.test(board) ? { page: "board", board } : null;
   }
   const prefix = MOBILE_PATHS.stock + "/";
   if (path.startsWith(prefix)) {
@@ -41,6 +49,10 @@ export function parseMobileRoute(input: string): MobileRoute | null {
 }
 
 export function mobilePath(route: MobileRoute): string {
+  if (route.page === "board") {
+    const board = route.board?.trim().toUpperCase() ?? "";
+    return /^BK[0-9]{4}$/.test(board) ? MOBILE_PATHS.board + "/" + board : MOBILE_PATHS.market;
+  }
   if (route.page !== "stock") return MOBILE_PATHS[route.page];
   const symbol = route.symbol?.trim().toUpperCase() ?? "";
   return SYMBOL.test(symbol) ? MOBILE_PATHS.stock + "/" + symbol : MOBILE_PATHS.market;

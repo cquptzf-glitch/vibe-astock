@@ -43,11 +43,13 @@ Android APK PASS
 | Android native sharing | Legacy share-card flows are richer | `tauri-plugin-vibe-share` + `nativeShare.ts` | Android build + text share path | **Integrated text sharing; image/share-card parity pending** |
 | WorkManager / background scheduler | Desktop scheduler/alerts concepts | reminders.rs + tauri-plugin-vibe-reminders | Rust rule/snapshot tests; native scheduling and notification route JUnit in CI | **Mobile extension; Doze/device timing pending** |
 | Intraday watch / abnormal | Legacy PC watch flows | monitor.rs + MonitorPanel.tsx | Batch quote/missing fields/risk-state tests; 60-second foreground refresh | **Mobile watch implemented; full abnormal parity pending** |
+| Industry news | Legacy RSS sources/rss.py and rss_sources.json | news.rs + NewsPanel.tsx | Legacy RSS/Atom fixtures, source failure and time filtering tests | **Mobile extension using shared source catalog** |
+| Industry GPU signals | Legacy industry.py GPU thermometer | industry_signals.rs + GpuRentPanel.tsx | Legacy history/spot contract fixture, NaN/stale/conflict tests | **Spot/history migrated; Kalshi forward pending** |
 | Signals | Legacy PC signals flows | Not yet migrated | None | **Pending** |
-| Sector detail / constituents | Legacy PC sectors flows | Rotation summary only | None for full detail | **Partial / pending** |
+| Sector detail / constituents | Eastmoney public board endpoints | boards.rs + BoardDetailPanel.tsx | Public constituent fixture + identity/missing/order tests; mobile route | **Mobile detail/pagination/history implemented; provider parity hardening ongoing** |
 | Candidates | Legacy PC candidates flows | research.rs + CandidatePanel.tsx | Basic deterministic mobile candidate route; frozen legacy coverage pending | **Partial mobile implementation** |
 | Calendar | Legacy trade/calendar flows | calendar.rs + CalendarPanel.tsx | Local event CRUD tests; full exchange/announcement calendar parity pending | **Mobile extension; partial PC scope** |
-| Stock research deterministic data | profile/financials/announcements/estimates/valuation scripts | research.rs + ResearchPanel.tsx | Basic mobile research endpoints; frozen provider parity pending | **Partial; estimates/valuation/full research pending** |
+| Stock research deterministic data | profile/financials/announcements/estimates/valuation scripts | research.rs + ResearchPanel.tsx | Basic profile, financials, announcements and EPS estimates routes | **Partial; valuation history and research workflow pending** |
 | Lite backtest | Python backtest/ | backtest.rs + BacktestPanel.tsx | Rust SMA/bar tests; next-open execution; no taxes/fees/slippage | **Mobile Lite extension; advanced parity pending** |
 | Notes / reports / inbox | Legacy desktop local/product flows | documents.rs + LibraryPanel.tsx | SQLite CRUD + versioned backup tests | **Mobile local document extension** |
 | Debate / deep research | Node/Agent/Python workflows | Not migrated | None | **Pending / redesign rather than runtime port** |

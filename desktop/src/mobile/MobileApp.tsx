@@ -15,6 +15,7 @@ import {
   Wifi,
 } from "lucide-react";
 
+import { BoardDetailPanel } from "./BoardDetailPanel";
 import { DiscoveryWorkspace, type DiscoveryView } from "./DiscoveryWorkspace";
 import { JournalWorkspace, type JournalView } from "./JournalWorkspace";
 import { MarketOverview } from "./MarketOverview";
@@ -153,12 +154,12 @@ export function MobileApp() {
   const { route, navigate, back } = useMobileNavigation();
   const page = route.page;
   const isStock = page === "stock";
-  const discoveryPages: DiscoveryView[] = ["rotation", "sector", "candidate", "calendar", "backtest"];
+  const discoveryPages: DiscoveryView[] = ["rotation", "sector", "candidate", "calendar", "backtest", "news", "signals"];
   const journalPages: JournalView[] = ["records", "daily", "review", "ai", "library", "reminders", "settings"];
   const tab: Tab = page === "market" || isStock ? "market"
     : page === "monitor" || page === "limitUp" ? "shortline"
     : page === "watch" || page === "hold" ? "watchlist"
-    : discoveryPages.includes(page as DiscoveryView) ? "rotation" : "journal";
+    : page === "board" || discoveryPages.includes(page as DiscoveryView) ? "rotation" : "journal";
   const stockView = page === "hold" ? "hold" : "watch";
   const setTab = (next: Tab) => navigate({ page: next === "shortline" ? "monitor"
     : next === "watchlist" ? "watch" : next === "journal" ? "records" : next });
@@ -474,7 +475,9 @@ export function MobileApp() {
         )}
 
         {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} view={page === "limitUp" ? "limit-up" : "monitor"} onViewChange={(view) => navigate({ page: view === "limit-up" ? "limitUp" : "monitor" })} />}
-        {tab === "rotation" && <DiscoveryWorkspace onOpenSymbol={openFromList} view={page as DiscoveryView} onViewChange={(view) => navigate({ page: view })} />}
+        {tab === "rotation" && (page === "board"
+          ? <BoardDetailPanel key={route.board} code={route.board!} onOpenSymbol={openFromList} />
+          : <DiscoveryWorkspace onOpenSymbol={openFromList} onOpenBoard={(board) => navigate({ page: "board", board })} view={page as DiscoveryView} onViewChange={(view) => navigate({ page: view })} />)}
 
         {tab === "watchlist" && (
           <section className="mobile-section">
