@@ -8,7 +8,7 @@ import "./discovery.css";
 
 type DiscoveryView = "rotation" | "sector" | "candidate";
 
-export function DiscoveryWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
+export function DiscoveryWorkspace({ onOpenSymbol }: { onOpenSymbol?: (symbol: string) => void }) {
   const [view, setView] = useState<DiscoveryView>("rotation");
 
   return (
@@ -45,7 +45,7 @@ export function DiscoveryWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: st
 
       {view === "rotation" && <RotationPanel />}
       {view === "sector" && <SectorPanel />}
-      {view === "candidate" && <CandidatePanel onOpenSymbol={onOpenSymbol} />}
+      {view === "candidate" && <CandidatePanel onOpenSymbol={onOpenSymbol ?? (() => undefined)} />}
     </section>
   );
 }
