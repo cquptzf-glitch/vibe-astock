@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { withRenderer } from "./helpers/render.ts";
+import { textOf, withRenderer } from "./helpers/render.ts";
 
 test("通知 IPC 跨 StrictMode 重挂载不丢冷启动入口，后台点击只导航一次并释放监听", async () => {
   const oldWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -56,7 +56,7 @@ test("移动发现路由和工作台子页渲染选中的栏目", async () => {
     const { DiscoveryWorkspace } = await r.load("/src/mobile/DiscoveryWorkspace.tsx");
     const html = r.html(DiscoveryWorkspace, { view: "backtest", onViewChange: () => undefined });
     assert.match(html, /aria-selected="true"[^>]*>[\s\S]*?回测/);
-    assert.match(html, /SMA/);
+    assert.match(textOf(html), /本地日线策略回测/);
     const { JournalWorkspace } = await r.load("/src/mobile/JournalWorkspace.tsx");
     const daily = r.html(JournalWorkspace, { view: "daily", onViewChange: () => undefined, onOpenSymbol: () => undefined });
     assert.match(daily, /日复盘/);
