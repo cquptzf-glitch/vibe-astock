@@ -77,7 +77,7 @@ async function mapLimited<T, R>(items: T[], limit: number, task: (item: T) => Pr
     while (true) {
       const index = cursor++;
       if (index >= items.length) return;
-      result[index] = await task(items[index]);
+      result[index] = await task(items[index]!);
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
