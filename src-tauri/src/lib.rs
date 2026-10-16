@@ -8,6 +8,7 @@ use vibe_astock_core::AppCore;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        // Register native secure storage before setup so legacy credentials can migrate safely.
         .plugin(tauri_plugin_vibe_secure_storage::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
