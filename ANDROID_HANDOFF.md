@@ -1151,3 +1151,13 @@ APK CI run 是否成功
 - 当前版本推进至 0.1.13。
 
 下一步仍按本文档路线推进：Android 原生提醒真机验收 → mobile route/back/deep-link → 产业资讯/产业信号 → 更完整 Signals/Intraday → deterministic Research 数据 → Lite Backtest。
+### 2026-10-16 后续增量：盯盘 + Lite 回测
+
+- 已新增 `/mobile/monitor`：自选/持仓批量行情、涨跌停价、当日行情校验、止损/目标状态。
+- App「短线」工作区现在默认进入「盯盘」，同时保留「涨停池」。
+- 盯盘页面每 60 秒刷新；连续采样约 3 分钟后对 ≥1.5% 的价格变化标记急拉/急跌。
+- 已新增 `/mobile/backtest` 与 BacktestPanel：SMA 趋势交叉 Lite 回测，信号使用前一交易日收盘、下一交易日开盘执行。
+- Lite 回测由 Rust 在 Android 内计算，不引入 Python；结果包含策略收益、买入持有、超额收益、最大回撤、胜率、交易次数和权益曲线。
+- Lite 回测明确不计手续费、印花税、滑点，不作为桌面完整 Agent 回测的替代品。
+
+后续优先：先完成当前 Android CI 的 Rust/Gradle 真机链路验证，再继续产业资讯/产业信号、完整资金流/异动、估值历史、研究数据和高级回测。
