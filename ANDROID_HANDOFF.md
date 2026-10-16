@@ -1255,7 +1255,10 @@ APK CI run 是否成功
 
 - 按维护者约定，本地只运行 Rust：52 项单元/接口测试 + 1 项股票代码 parity 和 cargo check --locked 通过。前端/原生/Android 构建全部交给 GitHub CI。
 - 维护者在本轮明确选择“豁免 Opus 5 限定，完成现有检查后发布预览版”；这是本轮 0.1.16 的授权，不是后续版本的自动豁免。
-- 本轮 CI、APK 和预览版 Release 结果待最终验证后补记。
+- 代码提交 169d7c6 的 [Android CI #38915975482](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38915975482) 全部成功：53 项 Rust 测试、424 项前端测试、前端类型检查/构建、ARM64 APK 编译、原生提醒路由 JUnit、APK 签名与 SHA256 校验。
+- 同一提交的 [Cross-platform verification #38915975483](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38915975483) 全部通过。
+- 已公开发布 [Android 0.1.16 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.16)，标签 android-mvp-v0.1.16 固定在 169d7c6，含 APK 与 SHA256。APK 23,014,581 bytes（21.95 MiB），SHA256 为 0a4730a0f4399933f8c8ce156092938277d65db20d10fb999b66fd97a4731a9d。
+- [CI artifact #12054070064](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38915975482/artifacts/12054070064) 也保留 30 天；公开安装入口使用 Release，不受 CI artifact 30 天保留期影响。
 - 真机上的系统返回、Activity 重建、通知、弱网及覆盖升级尚未验收；默认调试签名可能随 CI 改变，更换安装前应导出业务备份。
 
 后续开发以 ANDROID_REMAINING.md 的清单为准，避免把已有 MVP 能力继续标作完全未实现。

@@ -1,6 +1,6 @@
 # Android 未完成功能清单
 
-更新版本：0.1.16。每轮开发结束必须同步本文、ANDROID_HANDOFF.md 与 PARITY_MATRIX.md，并在回复中确认未完成清单、实际构建结果及发布版本；没有通过的检查不得写成通过。本文以当前代码为准，交接文档早期章节是历史快照。
+更新版本：0.1.16。已发布 [Android 0.1.16 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.16)，53 项 Rust 测试、424 项前端测试、跨平台检查和 Android CI 通过。每轮开发结束必须同步本文、ANDROID_HANDOFF.md 与 PARITY_MATRIX.md，并在回复中确认未完成清单、实际构建结果及发布版本；没有通过的检查不得写成通过。本文以当前代码为准，交接文档早期章节是历史快照。
 
 ## 尚未实现或需要较大移植的产品功能
 
