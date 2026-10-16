@@ -2,6 +2,11 @@ name: Android CI APK
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_preview:
+        description: Publish verified APK as a GitHub prerelease
+        type: boolean
+        default: true
   push:
     branches:
       - android-mvp
@@ -21,6 +26,8 @@ concurrency:
 
 jobs:
   build-apk:
+    outputs:
+      app_version: ${{ steps.app-version.outputs.app_version }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -32,6 +39,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Resolve app version
+        id: app-version
         shell: bash
         run: |
           APP_VERSION="$(python3 - <<'PY'
@@ -47,6 +55,7 @@ jobs:
             exit 1
           fi
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "ANDROID_APK_NAME=vibe-astock-android-mvp-v${APP_VERSION}-arm64.apk" >> "$GITHUB_ENV"
           echo "Resolved Android app version: $APP_VERSION"
 
@@ -189,3 +198,77 @@ jobs:
             dist/${{ env.ANDROID_APK_NAME }}.sha256
           if-no-files-found: error
           retention-days: 30
+
+  publish-preview:
+    needs: build-apk
+    if: github.ref == 'refs/heads/android-mvp' && (github.event_name == 'push' || inputs.publish_preview)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout verified revision
+        uses: actions/checkout@v4
+      - name: Download verified APK
+        uses: actions/download-artifact@v4
+        with:
+          name: vibe-astock-android-mvp-v${{ needs.build-apk.outputs.app_version }}-arm64
+          path: dist
+      - name: Publish Android preview
+        uses: actions/github-script@v7
+        env:
+          APP_VERSION: ${{ needs.build-apk.outputs.app_version }}
+        with:
+          script: |
+            const fs = require("node:fs");
+            const crypto = require("node:crypto");
+            const { owner, repo } = context.repo;
+            const version = process.env.APP_VERSION;
+            if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error("Invalid app version");
+            const tag = "android-mvp-v" + version;
+            const filename = "vibe-astock-android-mvp-v" + version + "-arm64.apk";
+            const apk = fs.readFileSync("dist/" + filename);
+            const checksum = fs.readFileSync("dist/" + filename + ".sha256", "utf8");
+            const digest = crypto.createHash("sha256").update(apk).digest("hex");
+            if (checksum.trim().split(/\s+/)[0] !== digest) throw new Error("APK SHA256 mismatch");
+            const notes = fs.readFileSync("docs/android/releases/" + version + ".md", "utf8");
+            // Version tags are immutable: never retarget or replace a published package.
+            let existing;
+            try { existing = (await github.rest.repos.getReleaseByTag({ owner, repo, tag })).data; }
+            catch (error) { if (error.status !== 404) throw error; }
+            if (existing) {
+              if (existing.target_commitish !== context.sha || existing.draft ||
+                  !existing.assets.some(a => a.name === filename) ||
+                  !existing.assets.some(a => a.name === filename + ".sha256")) {
+                throw new Error("Release version already exists with a different or incomplete snapshot; bump version");
+              }
+              await core.summary.addLink("Existing Android preview", existing.html_url).write();
+              return;
+            }
+            try {
+              const ref = (await github.rest.git.getRef({ owner, repo, ref: "tags/" + tag })).data;
+              if (ref.object.type !== "commit" || ref.object.sha !== context.sha) {
+                throw new Error("Tag exists at a different revision; bump version");
+              }
+            } catch (error) { if (error.status !== 404) throw error; }
+            const runUrl = context.serverUrl + "/" + owner + "/" + repo + "/actions/runs/" + context.runId;
+            const body = notes + "\n\n代码提交：" + context.sha + "\n\n构建验证：" + runUrl +
+              "\n\nAPK SHA256：\x60" + digest + "\x60\n";
+            const release = (await github.rest.repos.createRelease({
+              owner, repo, tag_name: tag, target_commitish: context.sha,
+              name: "Vibe AStock Android v" + version + " 预览版",
+              body, draft: true, prerelease: true
+            })).data;
+            for (const [name, data, type] of [
+              [filename, apk, "application/vnd.android.package-archive"],
+              [filename + ".sha256", Buffer.from(checksum), "text/plain"]
+            ]) {
+              await github.rest.repos.uploadReleaseAsset({
+                owner, repo, release_id: release.id, name, data,
+                headers: { "content-type": type, "content-length": data.length }
+              });
+            }
+            const published = (await github.rest.repos.updateRelease({
+              owner, repo, release_id: release.id, draft: false, prerelease: true, make_latest: "false"
+            })).data;
+            await core.summary.addLink("Download Android preview", published.html_url).write();

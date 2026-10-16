@@ -3,6 +3,7 @@ export const MOBILE_PATHS = {
   stock: "/mobile/stock",
   monitor: "/mobile/shortline",
   limitUp: "/mobile/shortline/limit-up",
+  risk: "/mobile/shortline/risk",
   rotation: "/mobile/discovery/rotation",
   news: "/mobile/discovery/news",
   signals: "/mobile/discovery/signals",

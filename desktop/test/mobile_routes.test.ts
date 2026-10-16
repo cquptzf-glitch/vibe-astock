@@ -92,3 +92,17 @@ test("刷新保留路由及返回栈，重复点击不新增记录，未知 hash
   assert.equal(b.listenerCount(), 0);
   assert.equal(mobilePath({ page: "stock", symbol: "<script>" }), "/mobile/market");
 });
+
+test("异常监控经个股进入所属板块，多级返回保留来源路由", () => {
+  const b = browser();
+  const nav = createMobileNavigation(b.host);
+  const stop = nav.subscribe(() => undefined);
+  nav.navigate({ page: "risk" });
+  nav.navigate({ page: "stock", symbol: "BJ920575" });
+  nav.navigate({ page: "board", board: "BK0475" });
+  nav.back();
+  assert.equal(nav.snapshot(), "/mobile/stock/BJ920575");
+  nav.back();
+  assert.equal(nav.snapshot(), "/mobile/shortline/risk");
+  stop();
+});

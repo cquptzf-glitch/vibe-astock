@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronRight, Flame, RefreshCw, TimerReset } from "lucide-react";
 
 import { MonitorPanel } from "./MonitorPanel";
+import { RiskPanel } from "./RiskPanel";
 import "./shortline.css";
 
 interface LimitUpItem {
@@ -34,8 +35,8 @@ interface LimitUpResult {
 
 interface ShortlinePanelProps {
   onOpenSymbol: (symbol: string) => void;
-  view: "monitor" | "limit-up";
-  onViewChange: (view: "monitor" | "limit-up") => void;
+  view: "monitor" | "limit-up" | "risk";
+  onViewChange: (view: "monitor" | "limit-up" | "risk") => void;
 }
 
 async function mobileApi<T>(path: string): Promise<T> {
@@ -106,14 +107,15 @@ export function ShortlinePanel({ onOpenSymbol, view, onViewChange: setView }: Sh
   const firstBoardCount = groups.find(([days]) => days === 1)?.[1].length ?? 0;
   const multiBoardCount = Math.max(0, (data?.count ?? 0) - firstBoardCount);
 
-  if (view === "monitor") {
+  if (view === "monitor" || view === "risk") {
     return (
       <section className="shortline-panel">
         <div className="shortline-tabs" role="tablist" aria-label="短线">
-          <button type="button" className="active" role="tab" aria-selected="true">盯盘</button>
+          <button type="button" className={view === "monitor" ? "active" : ""} role="tab" aria-selected={view === "monitor"} onClick={() => setView("monitor")}>盯盘</button>
           <button type="button" role="tab" aria-selected="false" onClick={() => setView("limit-up")}>涨停池</button>
+          <button type="button" role="tab" className={view === "risk" ? "active" : ""} aria-selected={view === "risk"} onClick={() => setView("risk")}>异常监控</button>
         </div>
-        <MonitorPanel onOpenSymbol={onOpenSymbol} />
+        {view === "risk" ? <RiskPanel onOpenSymbol={onOpenSymbol} /> : <MonitorPanel onOpenSymbol={onOpenSymbol} />}
       </section>
     );
   }
@@ -123,6 +125,7 @@ export function ShortlinePanel({ onOpenSymbol, view, onViewChange: setView }: Sh
       <div className="shortline-tabs" role="tablist" aria-label="短线">
         <button type="button" role="tab" aria-selected="false" onClick={() => setView("monitor")}>盯盘</button>
         <button type="button" className="active" role="tab" aria-selected="true">涨停池</button>
+        <button type="button" role="tab" aria-selected="false" onClick={() => setView("risk")}>异常监控</button>
       </div>
       <div className="shortline-title-row">
         <div>

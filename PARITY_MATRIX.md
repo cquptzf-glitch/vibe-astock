@@ -2,7 +2,7 @@
 
 This file is the consolidation gate for the Android migration. The `android-mvp` branch is the single active Android development line. Legacy Node/Python behavior remains an oracle until the matching Rust path has frozen fixture/golden coverage and CI is green.
 
-For the full current gap analysis and recommended continuation order, see `ANDROID_HANDOFF.md`.
+For current unfinished scope, see `ANDROID_REMAINING.md`; development increments and verification evidence are recorded in `ANDROID_HANDOFF.md`.
 
 ## Branch consolidation
 
@@ -45,7 +45,10 @@ Android APK PASS
 | Intraday watch / abnormal | Legacy PC watch flows | monitor.rs + MonitorPanel.tsx | Batch quote/missing fields/risk-state tests; 60-second foreground refresh | **Mobile watch implemented; full abnormal parity pending** |
 | Industry news | Legacy RSS sources/rss.py and rss_sources.json | news.rs + NewsPanel.tsx | Legacy RSS/Atom fixtures, source failure and time filtering tests | **Mobile extension using shared source catalog** |
 | Industry GPU signals | Legacy industry.py GPU thermometer | industry_signals.rs + GpuRentPanel.tsx | Legacy history/spot contract fixture, NaN/stale/conflict tests | **Spot/history migrated; Kalshi forward pending** |
-| Signals | Legacy PC signals flows | Not yet migrated | None | **Pending** |
+| Stock price/volume observations | Mobile deterministic extension (PC Signals is the GPU thermometer) | observations.rs + StockInsightsPanel.tsx, shared quote K-line | Exact-window/crossover/previous-bar tests + mobile rendering | **Single-stock daily observations implemented; batch/intraday scanner pending** |
+| Stock daily/minute fund flow | sources/eastmoney.py and mappers.py | stock_context.rs + StockInsightsPanel.tsx | Public frozen daily/minute samples + legacy missing-latest regression | **Daily and intraday cumulative views migrated; source fallback/cache pending** |
+| Anomaly / monitored stocks | sources/eastmoney.py em_price_anomaly/em_stock_monitor | anomalies.rs + RiskPanel.tsx | Public fixtures, BSE/rules/missing/state window tests | **Source risk lists implemented; not full intraday abnormal parity** |
+| Stock to board associations | sources/eastmoney.py eastmoney_concept_blocks | stock_context.rs + StockInsightsPanel.tsx | Public 30-association fixture + missing/truncation + route returns | **Reverse association migrated; full classification parity pending** |
 | Sector detail / constituents | Eastmoney public board endpoints | boards.rs + BoardDetailPanel.tsx | Public constituent fixture + identity/missing/order tests; mobile route | **Mobile detail/pagination/history implemented; provider parity hardening ongoing** |
 | Candidates | Legacy PC candidates flows | research.rs + CandidatePanel.tsx | Basic deterministic mobile candidate route; frozen legacy coverage pending | **Partial mobile implementation** |
 | Calendar | Legacy trade/calendar flows | calendar.rs + CalendarPanel.tsx | Local event CRUD tests; full exchange/announcement calendar parity pending | **Mobile extension; partial PC scope** |
@@ -55,7 +58,7 @@ Android APK PASS
 | Debate / deep research | Node/Agent/Python workflows | Not migrated | None | **Pending / redesign rather than runtime port** |
 | Mobile routes / Back / notification navigation | N/A | mobileRoutes.ts + nativeNavigation.ts + reminder intent handoff | JS history/StrictMode tests, Rust target tests, Kotlin route tests; Android CI and device checks recorded in handoff | **Mobile extension; device smoke pending** |
 | Full PC backend contract | `orchestrator/` + Python scripts | Mobile Rust Core only covers selected domains | End-to-end parity suite pending | **Pending** |
-| Production Android release | Desktop release is separate | Debug-signed ARM64 APK CI | APK build/signature verification | **Not production-ready: release signing/AAB/version unification pending** |
+| Production Android release | Desktop release is separate | Debug-signed ARM64 APK CI + immutable GitHub preview Release | APK build/signature/SHA256 verification; publishing only after tests | **Preview delivery implemented; production signing/AAB/device upgrades pending** |
 
 ## Rules for subsequent migrations
 

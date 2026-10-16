@@ -1,0 +1,23 @@
+[
+  {
+    "MARKET": "B",
+    "STKNAME": "*ST康乐",
+    "VALIDATESTARTDATE": "2026-10-19",
+    "VALIDATEENDDATE": "2026-10-23",
+    "STKCODE": "920575"
+  },
+  {
+    "MARKET": "B",
+    "STKNAME": "*ST同辉",
+    "VALIDATESTARTDATE": "2026-10-19",
+    "VALIDATEENDDATE": "2026-10-23",
+    "STKCODE": "920090"
+  },
+  {
+    "MARKET": "B",
+    "STKNAME": "*ST田野",
+    "VALIDATESTARTDATE": "2026-10-19",
+    "VALIDATEENDDATE": "2026-10-23",
+    "STKCODE": "920023"
+  }
+]

@@ -223,42 +223,12 @@ async fn fetch_eastmoney_quote(client: &Client, symbol: &SymbolKey) -> Result<Va
 }
 
 pub(crate) async fn fetch_kline(client: &Client, symbol: &SymbolKey, bars: usize) -> Result<Value> {
-    let bars_string = bars.to_string();
-    let response = client
-        .get("https://push2his.eastmoney.com/api/qt/stock/kline/get")
-        .query(&[
-            ("secid", symbol.eastmoney.as_str()),
-            ("fields1", "f1,f2,f3,f4,f5,f6"),
-            ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58"),
-            ("klt", "101"),
-            ("fqt", "1"),
-            ("end", "20500101"),
-            ("lmt", bars_string.as_str()),
-        ])
-        .send()
-        .await?
-        .error_for_status()?;
-    let root: Value = response.json().await?;
-    let klines = root
-        .pointer("/data/klines")
-        .and_then(Value::as_array)
-        .ok_or_else(|| anyhow!("东财 K 线为空"))?;
-
-    let mut rows = Vec::with_capacity(klines.len());
-    for raw in klines {
-        let Some(line) = raw.as_str() else { continue };
-        let parts: Vec<&str> = line.split(',').collect();
-        if parts.len() < 6 {
-            continue;
-        }
-        let Some(open) = number(parts.get(1).copied()) else { continue };
-        let Some(close) = number(parts.get(2).copied()) else { continue };
-        let Some(high) = number(parts.get(3).copied()) else { continue };
-        let Some(low) = number(parts.get(4).copied()) else { continue };
-        let Some(volume) = number(parts.get(5).copied()) else { continue };
-        rows.push(json!([parts[0], open, close, high, low, volume]));
-    }
-
+    let root = crate::discovery::get_json(client,
+        "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+        &[("secid", symbol.eastmoney.clone()), ("fields1", "f1,f2,f3,f4,f5,f6".into()),
+          ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58".into()), ("klt","101".into()),
+          ("fqt","1".into()), ("end","20500101".into()), ("lmt",bars.to_string())]).await?;
+    let rows = parse_kline_rows(&root, symbol, crate::stock_context::today())?;
     let last = rows
         .last()
         .ok_or_else(|| anyhow!("东财 K 线无合格行"))?;
@@ -331,6 +301,54 @@ pub(crate) async fn fetch_kline(client: &Client, symbol: &SymbolKey, bars: usize
         "errors": [],
         "missing": [],
     }))
+}
+
+pub(crate) fn parse_kline_rows(root: &Value, symbol: &SymbolKey, today: chrono::NaiveDate) -> Result<Vec<Value>> {
+    let data = crate::stock_context::provider_data(root, symbol)?;
+    let raw = data["klines"].as_array().ok_or_else(|| anyhow!("东财 K 线序列缺失"))?;
+    let mut rows = Vec::new();
+    let mut previous = None;
+    for raw_row in raw {
+        let line = raw_row.as_str().ok_or_else(|| anyhow!("东财 K 线行格式错误"))?;
+        let fields: Vec<_> = line.split(',').collect();
+        if fields.len() < 6 { return Err(anyhow!("东财 K 线字段不足")); }
+        let date = chrono::NaiveDate::parse_from_str(fields[0], "%Y-%m-%d")?;
+        if date > today || previous.is_some_and(|d| date <= d) { return Err(anyhow!("K 线日期未来、重复或乱序")); }
+        previous = Some(date);
+        let values = fields[1..6].iter().map(|s| number(Some(s)).ok_or_else(||anyhow!("K 线数值缺失"))).collect::<Result<Vec<_>>>()?;
+        let (open,close,high,low,volume)=(values[0],values[1],values[2],values[3],values[4]);
+        if open<=0.0 || close<=0.0 || low<=0.0 || low>open.min(close) || high<open.max(close) || high<low || volume<0.0 {
+            return Err(anyhow!("K 线价格或成交量异常"));
+        }
+        rows.push(json!([date.to_string(),open,close,high,low,volume]));
+    }
+    Ok(rows)
+}
+
+#[cfg(test)]
+mod kline_fixture_tests {
+    use super::*;
+    fn day()->chrono::NaiveDate{chrono::NaiveDate::from_ymd_opt(2026,10,16).unwrap()}
+    #[test]
+    fn frozen_public_kline_keeps_qfq_prices_and_volume_units() {
+        let key=normalize_stock_symbol("600519").unwrap();
+        let root=serde_json::from_str(include_str!("../tests/fixtures/market_kline.json")).unwrap();
+        let rows=parse_kline_rows(&root,&key,day()).unwrap();
+        assert_eq!(rows.len(),65);
+        assert_eq!(rows[64],json!(["2026-10-16",1311.57,1329.0,1329.88,1301.68,38502.0]));
+    }
+    #[test]
+    fn malformed_bar_does_not_create_a_false_technical_observation() {
+        let key=normalize_stock_symbol("600519").unwrap();
+        for lines in [
+            vec!["2026-10-16,10,11,12,9,1","2026-10-16,10,11,12,9,1"],
+            vec!["2026-10-16,10,11,9,8,1"],
+            vec!["2026-10-16,10,11,12,9,NaN"],
+            vec!["2026-10-16,10,11,12,9,-1"],
+            vec!["2099-10-16,10,11,12,9,1"],
+        ] { assert!(parse_kline_rows(&json!({"data":{"code":"600519","klines":lines}}),&key,day()).is_err()); }
+        assert!(parse_kline_rows(&json!({"data":{"code":"000001","klines":[]}}),&key,day()).is_err());
+    }
 }
 
 fn china_offset() -> FixedOffset {

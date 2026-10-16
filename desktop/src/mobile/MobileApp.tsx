@@ -23,6 +23,7 @@ import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
 import { StockDetailPanel } from "./StockDetailPanel";
+import { StockInsightsPanel } from "./StockInsightsPanel";
 import { useMobileNavigation } from "./useMobileNavigation";
 import "./mobile.css";
 
@@ -157,7 +158,7 @@ export function MobileApp() {
   const discoveryPages: DiscoveryView[] = ["rotation", "sector", "candidate", "calendar", "backtest", "news", "signals"];
   const journalPages: JournalView[] = ["records", "daily", "review", "ai", "library", "reminders", "settings"];
   const tab: Tab = page === "market" || isStock ? "market"
-    : page === "monitor" || page === "limitUp" ? "shortline"
+    : page === "monitor" || page === "limitUp" || page === "risk" ? "shortline"
     : page === "watch" || page === "hold" ? "watchlist"
     : page === "board" || discoveryPages.includes(page as DiscoveryView) ? "rotation" : "journal";
   const stockView = page === "hold" ? "hold" : "watch";
@@ -469,12 +470,13 @@ export function MobileApp() {
 
                 <StockDetailPanel quote={quote} rows={klineRows} />
                 <ResearchPanel symbol={activeSymbol} />
+                <StockInsightsPanel key={activeSymbol} symbol={activeSymbol} onOpenBoard={(board) => navigate({ page: "board", board })} />
               </>
             )}
           </section>
         )}
 
-        {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} view={page === "limitUp" ? "limit-up" : "monitor"} onViewChange={(view) => navigate({ page: view === "limit-up" ? "limitUp" : "monitor" })} />}
+        {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} view={page === "limitUp" ? "limit-up" : page === "risk" ? "risk" : "monitor"} onViewChange={(view) => navigate({ page: view === "limit-up" ? "limitUp" : view === "risk" ? "risk" : "monitor" })} />}
         {tab === "rotation" && (page === "board"
           ? <BoardDetailPanel key={route.board} code={route.board!} onOpenSymbol={openFromList} />
           : <DiscoveryWorkspace onOpenSymbol={openFromList} onOpenBoard={(board) => navigate({ page: "board", board })} view={page as DiscoveryView} onViewChange={(view) => navigate({ page: view })} />)}

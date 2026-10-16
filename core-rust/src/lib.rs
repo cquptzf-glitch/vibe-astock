@@ -1,3 +1,6 @@
+mod anomalies;
+mod observations;
+mod stock_context;
 mod ai_chat;
 mod ai_config;
 mod ai_review;
@@ -306,6 +309,10 @@ impl AppCore {
             ("GET", "/mobile/shortline/limit-up") => Ok(MobileApiResponse::ok(
                 shortline::limit_up_pool(&self.client, &request.path).await?,
             )),
+            ("GET", "/mobile/stock/fund-flow") => Ok(discovery_response(stock_context::fund_flow(&self.client, &request.path).await)),
+            ("GET", "/mobile/stock/boards") => Ok(discovery_response(stock_context::stock_boards(&self.client, &request.path).await)),
+            ("GET", "/mobile/stock/observations") => Ok(discovery_response(observations::fetch(&self.client, &request.path).await)),
+            ("GET", "/mobile/shortline/risk") => Ok(discovery_response(anomalies::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/news/catalog") => Ok(MobileApiResponse::ok(news::catalog()?)),
             ("GET", "/mobile/news") => Ok(discovery_response(news::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/industry/gpu-rent") => Ok(discovery_response(industry_signals::gpu_rent(&self.client, &request.path).await)),
@@ -385,6 +392,13 @@ mod discovery_contract_tests {
             "/mobile/boards/detail?code=BK0475%26fs=arbitrary",
             "/mobile/boards/detail?code=BK0475&page=0",
             "/mobile/boards/detail?code=BK0475&sort=not-a-field",
+            "/mobile/stock/fund-flow?symbol=invalid",
+            "/mobile/stock/fund-flow?symbol=600519&mode=arbitrary",
+            "/mobile/stock/fund-flow?symbol=600519&limit=10000",
+            "/mobile/stock/boards?symbol=600519.SZ",
+            "/mobile/stock/observations?symbol=../../private",
+            "/mobile/shortline/risk?kind=arbitrary",
+            "/mobile/shortline/risk?page=0",
         ] {
             let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
             assert_eq!(response.status,400,"{path}: {}",response.body);
