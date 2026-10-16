@@ -7,8 +7,9 @@ use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 1;
-const SOURCE_VERSION: &str = "0.1.11-mobile";
+const SCHEMA_VERSION: u32 = 2;
+const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
+const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +36,8 @@ struct BackupData {
     journal_fills: Vec<JournalFillRow>,
     daily_reviews: Vec<DailyReviewRow>,
     ai_messages: Vec<AiMessageRow>,
+    #[serde(default)]
+    documents: Vec<DocumentRow>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +94,20 @@ struct AiMessageRow {
     created_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DocumentRow {
+    id: i64,
+    kind: String,
+    category: String,
+    title: String,
+    body: String,
+    status: String,
+    source: String,
+    symbol: Option<String>,
+    created_at: String,
+    updated_at: String,
+}
+
 fn open(db_path: &Path) -> Result<Connection> {
     Connection::open(db_path).context("open mobile sqlite for backup")
 }
@@ -100,7 +117,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
     let backup = BackupEnvelope {
         format: BACKUP_FORMAT.to_string(),
         schema_version: SCHEMA_VERSION,
-        source_version: SOURCE_VERSION.to_string(),
+        source_version: format!("{APP_VERSION}-mobile"),
         created_at: Utc::now().to_rfc3339(),
         security: BackupSecurity {
             credentials_included: false,
@@ -116,6 +133,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             journal_fills: read_journal_fills(&conn)?,
             daily_reviews: read_daily_reviews(&conn)?,
             ai_messages: read_ai_messages(&conn)?,
+            documents: read_documents(&conn)?,
         },
     };
     validate_envelope(&backup)?;
@@ -148,8 +166,11 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM watchlist", [])?;
     tx.execute("DELETE FROM mobile_daily_reviews", [])?;
     tx.execute("DELETE FROM mobile_ai_messages", [])?;
+    tx.execute("DELETE FROM mobile_documents", [])?;
     tx.execute(
-        "DELETE FROM sqlite_sequence WHERE name IN ('journal_entries', 'journal_fills', 'mobile_ai_messages')",
+        "DELETE FROM sqlite_sequence WHERE name IN (
+            'journal_entries', 'journal_fills', 'mobile_ai_messages', 'mobile_documents'
+        )",
         [],
     )?;
 
@@ -229,6 +250,34 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
         )?;
     }
 
+    for row in &backup.data.documents {
+        let symbol = match row.symbol.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+            Some(value) => Some(
+                normalize_stock_symbol(value)
+                    .map_err(|error| anyhow!("备份中的资料关联代码无效 {value}: {error}"))?
+                    .digits,
+            ),
+            None => None,
+        };
+        tx.execute(
+            "INSERT INTO mobile_documents(
+                id, kind, category, title, body, status, source, symbol, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                row.id,
+                &row.kind,
+                &row.category,
+                &row.title,
+                &row.body,
+                &row.status,
+                &row.source,
+                symbol,
+                &row.created_at,
+                &row.updated_at,
+            ],
+        )?;
+    }
+
     tx.commit().context("commit backup restore")?;
 
     Ok(json!({
@@ -263,10 +312,11 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
     if backup.format != BACKUP_FORMAT {
         return Err(anyhow!("不是 Vibe AStock Android 备份文件"));
     }
-    if backup.schema_version != SCHEMA_VERSION {
+    if !(MIN_SUPPORTED_SCHEMA_VERSION..=SCHEMA_VERSION).contains(&backup.schema_version) {
         return Err(anyhow!(
-            "不支持的备份版本 {}，当前支持 {}",
+            "不支持的备份版本 {}，当前支持 {}..={} ",
             backup.schema_version,
+            MIN_SUPPORTED_SCHEMA_VERSION,
             SCHEMA_VERSION
         ));
     }
@@ -278,6 +328,7 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         || backup.data.journal_fills.len() > 500_000
         || backup.data.daily_reviews.len() > 10_000
         || backup.data.ai_messages.len() > 100_000
+        || backup.data.documents.len() > 100_000
     {
         return Err(anyhow!("备份记录数量超过安全上限"));
     }
@@ -360,6 +411,27 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         ensure_text(&row.content, 100_000, "AI 聊天内容")?;
     }
 
+    let mut document_ids = HashSet::new();
+    for row in &backup.data.documents {
+        if row.id <= 0 || !document_ids.insert(row.id) {
+            return Err(anyhow!("资料库包含无效或重复 ID: {}", row.id));
+        }
+        if !matches!(row.kind.as_str(), "note" | "report" | "inbox") {
+            return Err(anyhow!("资料库 kind 无效: {}", row.kind));
+        }
+        if !matches!(row.status.as_str(), "active" | "archived" | "unread" | "read") {
+            return Err(anyhow!("资料库 status 无效: {}", row.status));
+        }
+        ensure_text(&row.category, 100, "资料分类")?;
+        ensure_text(&row.title, 500, "资料标题")?;
+        ensure_text(&row.body, 250_000, "资料正文")?;
+        ensure_text(&row.source, 300, "资料来源")?;
+        if let Some(symbol) = row.symbol.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+            normalize_stock_symbol(symbol)
+                .map_err(|error| anyhow!("资料关联代码无效 {symbol}: {error}"))?;
+        }
+    }
+
     Ok(())
 }
 
@@ -389,7 +461,13 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "journal_entries": backup.data.journal_entries.len(),
             "journal_fills": backup.data.journal_fills.len(),
             "daily_reviews": backup.data.daily_reviews.len(),
-            "ai_messages": backup.data.ai_messages.len()
+            "ai_messages": backup.data.ai_messages.len(),
+            "documents": backup.data.documents.len()
+        },
+        "compatibility": {
+            "current_schema_version": SCHEMA_VERSION,
+            "legacy_backup": backup.schema_version < SCHEMA_VERSION,
+            "legacy_missing_documents_are_empty": backup.schema_version == 1
         },
         "security": {
             "credentials_included": false,
@@ -500,6 +578,30 @@ fn read_ai_messages(conn: &Connection) -> Result<Vec<AiMessageRow>> {
     Ok(rows)
 }
 
+fn read_documents(conn: &Connection) -> Result<Vec<DocumentRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, kind, category, title, body, status, source, symbol, created_at, updated_at
+         FROM mobile_documents ORDER BY id",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(DocumentRow {
+                id: row.get(0)?,
+                kind: row.get(1)?,
+                category: row.get(2)?,
+                title: row.get(3)?,
+                body: row.get(4)?,
+                status: row.get(5)?,
+                source: row.get(6)?,
+                symbol: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -516,6 +618,7 @@ mod tests {
         crate::daily_review::init(path).unwrap();
         crate::ai_chat::init(path).unwrap();
         crate::ai_config::init(path).unwrap();
+        crate::schema::migrate(path).unwrap();
     }
 
     #[test]
@@ -534,6 +637,12 @@ mod tests {
             [],
         )
         .unwrap();
+        conn.execute(
+            "INSERT INTO mobile_documents(kind, category, title, body, status, source, symbol, created_at, updated_at)
+             VALUES ('note', '研究', '茅台跟踪', '正文', 'active', 'manual', '600519', 'a', 'b')",
+            [],
+        )
+        .unwrap();
         drop(conn);
 
         let backup = export(&path).unwrap();
@@ -541,7 +650,9 @@ mod tests {
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
+        assert_eq!(backup["schema_version"], 2);
         assert_eq!(backup["data"]["watchlist"][0]["symbol"], "600519");
+        assert_eq!(backup["data"]["documents"][0]["title"], "茅台跟踪");
         let _ = std::fs::remove_file(path);
     }
 
@@ -560,6 +671,12 @@ mod tests {
             [],
         )
         .unwrap();
+        conn.execute(
+            "INSERT INTO mobile_documents(kind, category, title, body, status, source, symbol, created_at, updated_at)
+             VALUES ('report', '周报', '来源报告', 'source body', 'active', 'manual', NULL, 'a', 'b')",
+            [],
+        )
+        .unwrap();
         drop(conn);
         let backup = export(&source).unwrap();
 
@@ -572,6 +689,11 @@ mod tests {
         )
         .unwrap();
         crate::storage::upsert(&target, &json!({"symbol": "600519", "name": "旧数据"})).unwrap();
+        crate::documents::save(
+            &target,
+            &json!({"kind": "note", "title": "旧资料", "body": "old"}),
+        )
+        .unwrap();
 
         let result = restore(
             &target,
@@ -588,8 +710,28 @@ mod tests {
         assert_eq!(config.model, "device-model");
         let history = crate::ai_chat::history(&target).unwrap();
         assert_eq!(history["count"], 1);
+        let documents = crate::documents::list(&target, "/mobile/documents?kind=report").unwrap();
+        assert_eq!(documents["count"], 1);
+        assert_eq!(documents["items"][0]["title"], "来源报告");
+        let old_notes = crate::documents::list(&target, "/mobile/documents?kind=note").unwrap();
+        assert_eq!(old_notes["count"], 0);
 
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(target);
+    }
+
+    #[test]
+    fn accepts_legacy_v1_backup_with_empty_documents() {
+        let path = temp_db("legacy-v1");
+        init_all(&path);
+        let current = export(&path).unwrap();
+        let mut legacy = current;
+        legacy["schema_version"] = json!(1);
+        legacy["data"].as_object_mut().unwrap().remove("documents");
+        let preview = validate(&legacy).unwrap();
+        assert_eq!(preview["valid"], true);
+        assert_eq!(preview["compatibility"]["legacy_backup"], true);
+        assert_eq!(preview["counts"]["documents"], 0);
+        let _ = std::fs::remove_file(path);
     }
 }
