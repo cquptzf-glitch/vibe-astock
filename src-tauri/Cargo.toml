@@ -18,6 +18,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-notification = "2"
+tauri-plugin-vibe-reminders = { path = "tauri-plugin-vibe-reminders" }
 tauri-plugin-vibe-secure-storage = { path = "tauri-plugin-vibe-secure-storage" }
 tauri-plugin-vibe-share = { path = "tauri-plugin-vibe-share" }
 vibe-astock-core = { path = "../core-rust" }
