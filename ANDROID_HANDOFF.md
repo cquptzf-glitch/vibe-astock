@@ -1291,4 +1291,13 @@ APK CI run 是否成功
 
 在 0.1.17 的实际 CI 截图中发现研究/量价标签会按旧两列网格换行，以及技术指标留白偏多，继续改为单行标签和三列统计，移除较重阴影并缩短标题；主题与设置能力全部保留。
 个股请求改为 100 根日线，60 根涨跌需完整 61 个收盘点；缩略图仅取最后 60 根。均线窗口不足和成交额缺失均保留缺值。新增呈现回归与浏览器单行标签/三列指标断言。
-0.1.18 的最终 CI / APK / Release 结果待验证后补记。
+验证与发布结果：
+
+- 本地按约定仅运行 Rust：53 项单元/接口 + 1 项 symbol parity，以及 cargo check --locked 通过；前端、浏览器和 Android 编译均在 GitHub CI 执行。
+- 代码 2fa4f7b 的 [Android CI #38926573218](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38926573218) 全部成功：54 项 Rust、431 项前端测试、类型检查/构建、6 组视口/主题浏览器交互、ARM64 APK、原生提醒路由 JUnit、签名与 SHA256 校验通过。
+- 同一代码的 [Cross-platform verification #38926573094](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38926573094) 六组平台/Node 组合全部成功。
+- 已人工查看白色窄屏首页/设置/个股与深色首页；[18 张截图 artifact #12057331264](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38926573218/artifacts/12057331264) 全部使用冻结样本，verification.json 无页面错误，PNG 无文本/EXIF/时间元数据，不包含真实用户数据。截图不等于真机验收。
+- 已公开发布 [Android 0.1.18 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.18)，不可覆盖标签固定在 2fa4f7be2a3a7dd78704a09a5c6c42270c373c65；APK 23,034,749 bytes（21.97 MiB），SHA256：35e4efecc817b496006f25f2fe64e014728a53c75ab8a98b5732d7c7039a10ea。
+- [APK artifact #12057990874](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38926573218/artifacts/12057990874) 含 APK/校验文件，CI artifacts 保留 30 天；长期下载入口为 Release。
+- 本轮无 SQLite schema/migration、原生插件/权限或业务 Core route 新增。仍为 debug-signed 预览包；真机返回/重建/通知/弱网、正式签名/AAB 与覆盖升级未验收。更换安装前应导出业务备份。
+- 所有剩余业务移植与工程验收继续见 ANDROID_REMAINING.md；未把本轮 UI 交付计为全功能迁移完成。
