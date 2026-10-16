@@ -109,9 +109,12 @@ jobs:
       - name: Prepare, inspect and verify APK
         shell: bash
         run: |
-          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
+          APK="src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk"
+          if [ ! -f "$APK" ]; then
+            APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*arm64*.apk' -print | sort | awk 'NR == 1 { print }')"
+          fi
           if [ -z "$APK" ] || [ ! -f "$APK" ]; then
-            echo "Android APK was not produced" >&2
+            echo "Android ARM64 APK was not produced" >&2
             find src-tauri/gen/android/app/build/outputs -maxdepth 7 -type f -print || true
             exit 1
           fi
@@ -122,6 +125,8 @@ jobs:
           SIZE_BYTES="$(stat -c%s "dist/${ANDROID_APK_NAME}")"
           SIZE_MIB="$(awk -v bytes="$SIZE_BYTES" 'BEGIN { printf "%.2f", bytes / 1024 / 1024 }')"
           echo "APK size: ${SIZE_BYTES} bytes (${SIZE_MIB} MiB)"
+
+          APK_ENTRIES="$(unzip -l "dist/${ANDROID_APK_NAME}" | awk 'NF >= 4 && $1 ~ /^[0-9]+$/ { print $1, $4 }' | sort -nr | awk 'NR <= 20 { print }')"
           {
             echo "## Android APK size"
             echo ""
@@ -130,12 +135,12 @@ jobs:
             echo ""
             echo "### Largest uncompressed APK entries"
             echo '```text'
-            unzip -l "dist/${ANDROID_APK_NAME}" | awk 'NF >= 4 && $1 ~ /^[0-9]+$/ { print $1, $4 }' | sort -nr | head -n 20
+            printf '%s\n' "$APK_ENTRIES"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "Largest APK entries:"
-          unzip -l "dist/${ANDROID_APK_NAME}" | awk 'NF >= 4 && $1 ~ /^[0-9]+$/ { print $1, $4 }' | sort -nr | head -n 20
+          printf '%s\n' "$APK_ENTRIES"
 
           if [ "$SIZE_BYTES" -gt 83886080 ]; then
             echo "::warning::APK remains larger than 80 MiB; inspect the size report above."
@@ -181,6 +186,7 @@ jobs:
           - Optimizes the Rust Android dev profile for sideload builds: size optimization, stripped symbols, thin LTO, one codegen unit and abort panic strategy
           - Builds only the ARM64 split APK and emits an APK size / largest-file report in GitHub Actions
           - CI now cancels stale Android and cross-platform runs when a newer branch commit arrives
+          - Consolidates the proven legacy stock-symbol parity contract from the earlier Android refactor branch
 
           ### Already included
           - Market overview and breadth

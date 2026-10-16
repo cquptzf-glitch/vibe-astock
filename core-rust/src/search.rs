@@ -4,6 +4,8 @@ use encoding_rs::GBK;
 use reqwest::Client;
 use serde_json::{json, Value};
 
+use crate::symbol::{natural_market, Market};
+
 #[derive(Debug)]
 pub enum SearchError {
     BadRequest(String),
@@ -88,13 +90,10 @@ fn parse_suggestions(text: &str, limit: usize) -> anyhow::Result<Vec<Value>> {
         let pinyin = fields[3].trim();
         let category = fields[4].trim();
 
-        if exchange != "sh" && exchange != "sz" {
+        let Some(market) = natural_market(code) else {
             continue;
-        }
-        if code.len() != 6 || !code.chars().all(|ch| ch.is_ascii_digit()) {
-            continue;
-        }
-        if !matches!(code.chars().next(), Some('0' | '3' | '6')) {
+        };
+        if !matches!(market, Market::SH | Market::SZ) || market.tencent_prefix() != exchange {
             continue;
         }
         if name.is_empty() || !category.starts_with("GP-A") {
@@ -104,7 +103,7 @@ fn parse_suggestions(text: &str, limit: usize) -> anyhow::Result<Vec<Value>> {
         items.push(json!({
             "symbol": code,
             "name": name,
-            "market": exchange.to_ascii_uppercase(),
+            "market": market.as_str(),
             "pinyin": pinyin,
             "category": category,
             "source": "tencent_smartbox"
@@ -128,6 +127,14 @@ mod tests {
         assert_eq!(items[0]["symbol"], "600519");
         assert_eq!(items[0]["market"], "SH");
         assert_eq!(items[1]["symbol"], "300308");
+    }
+
+    #[test]
+    fn rejects_exchange_code_mismatch() {
+        let raw = r#"v_hint="sz~600519~贵州茅台~GZMT~GP-A^sh~300308~中际旭创~ZJXC~GP-A";"#;
+        assert!(parse_suggestions(raw, 8)
+            .expect("parse mismatched suggestions")
+            .is_empty());
     }
 
     #[test]

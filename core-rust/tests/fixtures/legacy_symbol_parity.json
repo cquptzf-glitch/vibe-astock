@@ -1,0 +1,21 @@
+{
+  "legacy_source": ".agents/skills/data-access/scripts/common.py",
+  "legacy_blob_sha": "2021bb1f4706acf597d51bb497e35410a3baad83",
+  "cases": [
+    {"input":"600519","expected":{"digits":"600519","market":"SH","normalized":"SH600519","tencent":"sh600519","eastmoney":"1.600519"}},
+    {"input":"SH600519","expected":{"digits":"600519","market":"SH","normalized":"SH600519","tencent":"sh600519","eastmoney":"1.600519"}},
+    {"input":"600519.SH","expected":{"digits":"600519","market":"SH","normalized":"SH600519","tencent":"sh600519","eastmoney":"1.600519"}},
+    {"input":"000001","expected":{"digits":"000001","market":"SZ","normalized":"SZ000001","tencent":"sz000001","eastmoney":"0.000001"}},
+    {"input":"SZ000001","expected":{"digits":"000001","market":"SZ","normalized":"SZ000001","tencent":"sz000001","eastmoney":"0.000001"}},
+    {"input":"430047","expected":{"digits":"430047","market":"BJ","normalized":"BJ430047","tencent":"bj430047","eastmoney":"0.430047"}},
+    {"input":"830799.BJ","expected":{"digits":"830799","market":"BJ","normalized":"BJ830799","tencent":"bj830799","eastmoney":"0.830799"}},
+    {"input":"920002","expected":{"digits":"920002","market":"BJ","normalized":"BJ920002","tencent":"bj920002","eastmoney":"0.920002"}},
+    {"input":"900901","expected":{"digits":"900901","market":"SH","normalized":"SH900901","tencent":"sh900901","eastmoney":"1.900901"}},
+    {"input":"SZ600519","error":true},
+    {"input":"BJ000001","error":true},
+    {"input":"SH000001","error":true},
+    {"input":"SH.600519","error":true},
+    {"input":"60051","error":true},
+    {"input":"AAPL","error":true}
+  ]
+}

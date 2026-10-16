@@ -11,6 +11,9 @@ mod rotation;
 mod search;
 mod shortline;
 mod storage;
+mod symbol;
+
+pub use symbol::{natural_market, normalize_stock_symbol, Market, SymbolKey};
 
 use anyhow::{Context, Result};
 use reqwest::Client;
