@@ -50,7 +50,6 @@ type PositionView = RiskPosition & {
   market_value: number | null;
   unrealized_pnl: number | null;
   unrealized_pct: number | null;
-  quote_error: boolean;
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -69,6 +68,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 function evidenceNumber(envelope: QuoteEnvelope, field: string): number | null {
   const raw = envelope.evidence.find((item) => item.field === field)?.value;
+  if (raw === null || raw === undefined || raw === "") return null;
   const value = typeof raw === "number" ? raw : Number(raw);
   return Number.isFinite(value) ? value : null;
 }
@@ -117,7 +117,6 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
             market_value: marketValue,
             unrealized_pnl: unrealized,
             unrealized_pct: unrealizedPct,
-            quote_error: false,
           };
         } catch {
           return {
@@ -127,7 +126,6 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
             market_value: null,
             unrealized_pnl: null,
             unrealized_pct: null,
-            quote_error: true,
           };
         }
       }));
@@ -144,10 +142,15 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
 
   const summary = useMemo(() => {
     const quoted = positions.filter((position) => position.market_value !== null);
+    const pnlKnown = positions.filter((position) => position.unrealized_pnl !== null);
     return {
       quoted: quoted.length,
-      marketValue: quoted.reduce((sum, position) => sum + (position.market_value ?? 0), 0),
-      unrealized: quoted.reduce((sum, position) => sum + (position.unrealized_pnl ?? 0), 0),
+      marketValue: quoted.length > 0
+        ? quoted.reduce((sum, position) => sum + (position.market_value ?? 0), 0)
+        : null,
+      unrealized: pnlKnown.length > 0
+        ? pnlKnown.reduce((sum, position) => sum + (position.unrealized_pnl ?? 0), 0)
+        : null,
     };
   }, [positions]);
 
@@ -179,7 +182,9 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
             <div><span>最新市值</span><strong>{money(summary.marketValue)}</strong><small>{summary.quoted}/{positions.length} 已报价</small></div>
             <div>
               <span>浮动盈亏</span>
-              <strong className={summary.unrealized >= 0 ? "up" : "down"}>{summary.unrealized > 0 ? "+" : ""}{money(summary.unrealized)}</strong>
+              <strong className={(summary.unrealized ?? 0) >= 0 ? "up" : "down"}>
+                {summary.unrealized !== null && summary.unrealized > 0 ? "+" : ""}{money(summary.unrealized)}
+              </strong>
               <small>元</small>
             </div>
           </div>
