@@ -14,11 +14,11 @@ import {
   Wifi,
 } from "lucide-react";
 
+import { DiscoveryWorkspace } from "./DiscoveryWorkspace";
 import { JournalWorkspace } from "./JournalWorkspace";
 import { MarketOverview } from "./MarketOverview";
 import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
-import { RotationPanel } from "./RotationPanel";
 import { ShortlinePanel } from "./ShortlinePanel";
 import { StockDetailPanel } from "./StockDetailPanel";
 import "./mobile.css";
@@ -440,7 +440,7 @@ export function MobileApp() {
         )}
 
         {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} />}
-        {tab === "rotation" && <RotationPanel />}
+        {tab === "rotation" && <DiscoveryWorkspace />}
 
         {tab === "watchlist" && (
           <section className="mobile-section">
@@ -489,7 +489,7 @@ export function MobileApp() {
           <Flame size={20} /><span>短线</span>
         </button>
         <button className={tab === "rotation" ? "active" : ""} onClick={() => setTab("rotation")}>
-          <Layers3 size={20} /><span>轮动</span>
+          <Layers3 size={20} /><span>发现</span>
         </button>
         <button className={tab === "watchlist" ? "active" : ""} onClick={() => setTab("watchlist")}>
           <Star size={20} /><span>自选持仓</span>
