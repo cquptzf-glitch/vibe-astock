@@ -104,10 +104,10 @@ pub async fn send(client: &Client, db_path: &Path, body: &Value) -> std::result:
         return Err(ChatError::BadRequest("模型 API 配置不完整".to_string()));
     }
 
-    let history = context_messages(db_path).map_err(ChatError::Internal)?;
-    let mut messages = Vec::with_capacity(history.len() + 2);
+    let context = context_messages(db_path).map_err(ChatError::Internal)?;
+    let mut messages = Vec::with_capacity(context.len() + 2);
     messages.push(json!({ "role": "system", "content": SYSTEM_PROMPT }));
-    for item in &history {
+    for item in &context {
         messages.push(json!({ "role": &item.role, "content": &item.content }));
     }
     messages.push(json!({ "role": "user", "content": content }));
