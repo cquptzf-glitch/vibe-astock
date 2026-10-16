@@ -26,6 +26,7 @@ pub fn summary(db_path: &Path) -> Result<Value> {
     let journal_entries = scalar_i64(&conn, "SELECT COUNT(*) FROM journal_entries")?;
     let journal_fills = scalar_i64(&conn, "SELECT COUNT(*) FROM journal_fills")?;
     let daily_reviews = scalar_i64(&conn, "SELECT COUNT(*) FROM mobile_daily_reviews")?;
+    let ai_messages = scalar_i64(&conn, "SELECT COUNT(*) FROM mobile_ai_messages")?;
     let open_positions = scalar_i64(
         &conn,
         "SELECT COUNT(*) FROM (
@@ -67,6 +68,7 @@ pub fn summary(db_path: &Path) -> Result<Value> {
             "journal_entries": journal_entries,
             "journal_fills": journal_fills,
             "daily_reviews": daily_reviews,
+            "ai_messages": ai_messages,
             "open_positions": open_positions
         },
         "ai": {
