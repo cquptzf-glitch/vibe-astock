@@ -87,8 +87,8 @@ export function ShortlinePanel({ onOpenSymbol }: ShortlinePanelProps) {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (view === "limit-up") void load();
+  }, [load, view]);
 
   const groups = useMemo(() => {
     const map = new Map<number, LimitUpItem[]>();
