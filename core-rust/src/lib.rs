@@ -10,6 +10,7 @@ mod journal_review;
 mod market;
 mod quote;
 mod rotation;
+mod schema;
 mod search;
 mod shortline;
 mod storage;
@@ -67,6 +68,7 @@ impl AppCore {
         daily_review::init(&db_path)?;
         ai_review::init(&db_path)?;
         ai_chat::init(&db_path)?;
+        schema::migrate(&db_path)?;
 
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
@@ -134,6 +136,9 @@ impl AppCore {
             ("GET", "/mobile/data/summary") => Ok(MobileApiResponse::ok(
                 data_summary::summary(&self.db_path, secure_key_present)?,
             )),
+            ("GET", "/mobile/data/schema") => {
+                Ok(MobileApiResponse::ok(schema::info(&self.db_path)?))
+            }
             ("GET", "/mobile/backup/export") => {
                 Ok(MobileApiResponse::ok(backup::export(&self.db_path)?))
             }
