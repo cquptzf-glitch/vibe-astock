@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 3;
+pub const CURRENT_SCHEMA_VERSION: i64 = 4;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -24,7 +24,7 @@ const REQUIRED_V2_TABLES: [&str; 7] = [
     "mobile_documents",
 ];
 
-const REQUIRED_TABLES: [&str; 8] = [
+const REQUIRED_V3_TABLES: [&str; 8] = [
     "watchlist",
     "journal_entries",
     "journal_fills",
@@ -33,6 +33,18 @@ const REQUIRED_TABLES: [&str; 8] = [
     "mobile_ai_messages",
     "mobile_documents",
     "mobile_calendar_events",
+];
+
+const REQUIRED_TABLES: [&str; 9] = [
+    "watchlist",
+    "journal_entries",
+    "journal_fills",
+    "mobile_daily_reviews",
+    "mobile_ai_config",
+    "mobile_ai_messages",
+    "mobile_documents",
+    "mobile_calendar_events",
+    "mobile_reminders",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -52,12 +64,18 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             verify_tables(&conn, &LEGACY_REQUIRED_TABLES)?;
             migrate_1_to_2(&conn)?;
             migrate_2_to_3(&conn)?;
+            migrate_3_to_4(&conn)?;
         }
         1 => {
             migrate_1_to_2(&conn)?;
             migrate_2_to_3(&conn)?;
+            migrate_3_to_4(&conn)?;
         }
-        2 => migrate_2_to_3(&conn)?,
+        2 => {
+            migrate_2_to_3(&conn)?;
+            migrate_3_to_4(&conn)?;
+        }
+        3 => migrate_3_to_4(&conn)?,
         CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
         other => {
             return Err(anyhow!(
@@ -97,7 +115,7 @@ fn migrate_1_to_2(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_mobile_documents_kind_updated
             ON mobile_documents(kind, updated_at DESC, id DESC);
         CREATE INDEX IF NOT EXISTS idx_mobile_documents_symbol
-            ON mobile_documents(symbol) WHERE symbol IS NOT NULL;"
+            ON mobile_documents(symbol) WHERE symbol IS NOT NULL;",
     )?;
     verify_tables(conn, &REQUIRED_V2_TABLES)?;
     conn.pragma_update(None, "user_version", 2)?;
@@ -121,10 +139,36 @@ fn migrate_2_to_3(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_mobile_calendar_date
             ON mobile_calendar_events(date, status, id);
         CREATE INDEX IF NOT EXISTS idx_mobile_calendar_symbol
-            ON mobile_calendar_events(symbol) WHERE symbol IS NOT NULL;"
+            ON mobile_calendar_events(symbol) WHERE symbol IS NOT NULL;",
+    )?;
+    verify_tables(conn, &REQUIRED_V3_TABLES)?;
+    conn.pragma_update(None, "user_version", 3)?;
+    Ok(())
+}
+
+fn migrate_3_to_4(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mobile_reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL CHECK(kind IN ('price_above', 'price_below', 'stop_near', 'target_near', 'daily_review')),
+            symbol TEXT,
+            name TEXT NOT NULL DEFAULT '',
+            threshold REAL,
+            tolerance_pct REAL NOT NULL DEFAULT 1.0,
+            enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0, 1)),
+            cooldown_minutes INTEGER NOT NULL DEFAULT 60,
+            review_hour INTEGER,
+            quote_key TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_mobile_reminders_enabled
+            ON mobile_reminders(enabled, kind, id);
+        CREATE INDEX IF NOT EXISTS idx_mobile_reminders_symbol
+            ON mobile_reminders(symbol) WHERE symbol IS NOT NULL;",
     )?;
     verify_tables(conn, &REQUIRED_TABLES)?;
-    conn.pragma_update(None, "user_version", 3)?;
+    conn.pragma_update(None, "user_version", 4)?;
     Ok(())
 }
 
@@ -164,7 +208,10 @@ fn user_version(conn: &Connection) -> Result<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn temp_db(name: &str) -> std::path::PathBuf {
         let nonce = SystemTime::now()
@@ -203,36 +250,27 @@ mod tests {
     }
 
     #[test]
-    fn upgrades_schema_one_to_current() {
-        let path = temp_db("schema-one");
-        let conn = Connection::open(&path).expect("open temp db");
-        create_legacy_tables(&conn);
-        conn.pragma_update(None, "user_version", 1).expect("set v1");
-        drop(conn);
+    fn upgrades_every_supported_schema_to_current() {
+        for version in [1_i64, 2, 3] {
+            let path = temp_db(&format!("schema-{version}"));
+            let conn = Connection::open(&path).unwrap();
+            create_legacy_tables(&conn);
+            if version >= 2 {
+                migrate_1_to_2(&conn).unwrap();
+            }
+            if version >= 3 {
+                migrate_2_to_3(&conn).unwrap();
+            }
+            conn.pragma_update(None, "user_version", version).unwrap();
+            drop(conn);
 
-        migrate(&path).expect("upgrade v1");
-        let conn = Connection::open(&path).expect("reopen");
-        assert_eq!(user_version(&conn).unwrap(), CURRENT_SCHEMA_VERSION);
-        assert!(missing_tables(&conn, &REQUIRED_TABLES).unwrap().is_empty());
-        drop(conn);
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn upgrades_schema_two_to_three() {
-        let path = temp_db("schema-two");
-        let conn = Connection::open(&path).unwrap();
-        create_legacy_tables(&conn);
-        migrate_1_to_2(&conn).unwrap();
-        assert_eq!(user_version(&conn).unwrap(), 2);
-        drop(conn);
-
-        migrate(&path).unwrap();
-        let conn = Connection::open(&path).unwrap();
-        assert_eq!(user_version(&conn).unwrap(), 3);
-        assert!(missing_tables(&conn, &REQUIRED_TABLES).unwrap().is_empty());
-        drop(conn);
-        let _ = fs::remove_file(path);
+            migrate(&path).unwrap();
+            let conn = Connection::open(&path).unwrap();
+            assert_eq!(user_version(&conn).unwrap(), CURRENT_SCHEMA_VERSION);
+            assert!(missing_tables(&conn, &REQUIRED_TABLES).unwrap().is_empty());
+            drop(conn);
+            let _ = fs::remove_file(path);
+        }
     }
 
     #[test]
