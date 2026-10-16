@@ -234,10 +234,10 @@ export function SettingsPanel() {
           <section className="settings-block">
             <div className="settings-heading"><ShieldCheck size={16} /><strong>数据与隐私</strong></div>
             <div className="settings-notes">
-              <p>• 自选、交易日志、日复盘、持仓汇总和模型配置均存放在 Android 应用私有数据目录。</p>
+              <p>• 自选、交易日志、日复盘、持仓汇总和模型元数据均存放在 Android 应用私有数据目录。</p>
               <p>• 持仓由成交日志实时推导，不保存第二套持仓数据库。</p>
               <p>• AI 复盘默认只发送聚合统计；原始成交明细、交易备注和 API Key 不发送。</p>
-              <p>• API Key 当前仍保存在应用私有 SQLite 且接口不回显；生产版仍需迁移 Android Keystore。</p>
+              <p>• API Key 使用 Android Keystore 设备密钥进行 AES-256-GCM 加密；SQLite 只保存模型 Base URL 与模型名称，接口不回显 Key。</p>
             </div>
           </section>
 
