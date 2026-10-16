@@ -164,20 +164,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Remove superseded Android refactor branch
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          REF="heads/refactor/tauri-rust-android"
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/${REF}" >/dev/null 2>&1; then
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/${REF}"
-            echo "Deleted superseded branch: refactor/tauri-rust-android"
-          else
-            echo "Superseded branch already absent: refactor/tauri-rust-android"
-          fi
-
       - name: Publish Android MVP prerelease
         if: github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-android]')
         env:
