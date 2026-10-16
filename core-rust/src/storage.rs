@@ -1,3 +1,4 @@
+use crate::symbol::normalize_stock_symbol;
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use rusqlite::{params, Connection};
@@ -42,15 +43,17 @@ pub fn list(db_path: &Path) -> Result<Value> {
 }
 
 pub fn upsert(db_path: &Path, body: &Value) -> Result<Value> {
-    let symbol = body
+    let raw_symbol = body
         .get("symbol")
         .and_then(Value::as_str)
         .unwrap_or("")
-        .trim()
-        .to_uppercase();
-    if symbol.is_empty() {
+        .trim();
+    if raw_symbol.is_empty() {
         return Err(anyhow!("watchlist symbol is required"));
     }
+    let symbol = normalize_stock_symbol(raw_symbol)
+        .map_err(|error| anyhow!("invalid watchlist symbol: {error}"))?
+        .digits;
     let name = body
         .get("name")
         .and_then(Value::as_str)
@@ -69,15 +72,17 @@ pub fn upsert(db_path: &Path, body: &Value) -> Result<Value> {
 }
 
 pub fn delete(db_path: &Path, body: &Value) -> Result<Value> {
-    let symbol = body
+    let raw_symbol = body
         .get("symbol")
         .and_then(Value::as_str)
         .unwrap_or("")
-        .trim()
-        .to_uppercase();
-    if symbol.is_empty() {
+        .trim();
+    if raw_symbol.is_empty() {
         return Err(anyhow!("watchlist symbol is required"));
     }
+    let symbol = normalize_stock_symbol(raw_symbol)
+        .map_err(|error| anyhow!("invalid watchlist symbol: {error}"))?
+        .digits;
     let conn = open(db_path)?;
     let removed = conn.execute("DELETE FROM watchlist WHERE symbol = ?1", params![symbol])? > 0;
     Ok(json!({ "removed": removed, "symbol": symbol }))
