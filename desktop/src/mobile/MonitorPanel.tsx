@@ -26,6 +26,8 @@ type PositionRow = {
   planned_target: number | null;
   price: number | null;
   change_pct: number | null;
+  limit_up: number | null;
+  limit_down: number | null;
   market_value: number | null;
   unrealized_pnl: number | null;
   unrealized_pct: number | null;
