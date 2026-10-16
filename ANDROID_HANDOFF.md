@@ -1181,7 +1181,10 @@ APK CI run 是否成功
 验证约定：
 
 - 本地仅执行 Rust cargo test / cargo check；前端检查、Kotlin 测试和 APK 编译均在 GitHub Android CI 中执行。
-- 本轮 CI 链接与最终结果将在构建结束后补记；未创建 Release。
+- 本地 Rust 验证通过：30 项单元测试 + 1 项 symbol parity；cargo check 通过。已提交 Core Cargo.lock，CI 以 --locked 检查依赖。
+- 代码提交 91c41df 的 Android CI 全部通过：[Android CI #38880360377](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38880360377)。前端类型检查/构建、411 项前端测试、31 项 Rust 测试、ARM64 APK 编译、原生提醒路由 JUnit、APK 签名校验均通过。
+- 同一代码提交的 [Cross-platform verification #38880360183](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38880360183) 通过。
+- APK 为 debug-signed 0.1.14 ARM64，22,294,505 bytes（21.26 MiB）。[构建产物 #12037563102](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38880360377/artifacts/12037563102) 内含 APK 与 SHA256；CI 产物保留 30 天。未创建 Release。
 - 设备上的 Android Back/手势、点击通知冷/热启动及 Activity recreation 仍需真机验收，单元测试与编译不代表已完成真机验证。
 
 后续优先：通知真机验收 → 产业资讯/产业信号 → 行情供应商 fixture hardening → 更完整 Signals/Intraday/研究数据。正式签名/AAB、AI 流式输出与高级回测仍未完成。
