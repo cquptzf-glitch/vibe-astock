@@ -1217,6 +1217,9 @@ APK CI run 是否成功
 - 新增离线 RSS/Atom legacy fixtures、GPU 历史样本和真实公开板块成分股样本；来源说明在 core-rust/tests/fixtures/README.md。
 - 新增前端呈现/缺值/部分失败/外链/板块返回导航测试，交给 GitHub CI 执行。
 - 已做公开数据源可达性探测：东财板块成分股/概览、500.farm B200 matrix 可返回数据；这不代表所有 RSS 来源和手机网络均已验收。
-- 本轮最终 CI run 与 APK artifact 待构建后补记。未创建 Release。
+- 代码提交 68876f5 的 [Android CI #38884614144](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38884614144) 全部通过：41 项 Rust 测试、416 项前端测试、前端类型检查/构建、ARM64 APK 编译、原生提醒路由 JUnit 与 APK 签名校验均成功。
+- 同一代码提交的 [Cross-platform verification #38884614099](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38884614099) 通过。
+- APK 为 debug-signed 0.1.15 ARM64，22,883,605 bytes（21.82 MiB）。[构建产物 #12038703285](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38884614144/artifacts/12038703285) 内含 APK 与 SHA256，保留 30 天；未创建 Release。
+- 新模块尚需真机验证系统浏览器打开、返回手势、页面恢复及弱网表现；CI 成功不等于完成设备验收。
 
 仍待后续：Kalshi 远期、更多产业温度计、完整股票信号中心/盘中异动/资金流、估值历史、AI 流式与多会话、正式签名/AAB、真机生命周期验收。公司概况、公告、财务摘要和盈利预测已有基础接口，不应继续标为完全未迁移。
