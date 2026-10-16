@@ -1,13 +1,13 @@
 use crate::symbol::normalize_stock_symbol;
 use anyhow::{anyhow, Context, Result};
-use chrono::Utc;
+use chrono::{NaiveDate, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 3;
 const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
@@ -38,6 +38,8 @@ struct BackupData {
     ai_messages: Vec<AiMessageRow>,
     #[serde(default)]
     documents: Vec<DocumentRow>,
+    #[serde(default)]
+    calendar_events: Vec<CalendarEventRow>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +110,20 @@ struct DocumentRow {
     updated_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CalendarEventRow {
+    id: i64,
+    date: String,
+    kind: String,
+    title: String,
+    detail: String,
+    symbol: Option<String>,
+    status: String,
+    source: String,
+    created_at: String,
+    updated_at: String,
+}
+
 fn open(db_path: &Path) -> Result<Connection> {
     Connection::open(db_path).context("open mobile sqlite for backup")
 }
@@ -134,6 +150,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             daily_reviews: read_daily_reviews(&conn)?,
             ai_messages: read_ai_messages(&conn)?,
             documents: read_documents(&conn)?,
+            calendar_events: read_calendar_events(&conn)?,
         },
     };
     validate_envelope(&backup)?;
@@ -167,9 +184,11 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM mobile_daily_reviews", [])?;
     tx.execute("DELETE FROM mobile_ai_messages", [])?;
     tx.execute("DELETE FROM mobile_documents", [])?;
+    tx.execute("DELETE FROM mobile_calendar_events", [])?;
     tx.execute(
         "DELETE FROM sqlite_sequence WHERE name IN (
-            'journal_entries', 'journal_fills', 'mobile_ai_messages', 'mobile_documents'
+            'journal_entries', 'journal_fills', 'mobile_ai_messages',
+            'mobile_documents', 'mobile_calendar_events'
         )",
         [],
     )?;
@@ -251,14 +270,7 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     }
 
     for row in &backup.data.documents {
-        let symbol = match row.symbol.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
-            Some(value) => Some(
-                normalize_stock_symbol(value)
-                    .map_err(|error| anyhow!("备份中的资料关联代码无效 {value}: {error}"))?
-                    .digits,
-            ),
-            None => None,
-        };
+        let symbol = normalize_optional_symbol(row.symbol.as_deref(), "资料关联代码")?;
         tx.execute(
             "INSERT INTO mobile_documents(
                 id, kind, category, title, body, status, source, symbol, created_at, updated_at
@@ -272,6 +284,27 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
                 &row.status,
                 &row.source,
                 symbol,
+                &row.created_at,
+                &row.updated_at,
+            ],
+        )?;
+    }
+
+    for row in &backup.data.calendar_events {
+        let symbol = normalize_optional_symbol(row.symbol.as_deref(), "日历关联代码")?;
+        tx.execute(
+            "INSERT INTO mobile_calendar_events(
+                id, date, kind, title, detail, symbol, status, source, created_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                row.id,
+                &row.date,
+                &row.kind,
+                &row.title,
+                &row.detail,
+                symbol,
+                &row.status,
+                &row.source,
                 &row.created_at,
                 &row.updated_at,
             ],
@@ -329,6 +362,7 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         || backup.data.daily_reviews.len() > 10_000
         || backup.data.ai_messages.len() > 100_000
         || backup.data.documents.len() > 100_000
+        || backup.data.calendar_events.len() > 100_000
     {
         return Err(anyhow!("备份记录数量超过安全上限"));
     }
@@ -426,13 +460,40 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         ensure_text(&row.title, 500, "资料标题")?;
         ensure_text(&row.body, 250_000, "资料正文")?;
         ensure_text(&row.source, 300, "资料来源")?;
-        if let Some(symbol) = row.symbol.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
-            normalize_stock_symbol(symbol)
-                .map_err(|error| anyhow!("资料关联代码无效 {symbol}: {error}"))?;
+        normalize_optional_symbol(row.symbol.as_deref(), "资料关联代码")?;
+    }
+
+    let mut calendar_ids = HashSet::new();
+    for row in &backup.data.calendar_events {
+        if row.id <= 0 || !calendar_ids.insert(row.id) {
+            return Err(anyhow!("事件日历包含无效或重复 ID: {}", row.id));
         }
+        NaiveDate::parse_from_str(&row.date, "%Y-%m-%d")
+            .with_context(|| format!("事件日期无效: {}", row.date))?;
+        if !matches!(row.kind.as_str(), "company" | "ledger" | "macro" | "reminder") {
+            return Err(anyhow!("事件日历 kind 无效: {}", row.kind));
+        }
+        if !matches!(row.status.as_str(), "open" | "done") {
+            return Err(anyhow!("事件日历 status 无效: {}", row.status));
+        }
+        ensure_text(&row.title, 500, "事件标题")?;
+        ensure_text(&row.detail, 20_000, "事件详情")?;
+        ensure_text(&row.source, 300, "事件来源")?;
+        normalize_optional_symbol(row.symbol.as_deref(), "日历关联代码")?;
     }
 
     Ok(())
+}
+
+fn normalize_optional_symbol(value: Option<&str>, label: &str) -> Result<Option<String>> {
+    match value.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => Ok(Some(
+            normalize_stock_symbol(value)
+                .map_err(|error| anyhow!("{label}无效 {value}: {error}"))?
+                .digits,
+        )),
+        None => Ok(None),
+    }
 }
 
 fn ensure_text(value: &str, max_chars: usize, label: &str) -> Result<()> {
@@ -462,12 +523,14 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "journal_fills": backup.data.journal_fills.len(),
             "daily_reviews": backup.data.daily_reviews.len(),
             "ai_messages": backup.data.ai_messages.len(),
-            "documents": backup.data.documents.len()
+            "documents": backup.data.documents.len(),
+            "calendar_events": backup.data.calendar_events.len()
         },
         "compatibility": {
             "current_schema_version": SCHEMA_VERSION,
             "legacy_backup": backup.schema_version < SCHEMA_VERSION,
-            "legacy_missing_documents_are_empty": backup.schema_version == 1
+            "legacy_missing_documents_are_empty": backup.schema_version == 1,
+            "legacy_missing_calendar_events_are_empty": backup.schema_version <= 2
         },
         "security": {
             "credentials_included": false,
@@ -602,6 +665,30 @@ fn read_documents(conn: &Connection) -> Result<Vec<DocumentRow>> {
     Ok(rows)
 }
 
+fn read_calendar_events(conn: &Connection) -> Result<Vec<CalendarEventRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, date, kind, title, detail, symbol, status, source, created_at, updated_at
+         FROM mobile_calendar_events ORDER BY date, id",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(CalendarEventRow {
+                id: row.get(0)?,
+                date: row.get(1)?,
+                kind: row.get(2)?,
+                title: row.get(3)?,
+                detail: row.get(4)?,
+                symbol: row.get(5)?,
+                status: row.get(6)?,
+                source: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -643,6 +730,12 @@ mod tests {
             [],
         )
         .unwrap();
+        conn.execute(
+            "INSERT INTO mobile_calendar_events(date, kind, title, detail, symbol, status, source, created_at, updated_at)
+             VALUES ('2026-10-20', 'reminder', '验证茅台假设', '观察量价', '600519', 'open', 'manual', 'a', 'b')",
+            [],
+        )
+        .unwrap();
         drop(conn);
 
         let backup = export(&path).unwrap();
@@ -650,9 +743,10 @@ mod tests {
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
-        assert_eq!(backup["schema_version"], 2);
+        assert_eq!(backup["schema_version"], 3);
         assert_eq!(backup["data"]["watchlist"][0]["symbol"], "600519");
         assert_eq!(backup["data"]["documents"][0]["title"], "茅台跟踪");
+        assert_eq!(backup["data"]["calendar_events"][0]["title"], "验证茅台假设");
         let _ = std::fs::remove_file(path);
     }
 
@@ -677,6 +771,12 @@ mod tests {
             [],
         )
         .unwrap();
+        conn.execute(
+            "INSERT INTO mobile_calendar_events(date, kind, title, detail, symbol, status, source, created_at, updated_at)
+             VALUES ('2026-10-22', 'company', '公司事件', '详情', '000001', 'open', 'manual', 'a', 'b')",
+            [],
+        )
+        .unwrap();
         drop(conn);
         let backup = export(&source).unwrap();
 
@@ -692,6 +792,11 @@ mod tests {
         crate::documents::save(
             &target,
             &json!({"kind": "note", "title": "旧资料", "body": "old"}),
+        )
+        .unwrap();
+        crate::calendar::save(
+            &target,
+            &json!({"date": "2026-10-30", "kind": "reminder", "title": "旧事件"}),
         )
         .unwrap();
 
@@ -715,23 +820,48 @@ mod tests {
         assert_eq!(documents["items"][0]["title"], "来源报告");
         let old_notes = crate::documents::list(&target, "/mobile/documents?kind=note").unwrap();
         assert_eq!(old_notes["count"], 0);
+        let calendar = crate::calendar::list(
+            &target,
+            "/mobile/calendar?from=2026-10-01&to=2026-11-30",
+        )
+        .unwrap();
+        assert_eq!(calendar["count"], 1);
+        assert_eq!(calendar["items"][0]["title"], "公司事件");
 
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(target);
     }
 
     #[test]
-    fn accepts_legacy_v1_backup_with_empty_documents() {
+    fn accepts_legacy_v1_backup_with_empty_newer_collections() {
         let path = temp_db("legacy-v1");
         init_all(&path);
         let current = export(&path).unwrap();
         let mut legacy = current;
         legacy["schema_version"] = json!(1);
-        legacy["data"].as_object_mut().unwrap().remove("documents");
+        let data = legacy["data"].as_object_mut().unwrap();
+        data.remove("documents");
+        data.remove("calendar_events");
         let preview = validate(&legacy).unwrap();
         assert_eq!(preview["valid"], true);
         assert_eq!(preview["compatibility"]["legacy_backup"], true);
         assert_eq!(preview["counts"]["documents"], 0);
+        assert_eq!(preview["counts"]["calendar_events"], 0);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn accepts_legacy_v2_backup_without_calendar_events() {
+        let path = temp_db("legacy-v2");
+        init_all(&path);
+        let current = export(&path).unwrap();
+        let mut legacy = current;
+        legacy["schema_version"] = json!(2);
+        legacy["data"].as_object_mut().unwrap().remove("calendar_events");
+        let preview = validate(&legacy).unwrap();
+        assert_eq!(preview["valid"], true);
+        assert_eq!(preview["counts"]["calendar_events"], 0);
+        assert_eq!(preview["compatibility"]["legacy_missing_calendar_events_are_empty"], true);
         let _ = std::fs::remove_file(path);
     }
 }
