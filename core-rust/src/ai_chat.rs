@@ -1,10 +1,12 @@
 use anyhow::{Context, Result};
 use chrono::Utc;
 use reqwest::Client;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{path::Path, time::Duration};
+
+use crate::ai_config;
 
 const SYSTEM_PROMPT: &str = "你是 Vibe AStock 的投研助手。回答用户明确输入的问题，区分事实、推断和不确定性；涉及时效性数据时，如果消息中没有数据就明确说明不能凭空知道最新值。不要声称读取了用户的自选、持仓、交易日志或其他本地数据，因为通用聊天默认没有这些权限。避免把一般研究讨论包装成确定收益承诺或确定性买卖结论。使用中文，表达简洁、结构清楚。";
 const MAX_MESSAGE_CHARS: usize = 8_000;
@@ -22,13 +24,6 @@ impl From<anyhow::Error> for ChatError {
     fn from(value: anyhow::Error) -> Self {
         Self::Internal(value)
     }
-}
-
-#[derive(Debug)]
-struct Config {
-    base_url: String,
-    model: String,
-    api_key: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -97,7 +92,7 @@ pub async fn send(client: &Client, db_path: &Path, body: &Value) -> std::result:
         return Err(ChatError::BadRequest(format!("单条消息最多 {MAX_MESSAGE_CHARS} 个字符")));
     }
 
-    let config = load_config(db_path)
+    let config = ai_config::load(db_path)
         .map_err(ChatError::Internal)?
         .ok_or_else(|| ChatError::BadRequest("还没有配置模型 API".to_string()))?;
     if config.base_url.is_empty() || config.model.is_empty() {
@@ -121,8 +116,9 @@ pub async fn send(client: &Client, db_path: &Path, body: &Value) -> std::result:
             "model": &config.model,
             "messages": messages
         }));
-    if !config.api_key.is_empty() {
-        request = request.bearer_auth(&config.api_key);
+    let api_key = ai_config::injected_api_key(body);
+    if !api_key.is_empty() {
+        request = request.bearer_auth(api_key);
     }
 
     let response = request
@@ -212,23 +208,6 @@ fn context_messages(db_path: &Path) -> Result<Vec<ChatMessage>> {
     }
     kept.reverse();
     Ok(kept)
-}
-
-fn load_config(db_path: &Path) -> Result<Option<Config>> {
-    let conn = open(db_path)?;
-    conn.query_row(
-        "SELECT base_url, model, api_key FROM mobile_ai_config WHERE id = 1",
-        [],
-        |row| {
-            Ok(Config {
-                base_url: row.get(0)?,
-                model: row.get(1)?,
-                api_key: row.get(2)?,
-            })
-        },
-    )
-    .optional()
-    .context("load mobile AI config for chat")
 }
 
 fn open(db_path: &Path) -> Result<Connection> {
