@@ -1,0 +1,3 @@
+[default]
+description = "Default permissions for the Vibe AStock reminder scheduler."
+permissions = ["allow-sync-rules", "allow-status"]
