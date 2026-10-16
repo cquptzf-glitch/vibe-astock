@@ -9,6 +9,7 @@ import { CandidatePanel } from "./CandidatePanel";
 import { DailyReviewPanel } from "./DailyReviewPanel";
 import { EmotionTodayPanel, FirstBoardPanel, HomeEmotionBrief, LadderPanel, LimitUpTablePanel, MarketFactsPanel, ThemesPanel } from "./EmotionPanels";
 import { GpuRentPanel } from "./GpuRentPanel";
+import { HistoryPanel, VerifyPanel, WeeklyPanel } from "./HistoryPanels";
 import { JournalPanelV2 } from "./JournalPanelV2";
 import { JournalReviewPanel } from "./JournalReviewPanel";
 import { LibraryPanel } from "./LibraryPanel";
@@ -491,6 +492,9 @@ export function MobileApp() {
       case "firstBoard": return <FirstBoardPanel onOpenSymbol={openFromList} />;
       case "seal": return <MarketFactsPanel onOpenSymbol={openFromList} />;
       case "themes": return <ThemesPanel onOpenSymbol={openFromList} />;
+      case "weekly": return <WeeklyPanel onOpenSymbol={openFromList} />;
+      case "history": return <HistoryPanel />;
+      case "verify": return <VerifyPanel />;
       case "daily": return <DailyReviewPanel onOpenSymbol={openFromList} />;
       case "records": return <JournalPanelV2 onOpenSymbol={openFromList} />;
       case "review": return <JournalReviewPanel onOpenSymbol={openFromList} />;

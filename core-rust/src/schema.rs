@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 4;
+pub const CURRENT_SCHEMA_VERSION: i64 = 5;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -35,7 +35,7 @@ const REQUIRED_V3_TABLES: [&str; 8] = [
     "mobile_calendar_events",
 ];
 
-const REQUIRED_TABLES: [&str; 9] = [
+const REQUIRED_V4_TABLES: [&str; 9] = [
     "watchlist",
     "journal_entries",
     "journal_fills",
@@ -45,6 +45,20 @@ const REQUIRED_TABLES: [&str; 9] = [
     "mobile_documents",
     "mobile_calendar_events",
     "mobile_reminders",
+];
+
+const REQUIRED_TABLES: [&str; 11] = [
+    "watchlist",
+    "journal_entries",
+    "journal_fills",
+    "mobile_daily_reviews",
+    "mobile_ai_config",
+    "mobile_ai_messages",
+    "mobile_documents",
+    "mobile_calendar_events",
+    "mobile_reminders",
+    "mobile_verifications",
+    "mobile_shortline_days",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -65,17 +79,24 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_1_to_2(&conn)?;
             migrate_2_to_3(&conn)?;
             migrate_3_to_4(&conn)?;
+            migrate_4_to_5(&conn)?;
         }
         1 => {
             migrate_1_to_2(&conn)?;
             migrate_2_to_3(&conn)?;
             migrate_3_to_4(&conn)?;
+            migrate_4_to_5(&conn)?;
         }
         2 => {
             migrate_2_to_3(&conn)?;
             migrate_3_to_4(&conn)?;
+            migrate_4_to_5(&conn)?;
         }
-        3 => migrate_3_to_4(&conn)?,
+        3 => {
+            migrate_3_to_4(&conn)?;
+            migrate_4_to_5(&conn)?;
+        }
+        4 => migrate_4_to_5(&conn)?,
         CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
         other => {
             return Err(anyhow!(
@@ -167,8 +188,33 @@ fn migrate_3_to_4(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_mobile_reminders_symbol
             ON mobile_reminders(symbol) WHERE symbol IS NOT NULL;",
     )?;
-    verify_tables(conn, &REQUIRED_TABLES)?;
+    verify_tables(conn, &REQUIRED_V4_TABLES)?;
     conn.pragma_update(None, "user_version", 4)?;
+    Ok(())
+}
+
+/// 明日验证条件(用户写的市场读数判断,进备份)与已收盘交易日的情绪读数缓存(公开行情,不进备份)。
+/// 东财池子只留约一个月,缓存让情绪历史越用越长。
+fn migrate_4_to_5(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mobile_verifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            metric TEXT NOT NULL,
+            direction TEXT NOT NULL CHECK(direction IN ('up', 'down', 'flat')),
+            reason TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(date, metric)
+        );
+        CREATE TABLE IF NOT EXISTS mobile_shortline_days (
+            date TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            fetched_at TEXT NOT NULL
+        );",
+    )?;
+    verify_tables(conn, &REQUIRED_TABLES)?;
+    conn.pragma_update(None, "user_version", 5)?;
     Ok(())
 }
 
@@ -251,7 +297,7 @@ mod tests {
 
     #[test]
     fn upgrades_every_supported_schema_to_current() {
-        for version in [1_i64, 2, 3] {
+        for version in [1_i64, 2, 3, 4] {
             let path = temp_db(&format!("schema-{version}"));
             let conn = Connection::open(&path).unwrap();
             create_legacy_tables(&conn);
@@ -260,6 +306,9 @@ mod tests {
             }
             if version >= 3 {
                 migrate_2_to_3(&conn).unwrap();
+            }
+            if version >= 4 {
+                migrate_3_to_4(&conn).unwrap();
             }
             conn.pragma_update(None, "user_version", version).unwrap();
             drop(conn);

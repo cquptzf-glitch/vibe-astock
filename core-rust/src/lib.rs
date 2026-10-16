@@ -12,6 +12,7 @@ mod daily_review;
 mod data_summary;
 mod documents;
 mod emotion;
+mod emotion_history;
 mod discovery;
 mod industry_signals;
 mod news;
@@ -316,6 +317,10 @@ impl AppCore {
             ("GET", "/mobile/shortline/risk") => Ok(discovery_response(anomalies::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/shortline/emotion") => Ok(discovery_response(emotion::emotion(&self.client, &request.path).await)),
             ("GET", "/mobile/shortline/cycle") => Ok(discovery_response(emotion::cycle(&self.client, &request.path).await)),
+            ("GET", "/mobile/shortline/history") => Ok(discovery_response(emotion_history::history(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/shortline/weekly") => Ok(discovery_response(emotion_history::weekly(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::verify(&self.client, &self.db_path, &request.path).await)),
+            ("POST", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::save_verify(&self.client, &self.db_path, &request.body).await)),
             ("GET", "/mobile/news/catalog") => Ok(MobileApiResponse::ok(news::catalog()?)),
             ("GET", "/mobile/news") => Ok(discovery_response(news::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/industry/gpu-rent") => Ok(discovery_response(industry_signals::gpu_rent(&self.client, &request.path).await)),
@@ -405,6 +410,10 @@ mod discovery_contract_tests {
             "/mobile/shortline/emotion?date=2026-13-40",
             "/mobile/shortline/emotion?date=../../x",
             "/mobile/shortline/cycle?days=99",
+            "/mobile/shortline/history?days=4",
+            "/mobile/shortline/history?refresh=yes",
+            "/mobile/shortline/weekly?date=20261340",
+            "/mobile/shortline/verify?refresh=2",
         ] {
             let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
             assert_eq!(response.status,400,"{path}: {}",response.body);

@@ -99,10 +99,61 @@ em.emo-board { color: var(--mobile-warning); }
 .emo-histogram b { font-size: 12px; } .emo-histogram small { font-size: 9px; color: var(--mobile-muted); text-align: center; }
 .emo-page .up, .emo-row .up, .emo-stat .up { color: var(--mobile-up); }
 .emo-page .down, .emo-row .down, .emo-stat .down { color: var(--mobile-down); }
+.hist-list { display: grid; gap: 8px; }
+.hist-item { display: grid; gap: 3px; }
+.hist-item > div { display: flex; align-items: baseline; gap: 8px; }
+.hist-item strong { font-size: 13px; } .hist-item span { font-weight: 700; font-variant-numeric: tabular-nums; }
+.hist-item small { font-size: 10px; color: var(--mobile-muted); }
+.hist-item em, .hist-change em { font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--mobile-border); }
+em.hot { color: var(--mobile-up); border-color: var(--mobile-up) !important; } em.cold { color: var(--mobile-down); border-color: var(--mobile-down) !important; }
+.hist-item .emo-bar b { background: var(--mobile-accent); }
+.hist-change { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; background: var(--mobile-soft); font-size: 12px; }
+.hist-change small { display: block; font-size: 10px; color: var(--mobile-muted); }
+.hist-table, .hist-matrix { display: grid; gap: 2px; overflow-x: auto; font-size: 11px; }
+.hist-table [role="row"] { display: grid; grid-template-columns: 52px repeat(6, minmax(42px, 1fr)); gap: 2px; min-width: 330px; }
+.hist-table [role="row"] > span, .hist-matrix [role="row"] > span { padding: 5px 3px; border-radius: 4px; background: var(--mobile-soft); text-align: center; font-variant-numeric: tabular-nums; }
+.hist-table .head > span, .hist-matrix .head > span { background: transparent; color: var(--mobile-muted); font-size: 10px; }
+.hist-table [role="rowheader"] small { display: block; font-size: 9px; color: var(--mobile-warning); }
+.hist-table .partial > span { opacity: .85; }
+.hist-table .gap { grid-template-columns: 1fr; } .hist-table .gap > span { text-align: left; color: var(--mobile-muted); background: transparent; border: 1px dashed var(--mobile-border); }
+.hist-week { display: grid; gap: 6px; }
+.hist-week > div { display: grid; gap: 3px; padding: 7px 8px; border-radius: 8px; background: var(--mobile-soft); }
+.hist-week > div.missing { opacity: .7; }
+.hist-week strong { font-size: 13px; } .hist-week strong small { margin-left: 6px; font-size: 10px; color: var(--mobile-warning); }
+.hist-week small { font-size: 11px; color: var(--mobile-muted); overflow-wrap: anywhere; }
+.hist-heat { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; gap: 6px; }
+.hist-heat em { font-style: normal; font-weight: 700; color: var(--mobile-up); text-align: right; }
+.hist-matrix [role="row"] { display: grid; grid-template-columns: 74px repeat(5, minmax(30px, 1fr)) 76px; gap: 2px; min-width: 330px; }
+.hist-matrix [role="rowheader"] { text-align: left !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-matrix .top { background: var(--mobile-up) !important; color: #fff; font-weight: 700; }
+.hist-matrix .zero, .hist-matrix .na { color: var(--mobile-muted); }
+.hist-matrix .status { font-size: 10px; text-align: left !important; }
+.hist-lineage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.hist-lineage button { display: grid; gap: 4px; padding: 8px; min-width: 0; border: 1px solid var(--mobile-border); border-radius: 9px; background: var(--mobile-soft); color: var(--mobile-text); text-align: left; }
+.hist-lineage strong { font-size: 13px; } .hist-lineage em { margin-left: 4px; font-style: normal; font-size: 10px; color: var(--mobile-accent); }
+.hist-lineage small { display: block; font-size: 10px; color: var(--mobile-muted); overflow-wrap: anywhere; }
+.hist-lineage dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 0; font-size: 10px; }
+.hist-lineage dt { color: var(--mobile-muted); } .hist-lineage dd { margin: 0; font-weight: 700; }
+.hist-mini { width: 100%; height: 30px; } .hist-mini polyline { stroke: var(--mobile-accent); stroke-width: 1.5; }
+.verify-results { display: grid; gap: 6px; }
+.verify-results > div { display: grid; gap: 2px; padding: 8px; border-radius: 8px; background: var(--mobile-soft); font-size: 12px; }
+.verify-results > div.late { opacity: .8; border: 1px dashed var(--mobile-border); }
+.verify-results > div > div { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.verify-results small { font-size: 11px; color: var(--mobile-muted); overflow-wrap: anywhere; }
+.verify-results em { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+em.hit { color: #fff; background: var(--mobile-up); } em.miss { color: #fff; background: var(--mobile-down); } em.na { color: var(--mobile-muted); border: 1px solid var(--mobile-border); }
+.verify-editor { display: grid; gap: 8px; margin-top: 6px; }
+.verify-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 40px; gap: 6px; padding: 8px; border-radius: 9px; background: var(--mobile-soft); }
+.verify-row select, .verify-row input { min-width: 0; min-height: 40px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); padding: 0 8px; font: inherit; font-size: 13px; }
+.verify-row input { grid-column: 1 / -1; }
+.verify-row small { grid-column: 1 / -1; font-size: 10px; color: var(--mobile-muted); overflow-wrap: anywhere; }
+.verify-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.verify-actions .discovery-action { display: inline-flex; align-items: center; gap: 4px; }
 @media (min-width: 700px) {
   .emo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .emo-stats-4 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .emo-stock-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .emo-quick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .emo-board-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .hist-lineage { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 4;
+const SCHEMA_VERSION: u32 = 5;
 const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
@@ -42,6 +42,19 @@ struct BackupData {
     calendar_events: Vec<CalendarEventRow>,
     #[serde(default)]
     reminders: Vec<ReminderRow>,
+    #[serde(default)]
+    verifications: Vec<VerificationRow>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct VerificationRow {
+    id: i64,
+    date: String,
+    metric: String,
+    direction: String,
+    reason: String,
+    created_at: String,
+    updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,6 +182,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             documents: read_documents(&conn)?,
             calendar_events: read_calendar_events(&conn)?,
             reminders: read_reminders(&conn)?,
+            verifications: read_verifications(&conn)?,
         },
     };
     validate_envelope(&backup)?;
@@ -204,10 +218,12 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM mobile_documents", [])?;
     tx.execute("DELETE FROM mobile_calendar_events", [])?;
     tx.execute("DELETE FROM mobile_reminders", [])?;
+    tx.execute("DELETE FROM mobile_verifications", [])?;
     tx.execute(
         "DELETE FROM sqlite_sequence WHERE name IN (
             'journal_entries', 'journal_fills', 'mobile_ai_messages',
-            'mobile_documents', 'mobile_calendar_events', 'mobile_reminders'
+            'mobile_documents', 'mobile_calendar_events', 'mobile_reminders',
+            'mobile_verifications'
         )",
         [],
     )?;
@@ -366,6 +382,14 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
         )?;
     }
 
+    for row in &backup.data.verifications {
+        tx.execute(
+            "INSERT INTO mobile_verifications(id, date, metric, direction, reason, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![row.id, &row.date, &row.metric, &row.direction, &row.reason, &row.created_at, &row.updated_at],
+        )?;
+    }
+
     tx.commit().context("commit backup restore")?;
 
     Ok(json!({
@@ -419,6 +443,7 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         || backup.data.documents.len() > 100_000
         || backup.data.calendar_events.len() > 100_000
         || backup.data.reminders.len() > 10_000
+        || backup.data.verifications.len() > 100_000
     {
         return Err(anyhow!("备份记录数量超过安全上限"));
     }
@@ -581,6 +606,27 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         }
     }
 
+    let mut verification_ids = HashSet::new();
+    let mut verification_keys = HashSet::new();
+    for row in &backup.data.verifications {
+        if row.id <= 0 || !verification_ids.insert(row.id) {
+            return Err(anyhow!("明日验证包含无效或重复 ID: {}", row.id));
+        }
+        if NaiveDate::parse_from_str(&row.date, "%Y-%m-%d").is_err() {
+            return Err(anyhow!("明日验证日期无效: {}", row.date));
+        }
+        if !crate::emotion_history::is_metric(&row.metric) {
+            return Err(anyhow!("明日验证读数无效: {}", row.metric));
+        }
+        if !matches!(row.direction.as_str(), "up" | "down" | "flat") {
+            return Err(anyhow!("明日验证方向无效: {}", row.direction));
+        }
+        if !verification_keys.insert((row.date.clone(), row.metric.clone())) {
+            return Err(anyhow!("明日验证同一晚同一读数重复: {} {}", row.date, row.metric));
+        }
+        ensure_text(&row.reason, 200, "明日验证理由")?;
+    }
+
     Ok(())
 }
 
@@ -624,14 +670,16 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "ai_messages": backup.data.ai_messages.len(),
             "documents": backup.data.documents.len(),
             "calendar_events": backup.data.calendar_events.len(),
-            "reminders": backup.data.reminders.len()
+            "reminders": backup.data.reminders.len(),
+            "verifications": backup.data.verifications.len()
         },
         "compatibility": {
             "current_schema_version": SCHEMA_VERSION,
             "legacy_backup": backup.schema_version < SCHEMA_VERSION,
             "legacy_missing_documents_are_empty": backup.schema_version == 1,
             "legacy_missing_calendar_events_are_empty": backup.schema_version <= 2,
-            "legacy_missing_reminders_are_empty": backup.schema_version <= 3
+            "legacy_missing_reminders_are_empty": backup.schema_version <= 3,
+            "legacy_missing_verifications_are_empty": backup.schema_version <= 4
         },
         "security": {
             "credentials_included": false,
@@ -816,6 +864,27 @@ fn read_reminders(conn: &Connection) -> Result<Vec<ReminderRow>> {
     Ok(rows)
 }
 
+fn read_verifications(conn: &Connection) -> Result<Vec<VerificationRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, date, metric, direction, reason, created_at, updated_at
+         FROM mobile_verifications ORDER BY date, id",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(VerificationRow {
+                id: row.get(0)?,
+                date: row.get(1)?,
+                metric: row.get(2)?,
+                direction: row.get(3)?,
+                reason: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -882,7 +951,8 @@ mod tests {
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
-        assert_eq!(backup["schema_version"], 4);
+        assert_eq!(backup["schema_version"], 5);
+        assert_eq!(backup["data"]["verifications"], json!([]));
         assert_eq!(backup["data"]["watchlist"][0]["symbol"], "600519");
         assert_eq!(backup["data"]["documents"][0]["title"], "茅台跟踪");
         assert_eq!(backup["data"]["calendar_events"][0]["title"], "验证茅台假设");

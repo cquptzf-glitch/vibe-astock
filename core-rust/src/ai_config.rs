@@ -195,11 +195,14 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_db() -> std::path::PathBuf {
+        // 并行测试在 Windows 上可能拿到同一个纳秒时间戳,再加进程内计数保证路径不撞。
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        std::env::temp_dir().join(format!("vibe-ai-config-{stamp}.sqlite3"))
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        std::env::temp_dir().join(format!("vibe-ai-config-{stamp}-{n}.sqlite3"))
     }
 
     #[test]

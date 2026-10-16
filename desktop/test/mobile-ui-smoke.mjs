@@ -11,6 +11,7 @@ const version = process.env.APP_VERSION || "preview";
 const fixture = JSON.parse(fs.readFileSync("core-rust/tests/fixtures/market_kline.json", "utf8"));
 const klineRows = fixture.data.klines.map((row) => { const p = row.split(","); return [p[0], ...p.slice(1, 6).map(Number)]; });
 const emotionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-emotion-2026-10-16.json", "utf8"));
+const historyFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-history-2026-10-16.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
 const monitor = {
@@ -38,6 +39,9 @@ const responses = {
   "/mobile/ai/chat": { messages: [], count: 0 },
   "/mobile/shortline/emotion": emotionFixture.emotion,
   "/mobile/shortline/cycle": emotionFixture.cycle,
+  "/mobile/shortline/history": historyFixture.history,
+  "/mobile/shortline/weekly": historyFixture.weekly,
+  "/mobile/shortline/verify": historyFixture.verify,
 };
 const quote = { symbol: "600519", market: "SH", status: "ok", primary_source: "tencent", extra: { name: "贵州茅台", quote_date: "2026-10-16" }, evidence: [["price", 1329, "元"], ["change_pct", 1.22, "%"], ["pe_ttm", 19.81, "倍"], ["pb", 7.1, "倍"], ["turnover_pct", .31, "%"], ["total_market_cap", 16692.24, "亿元"]].map(([field, value, unit]) => ({ field, value, unit })) };
 const browser = await chromium.launch({ headless: true });
@@ -129,12 +133,22 @@ try {
       await page.getByText("新华传媒", { exact: true }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-ladder.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "情绪历史", exact: true }).click();
+      await page.getByText("历史统计位置", { exact: true }).waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-history.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "明日验证", exact: true }).click();
+      await page.getByText("写给下一场的条件", { exact: true }).waitFor();
+      await page.getByRole("button", { name: "加一条", exact: false }).click();
+      await page.getByLabel("第 1 条读数").waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-verify.png"), fullPage: true });
       await context.close();
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 30, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages; 30 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 42, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages; 42 screenshots.");
 } finally {
   await browser.close();
 }

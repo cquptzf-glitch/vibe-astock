@@ -1326,3 +1326,21 @@ APK CI run 是否成功
 - 未做：真机验收（返回/重建/通知/弱网、新栏目实际触控）、正式签名/AAB。仍是 debug-signed 预览包，更换安装前应导出业务备份。
 
 下一步建议：情绪历史/近 5 天（需要先把每日已收盘读数存 SQLite）→ 明日验证条件与对账 → 盯盘异动流与昨日梯队实时 → 竞价与盘中路径 → 交易日志分组/风险与复查页签。
+
+### 近 5 天、情绪历史与明日验证（0.1.20）
+
+口径移植自 `orchestrator/src/finance/shortline/{weekly,history,verification,verify_metrics}.ts`：分位只和之前比、少于 10 天不给；≥0.85/≤0.15 标偏热偏冷（按 higher_is_hotter 翻译）；跟前一天比按 diff_eps 门槛（正好等于门槛算噪声）；明日验证 8 个读数的 eps、基准发生率（≥ 12 对可比日）、常见/少见方向提示、09:15 事后判定、未收盘暂定、没数据不算判错、同一晚同一读数只一条、整晚一个事务替换且没变的条目不改 updated_at、下一场开没开说不准时不许删，全部与桌面版一致。
+
+新增：
+
+- `core-rust/src/emotion_history.rs`：每个交易日的八项读数（涨停家数、最高板、1进2、赚钱效应中位、炸板率、跌超5%、头部行业集中度、全市场跌停）+ 最高标 + 行业分布，由四张池与前一日涨停池计算。窗口内缺缓存的日子按池并发 6 路取数（前一日涨停池复用同批）；超过 28 个日历日只读缓存。已收盘且 8 项全有的日子写入 `mobile_shortline_days`。
+- Core route：`GET /mobile/shortline/history?days=5..60&date=&refresh=1`、`GET /mobile/shortline/weekly?date=`、`GET /mobile/shortline/verify?date=`、`POST /mobile/shortline/verify {action:"save",date,items}`。改错入参在联网前 400。
+- SQLite schema v5：`mobile_verifications`（UNIQUE(date, metric)，进备份）与 `mobile_shortline_days`（公开行情缓存，不进备份）；各旧版本升级测试覆盖 1–4。备份格式 v5，校验日期/读数/方向/重复/理由长度，v1–v4 仍可恢复。
+- 前端 `HistoryPanels.tsx`：近 5 天、情绪历史、明日验证（条件编辑器）三个复盘子页；路由 `/mobile/review/{weekly,history,verify}`。与情绪复盘各页共用复盘日选择。
+- 顺手修复：`ai_config` 测试的临时库路径在 Windows 并行测试里可能撞名（纳秒时间戳相同），偶发失败；加进程内计数。
+
+验证（本机）：Rust 72 项 + 1 项 parity 连续 3 次全量通过；`emotion_history::tests::live_history_weekly_verify_probe` 对真实上游：30 天窗口首次 0.96 秒、14 天取到、16 天超出保留期；第二次 46 毫秒全部读缓存；2026-10-16 最高板 11 偏热、赚钱效应 −3.3% 与炸板率 44.5% 偏冷。前端 431/432（agent_error 缺 ajv），新增 `mobile_history.test.ts` 用真实返回裁剪的 `desktop/test/fixtures/mobile-history-2026-10-16.json`；本机 Edge 浏览器冒烟 42 张截图通过，已人工查看 360 白色情绪历史与 390 深色明日验证。CI 与发布结果在本节末尾补充。
+
+已知限制：情绪历史从东财保留期起积累，前期 60 天窗口大部分为空；节假日工作日写条件时用上证快照时间判断今天开没开市，取不到时允许新增/修改但不许删除。
+
+下一步建议：盯盘异动流与昨日梯队实时 → 竞价与盘中路径（可复用明日验证条件做盘中读数）→ 涨停样本 → 交易日志分组/风险与复查页签 → 每日复盘市场状态八格。

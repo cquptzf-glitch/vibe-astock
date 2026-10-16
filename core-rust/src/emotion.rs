@@ -54,7 +54,7 @@ impl PoolKind {
         }
     }
 
-    fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::LimitUp => "涨停池",
             Self::Broken => "炸板池",
@@ -211,14 +211,14 @@ pub async fn cycle(client: &Client, path: &str) -> Result<Value, DiscoveryError>
 
 // ---------------------------------------------------------------- 交易日与取数
 
-type ChinaNow = (NaiveDate, u32);
+pub(crate) type ChinaNow = (NaiveDate, u32);
 
-fn now_china() -> ChinaNow {
+pub(crate) fn now_china() -> ChinaNow {
     let now = Utc::now().with_timezone(&FixedOffset::east_opt(8 * 3600).expect("valid offset"));
     (now.date_naive(), now.hour() * 100 + now.minute())
 }
 
-fn date_parameter(path: &str) -> Result<Option<String>, DiscoveryError> {
+pub(crate) fn date_parameter(path: &str) -> Result<Option<String>, DiscoveryError> {
     let Some(raw) = discovery::parameter(path, "date").filter(|value| !value.trim().is_empty()) else {
         return Ok(None);
     };
@@ -233,7 +233,7 @@ fn date_parameter(path: &str) -> Result<Option<String>, DiscoveryError> {
 
 /// 上证指数日线的日期就是交易日历(含盘中的今天)。一次取约一年,足够覆盖东财池子的保留期。
 /// 东财失败时改用腾讯同一指数日线,两边都失败才报错。
-async fn trade_dates(client: &Client) -> Result<Vec<String>> {
+pub(crate) async fn trade_dates(client: &Client) -> Result<Vec<String>> {
     match eastmoney_trade_dates(client).await {
         Ok(dates) => Ok(dates),
         Err(primary) => {
@@ -340,7 +340,7 @@ pub(crate) fn review_day(
     Ok((date, prev))
 }
 
-async fn fetch_pool(client: &Client, kind: PoolKind, compact_date: &str) -> Result<Vec<Row>> {
+pub(crate) async fn fetch_pool(client: &Client, kind: PoolKind, compact_date: &str) -> Result<Vec<Row>> {
     let (api, sort) = kind.api();
     let root: Value = client
         .get(format!("https://push2ex.eastmoney.com/{api}"))
@@ -362,7 +362,7 @@ async fn fetch_pool(client: &Client, kind: PoolKind, compact_date: &str) -> Resu
     parse_pool(&root, kind, compact_date)
 }
 
-fn error_message(label: &str, error: &anyhow::Error) -> String {
+pub(crate) fn error_message(label: &str, error: &anyhow::Error) -> String {
     if error.downcast_ref::<reqwest::Error>().is_some() {
         let failure = discovery::failure(label, error);
         format!("{label}:{}", failure["message"].as_str().unwrap_or("数据源暂不可用"))
@@ -530,11 +530,11 @@ pub(crate) fn parse_pool(root: &Value, kind: PoolKind, requested: &str) -> Resul
 
 // ---------------------------------------------------------------- 计算
 
-fn r3(value: f64) -> f64 {
+pub(crate) fn r3(value: f64) -> f64 {
     (value * 1000.0).round() / 1000.0
 }
 
-fn r2(value: f64) -> f64 {
+pub(crate) fn r2(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }
 
@@ -546,7 +546,7 @@ fn mean(values: &[f64]) -> f64 {
     values.iter().sum::<f64>() / values.len() as f64
 }
 
-fn median(values: &[f64]) -> f64 {
+pub(crate) fn median(values: &[f64]) -> f64 {
     let mut sorted = values.to_vec();
     sorted.sort_by(|a, b| a.total_cmp(b));
     let mid = sorted.len() / 2;
