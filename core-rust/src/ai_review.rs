@@ -1,22 +1,13 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use chrono::Utc;
-use reqwest::{Client, Url};
-use rusqlite::{params, Connection, OptionalExtension};
+use reqwest::Client;
 use serde_json::{json, Value};
 use std::path::Path;
 use std::time::Duration;
 
-use crate::journal_review;
+use crate::{ai_config, journal_review};
 
 const SYSTEM_PROMPT: &str = "你是交易复盘助手。你只能基于用户主动提供的历史复盘统计，分析交易纪律、样本特征、风险暴露和可验证的改进方向。不要预测未来价格，不要推荐具体股票，不要给出买入/卖出/加仓/减仓指令，不要虚构缺失数据。样本不足时必须明确指出。输出中文，优先使用：1. 核心发现；2. 纪律问题；3. 风险问题；4. 下一阶段可执行的复盘改进清单。";
-
-#[derive(Debug, Clone)]
-struct AiConfig {
-    base_url: String,
-    model: String,
-    api_key: String,
-    updated_at: String,
-}
 
 #[derive(Debug)]
 pub enum RunError {
@@ -32,88 +23,19 @@ impl From<anyhow::Error> for RunError {
 }
 
 pub fn init(db_path: &Path) -> Result<()> {
-    let conn = open(db_path)?;
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS mobile_ai_config(
-            id INTEGER PRIMARY KEY CHECK(id = 1),
-            base_url TEXT NOT NULL DEFAULT '',
-            model TEXT NOT NULL DEFAULT '',
-            api_key TEXT NOT NULL DEFAULT '',
-            updated_at TEXT NOT NULL
-        );",
-    )?;
-    Ok(())
+    ai_config::init(db_path)
 }
 
-pub fn config_view(db_path: &Path) -> Result<Value> {
-    let config = load_config(db_path)?;
-    Ok(match config {
-        Some(config) => public_config(&config),
-        None => empty_config(),
-    })
+pub fn config_view(db_path: &Path, key_present: bool) -> Result<Value> {
+    ai_config::view(db_path, key_present)
 }
 
-pub fn save_config(db_path: &Path, body: &Value) -> Result<Value> {
-    let current = load_config(db_path)?;
-    let base_url = match body.get("base_url") {
-        Some(Value::String(value)) => normalize_base_url(value)?,
-        Some(_) => return Err(anyhow!("base_url 必须是字符串")),
-        None => current.as_ref().map(|value| value.base_url.clone()).unwrap_or_default(),
-    };
-    let model = match body.get("model") {
-        Some(Value::String(value)) => normalize_model(value)?,
-        Some(_) => return Err(anyhow!("model 必须是字符串")),
-        None => current.as_ref().map(|value| value.model.clone()).unwrap_or_default(),
-    };
-    if base_url.is_empty() {
-        return Err(anyhow!("请填写模型 API Base URL"));
-    }
-    if model.is_empty() {
-        return Err(anyhow!("请填写模型名称"));
-    }
-
-    // Never carry a credential across provider endpoints implicitly. If the Base URL changes,
-    // the old key is cleared unless the user explicitly supplies a new non-empty key.
-    let base_changed = current.as_ref().is_some_and(|item| item.base_url != base_url);
-    let existing_key = || current.as_ref().map(|item| item.api_key.clone()).unwrap_or_default();
-    let clear_key = body.get("clear_key").and_then(Value::as_bool).unwrap_or(false);
-    let api_key = if clear_key {
-        String::new()
-    } else if let Some(value) = body.get("api_key") {
-        let value = value.as_str().ok_or_else(|| anyhow!("api_key 必须是字符串"))?.trim();
-        if value.is_empty() {
-            if base_changed { String::new() } else { existing_key() }
-        } else {
-            if value.len() > 4096 {
-                return Err(anyhow!("API Key 过长"));
-            }
-            value.to_string()
-        }
-    } else if base_changed {
-        String::new()
-    } else {
-        existing_key()
-    };
-
-    let updated_at = Utc::now().to_rfc3339();
-    let conn = open(db_path)?;
-    conn.execute(
-        "INSERT INTO mobile_ai_config(id, base_url, model, api_key, updated_at)
-         VALUES (1, ?1, ?2, ?3, ?4)
-         ON CONFLICT(id) DO UPDATE SET
-           base_url = excluded.base_url,
-           model = excluded.model,
-           api_key = excluded.api_key,
-           updated_at = excluded.updated_at",
-        params![base_url, model, api_key, updated_at],
-    )?;
-    config_view(db_path)
+pub fn save_config(db_path: &Path, body: &Value, key_present: bool) -> Result<Value> {
+    ai_config::save(db_path, body, key_present)
 }
 
 pub fn clear_config(db_path: &Path) -> Result<Value> {
-    let conn = open(db_path)?;
-    conn.execute("DELETE FROM mobile_ai_config WHERE id = 1", [])?;
-    Ok(empty_config())
+    ai_config::clear(db_path)
 }
 
 pub fn preview(db_path: &Path, body: &Value) -> Result<Value> {
@@ -140,7 +62,7 @@ pub fn preview(db_path: &Path, body: &Value) -> Result<Value> {
 }
 
 pub async fn run(client: &Client, db_path: &Path, body: &Value) -> std::result::Result<Value, RunError> {
-    let config = load_config(db_path)
+    let config = ai_config::load(db_path)
         .map_err(RunError::Internal)?
         .ok_or_else(|| RunError::BadRequest("还没有配置模型 API".to_string()))?;
     if config.base_url.is_empty() || config.model.is_empty() {
@@ -165,8 +87,9 @@ pub async fn run(client: &Client, db_path: &Path, body: &Value) -> std::result::
                 { "role": "user", "content": prompt }
             ]
         }));
-    if !config.api_key.is_empty() {
-        request = request.bearer_auth(&config.api_key);
+    let api_key = ai_config::injected_api_key(body);
+    if !api_key.is_empty() {
+        request = request.bearer_auth(api_key);
     }
 
     let response = request
@@ -209,50 +132,6 @@ pub async fn run(client: &Client, db_path: &Path, body: &Value) -> std::result::
     }))
 }
 
-fn load_config(db_path: &Path) -> Result<Option<AiConfig>> {
-    let conn = open(db_path)?;
-    conn.query_row(
-        "SELECT base_url, model, api_key, updated_at FROM mobile_ai_config WHERE id = 1",
-        [],
-        |row| {
-            Ok(AiConfig {
-                base_url: row.get(0)?,
-                model: row.get(1)?,
-                api_key: row.get(2)?,
-                updated_at: row.get(3)?,
-            })
-        },
-    )
-    .optional()
-    .context("load mobile AI config")
-}
-
-fn public_config(config: &AiConfig) -> Value {
-    json!({
-        "protocol": "openai_compatible_chat_completions",
-        "base_url": config.base_url,
-        "model": config.model,
-        "key_present": !config.api_key.is_empty(),
-        "configured": !config.base_url.is_empty() && !config.model.is_empty(),
-        "updated_at": config.updated_at,
-        "storage": "android_private_sqlite",
-        "key_echoed": false
-    })
-}
-
-fn empty_config() -> Value {
-    json!({
-        "protocol": "openai_compatible_chat_completions",
-        "base_url": "",
-        "model": "",
-        "key_present": false,
-        "configured": false,
-        "updated_at": null,
-        "storage": "android_private_sqlite",
-        "key_echoed": false
-    })
-}
-
 fn build_payload(review: &Value, include_positions: bool) -> Value {
     let mut payload = json!({
         "performance": review.get("performance").cloned().unwrap_or(Value::Null),
@@ -285,34 +164,4 @@ fn custom_focus(body: &Value) -> Result<String> {
         return Err(anyhow!("额外关注点最多 1000 个字符"));
     }
     Ok(focus.to_string())
-}
-
-fn normalize_model(value: &str) -> Result<String> {
-    let value = value.trim();
-    if value.chars().count() > 200 {
-        return Err(anyhow!("模型名称过长"));
-    }
-    Ok(value.to_string())
-}
-
-fn normalize_base_url(value: &str) -> Result<String> {
-    let value = value.trim().trim_end_matches('/');
-    if value.is_empty() {
-        return Ok(String::new());
-    }
-    let url = Url::parse(value).map_err(|_| anyhow!("Base URL 不是有效 URL"))?;
-    if url.scheme() != "https" && url.scheme() != "http" {
-        return Err(anyhow!("Base URL 只支持 http 或 https"));
-    }
-    if url.host_str().is_none() {
-        return Err(anyhow!("Base URL 缺少主机名"));
-    }
-    if !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
-        return Err(anyhow!("Base URL 不应包含账号、密码、查询参数或片段"));
-    }
-    Ok(value.to_string())
-}
-
-fn open(db_path: &Path) -> Result<Connection> {
-    Connection::open(db_path).context("open mobile AI sqlite")
 }
