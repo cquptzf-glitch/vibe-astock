@@ -403,7 +403,7 @@ fn read_watchlist(conn: &Connection) -> Result<Vec<WatchlistRow>> {
     let mut stmt = conn.prepare(
         "SELECT symbol, COALESCE(name, ''), created_at, updated_at FROM watchlist ORDER BY created_at, symbol",
     )?;
-    Ok(stmt
+    let rows = stmt
         .query_map([], |row| {
             Ok(WatchlistRow {
                 symbol: row.get(0)?,
@@ -412,7 +412,8 @@ fn read_watchlist(conn: &Connection) -> Result<Vec<WatchlistRow>> {
                 updated_at: row.get(3)?,
             })
         })?
-        .collect::<std::result::Result<Vec<_>, _>>()?)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 fn read_journal_entries(conn: &Connection) -> Result<Vec<JournalEntryRow>> {
@@ -421,7 +422,7 @@ fn read_journal_entries(conn: &Connection) -> Result<Vec<JournalEntryRow>> {
                 note, pnl_pct, created_at, updated_at
          FROM journal_entries ORDER BY id",
     )?;
-    Ok(stmt
+    let rows = stmt
         .query_map([], |row| {
             Ok(JournalEntryRow {
                 id: row.get(0)?,
@@ -439,14 +440,15 @@ fn read_journal_entries(conn: &Connection) -> Result<Vec<JournalEntryRow>> {
                 updated_at: row.get(12)?,
             })
         })?
-        .collect::<std::result::Result<Vec<_>, _>>()?)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 fn read_journal_fills(conn: &Connection) -> Result<Vec<JournalFillRow>> {
     let mut stmt = conn.prepare(
         "SELECT id, entry_id, side, date, price, shares, fee, sort_order FROM journal_fills ORDER BY id",
     )?;
-    Ok(stmt
+    let rows = stmt
         .query_map([], |row| {
             Ok(JournalFillRow {
                 id: row.get(0)?,
@@ -459,14 +461,15 @@ fn read_journal_fills(conn: &Connection) -> Result<Vec<JournalFillRow>> {
                 sort_order: row.get(7)?,
             })
         })?
-        .collect::<std::result::Result<Vec<_>, _>>()?)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 fn read_daily_reviews(conn: &Connection) -> Result<Vec<DailyReviewRow>> {
     let mut stmt = conn.prepare(
         "SELECT date, observation, tomorrow_check, created_at, updated_at FROM mobile_daily_reviews ORDER BY date",
     )?;
-    Ok(stmt
+    let rows = stmt
         .query_map([], |row| {
             Ok(DailyReviewRow {
                 date: row.get(0)?,
@@ -476,14 +479,15 @@ fn read_daily_reviews(conn: &Connection) -> Result<Vec<DailyReviewRow>> {
                 updated_at: row.get(4)?,
             })
         })?
-        .collect::<std::result::Result<Vec<_>, _>>()?)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 fn read_ai_messages(conn: &Connection) -> Result<Vec<AiMessageRow>> {
     let mut stmt = conn.prepare(
         "SELECT id, role, content, created_at FROM mobile_ai_messages ORDER BY id",
     )?;
-    Ok(stmt
+    let rows = stmt
         .query_map([], |row| {
             Ok(AiMessageRow {
                 id: row.get(0)?,
@@ -492,7 +496,8 @@ fn read_ai_messages(conn: &Connection) -> Result<Vec<AiMessageRow>> {
                 created_at: row.get(3)?,
             })
         })?
-        .collect::<std::result::Result<Vec<_>, _>>()?)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 #[cfg(test)]
