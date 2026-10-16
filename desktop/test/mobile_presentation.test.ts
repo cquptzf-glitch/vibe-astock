@@ -64,7 +64,7 @@ test("顶部持续显示设置入口和白色模式切换，快捷功能覆盖�
     assert.match(html, /aria-label="切换白色模式"/);
     assert.match(textOf(html), /设置/);
     const links = textOf(r.html(HomeShortcuts, { onNavigate: () => undefined }));
-    for (const label of ["盯盘", "板块", "资讯", "日历", "复盘", "AI 助手", "回测", "资料"]) assert.ok(links.includes(label), label);
+    for (const label of ["实时动态", "今日情绪", "连板天梯", "涨停全表", "板块轮动", "个股深挖", "交易日志", "每日复盘", "全部功能"]) assert.ok(links.includes(label), label);
   });
 });
 

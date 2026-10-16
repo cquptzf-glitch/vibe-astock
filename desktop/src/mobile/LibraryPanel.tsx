@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Archive, Inbox, NotebookPen, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 
-interface DocumentItem {
+export interface DocumentItem {
   id: number;
   kind: "note" | "report" | "inbox";
   category: string;
@@ -20,12 +20,12 @@ interface DocumentList {
   items: DocumentItem[];
 }
 
-type Kind = DocumentItem["kind"];
+export type LibraryKind = DocumentItem["kind"];
 
-const META: Record<Kind, { label: string; hint: string }> = {
-  note: { label: "研究记录", hint: "复盘、要点、问答和研究结论沉淀在本机。" },
-  report: { label: "报告", hint: "保存报告正文、研究摘要或外部材料提取文本。" },
-  inbox: { label: "收件箱", hint: "保存稍后处理的线索、事件和待验证事项。" },
+const META: Record<LibraryKind, { label: string; title: string; hint: string }> = {
+  note: { label: "研究记录", title: "研究记录", hint: "复盘、要点、问答和研究结论沉淀在本机 SQLite。" },
+  report: { label: "报告", title: "我的研报", hint: "保存报告正文、研究摘要或外部材料提取文本，可按正文检索。" },
+  inbox: { label: "线索", title: "收件箱", hint: "保存稍后处理的线索、事件和待验证事项；可按未读筛选。" },
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -42,14 +42,27 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function LibraryPanel() {
-  const [kind, setKind] = useState<Kind>("note");
+export interface LibraryFilter { keyword: string; category: string; unreadOnly: boolean }
+
+/** 本地过滤:标题、正文、分类、股票代码都参与检索;多个词必须同时命中。 */
+export function filterDocuments(items: DocumentItem[], filter: LibraryFilter): DocumentItem[] {
+  const words = filter.keyword.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  return items.filter((item) => (!filter.category || item.category === filter.category)
+    && (!filter.unreadOnly || item.status !== "read")
+    && words.every((word) => [item.title, item.body, item.category, item.symbol ?? ""].join(" ").toLocaleLowerCase().includes(word)));
+}
+
+export function LibraryPanel({ kind }: { kind: LibraryKind }) {
+  const meta = META[kind];
   const [items, setItems] = useState<DocumentItem[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [openId, setOpenId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("");
   const [symbol, setSymbol] = useState("");
+  const [filter, setFilter] = useState<LibraryFilter>({ keyword: "", category: "", unreadOnly: false });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -69,11 +82,13 @@ export function LibraryPanel() {
 
   useEffect(() => {
     resetEditor();
+    setFilter({ keyword: "", category: "", unreadOnly: false });
     void load(kind);
   }, [kind]);
 
   function resetEditor() {
     setEditingId(null);
+    setEditorOpen(false);
     setTitle("");
     setBody("");
     setCategory("");
@@ -82,6 +97,7 @@ export function LibraryPanel() {
 
   function edit(item: DocumentItem) {
     setEditingId(item.id);
+    setEditorOpen(true);
     setTitle(item.title);
     setBody(item.body);
     setCategory(item.category);
@@ -149,76 +165,77 @@ export function LibraryPanel() {
     }
   }
 
+  const categories = [...new Set(items.map((item) => item.category).filter(Boolean))].sort();
+  const shown = filterDocuments(items, filter);
+  const unread = items.filter((item) => item.status !== "read").length;
+
   return (
     <section className="mobile-section">
       <div className="mobile-section-title">
         <div>
-          <h1>本地资料库</h1>
-          <p>研究记录、报告和收件箱统一保存在 Android SQLite，不依赖浏览器缓存。</p>
+          <h1>{meta.title}</h1>
+          <p>{meta.hint}</p>
         </div>
         <button type="button" className="mobile-delete" onClick={() => void load(kind)} aria-label="刷新资料库">
           <RefreshCw size={17} className={loading ? "spin" : ""} />
         </button>
       </div>
-
-      <div className="mobile-stock-tabs" role="tablist" aria-label="本地资料库">
-        {(Object.keys(META) as Kind[]).map((key) => (
-          <button key={key} role="tab" aria-selected={kind === key} className={kind === key ? "active" : ""} onClick={() => setKind(key)}>
-            {key === "note" ? <NotebookPen size={13} /> : key === "report" ? <Archive size={13} /> : <Inbox size={13} />}
-            {META[key].label}
-          </button>
-        ))}
-      </div>
-
-      <p className="mobile-source-line" style={{ marginTop: 8 }}>{META[kind].hint}</p>
       {error && <div className="mobile-error">{error}</div>}
 
-      <article className="mobile-quote-card" style={{ marginTop: 12 }}>
-        <div className="mobile-card-label">{editingId ? `编辑 #${editingId}` : `新建${META[kind].label}`}</div>
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          maxLength={500}
-          placeholder="标题"
-          className="mobile-library-input"
-        />
-        <div className="mobile-library-inline">
-          <input value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} placeholder="分类（可选）" className="mobile-library-input" />
-          <input value={symbol} onChange={(event) => setSymbol(event.target.value)} maxLength={32} placeholder="关联代码（可选）" className="mobile-library-input" />
+      <div className="library-toolbar">
+        <button type="button" className="library-editor-toggle" aria-expanded={editorOpen} onClick={() => (editorOpen && !editingId ? setEditorOpen(false) : editingId ? resetEditor() : setEditorOpen(true))}>
+          <span>{editingId ? `编辑 #${editingId}` : `新建${meta.label}`}</span>{editorOpen ? <ChevronUp size={16} /> : <Plus size={16} />}
+        </button>
+        {editorOpen && <div style={{ padding: 10 }}>
+          <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={500} placeholder="标题" aria-label="标题" className="mobile-library-input" />
+          <div className="mobile-library-inline">
+            <input value={category} onChange={(event) => setCategory(event.target.value)} maxLength={100} placeholder="分类（可选）" aria-label="分类" className="mobile-library-input" list="library-categories" />
+            <input value={symbol} onChange={(event) => setSymbol(event.target.value)} maxLength={32} placeholder="关联代码（可选）" aria-label="关联代码" className="mobile-library-input" />
+          </div>
+          <datalist id="library-categories">{categories.map((value) => <option key={value} value={value} />)}</datalist>
+          <textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={250000} rows={8} placeholder="正文 / 摘要 / 待办内容" aria-label="正文" className="mobile-library-textarea" />
+          <div className="mobile-library-actions">
+            <button type="button" onClick={resetEditor}>取消</button>
+            <button type="button" onClick={() => void save()} disabled={!title.trim() || saving}>
+              {editingId ? <Save size={15} /> : <Plus size={15} />}{saving ? "保存中…" : editingId ? "保存修改" : "添加"}
+            </button>
+          </div>
+        </div>}
+      </div>
+
+      <div className="library-toolbar">
+        <div className="mobile-filter-row">
+          <input type="search" aria-label="检索资料" placeholder="检索标题、正文、代码；多个词用空格" value={filter.keyword} maxLength={80}
+            onChange={(event) => setFilter({ ...filter, keyword: event.target.value })} />
+          {categories.length > 0 && <select aria-label="分类筛选" value={filter.category} onChange={(event) => setFilter({ ...filter, category: event.target.value })}>
+            <option value="">全部分类</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>}
+          {kind === "inbox" && <label className="discovery-check"><input type="checkbox" checked={filter.unreadOnly} onChange={(event) => setFilter({ ...filter, unreadOnly: event.target.checked })} />只看未读（{unread}）</label>}
         </div>
-        <textarea
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          maxLength={250000}
-          rows={7}
-          placeholder="正文 / 摘要 / 待办内容"
-          className="mobile-library-textarea"
-        />
-        <div className="mobile-library-actions">
-          {editingId && <button type="button" onClick={resetEditor}>取消编辑</button>}
-          <button type="button" onClick={() => void save()} disabled={!title.trim() || saving}>
-            {editingId ? <Save size={15} /> : <Plus size={15} />}{saving ? "保存中…" : editingId ? "保存修改" : "添加"}
-          </button>
-        </div>
-      </article>
+        <p className="mobile-filter-note">共 {items.length} 条，显示 {shown.length} 条</p>
+      </div>
 
       <div className="mobile-watch-list" style={{ marginTop: 12 }}>
         {loading && items.length === 0 ? (
           <div className="mobile-empty"><RefreshCw className="spin" size={17} /> 正在加载…</div>
-        ) : items.length === 0 ? (
-          <div className="mobile-empty">还没有{META[kind].label}。</div>
-        ) : items.map((item) => (
+        ) : shown.length === 0 ? (
+          <div className="mobile-empty">{items.length ? "没有匹配的资料。" : `还没有${meta.label}。`}</div>
+        ) : shown.map((item) => (
           <div className="mobile-library-item" key={item.id}>
-            <button type="button" className="mobile-library-main" onClick={() => edit(item)}>
+            <button type="button" className="mobile-library-main" aria-expanded={openId === item.id} onClick={() => setOpenId(openId === item.id ? null : item.id)}>
               <strong>{item.title}</strong>
               <span>
-                {item.category || META[item.kind].label}
+                {item.category || meta.label}
                 {item.symbol ? ` · ${item.symbol}` : ""}
                 {item.kind === "inbox" ? ` · ${item.status === "read" ? "已读" : "未读"}` : ""}
+                {` · ${item.updated_at.slice(0, 10)}`}
               </span>
-              {item.body && <p>{item.body.length > 140 ? `${item.body.slice(0, 140)}…` : item.body}</p>}
+              {openId !== item.id && item.body && <p>{item.body.length > 140 ? `${item.body.slice(0, 140)}…` : item.body}</p>}
             </button>
+            {openId === item.id && <div className="library-document-body">{item.body || "（无正文）"}</div>}
             <div className="mobile-library-row-actions">
+              <button type="button" onClick={() => setOpenId(openId === item.id ? null : item.id)}>{openId === item.id ? <><ChevronUp size={14} />收起</> : <><ChevronDown size={14} />全文</>}</button>
+              <button type="button" onClick={() => edit(item)}><Pencil size={14} />编辑</button>
               {item.kind === "inbox" && (
                 <button type="button" onClick={() => void toggleRead(item)}>{item.status === "read" ? "标未读" : "标已读"}</button>
               )}

@@ -498,7 +498,7 @@ input {
   left: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: 7px 14px calc(7px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--mobile-border);
   background: var(--mobile-card);

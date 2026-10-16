@@ -30,6 +30,9 @@ Android APK PASS
 | Symbol search | No equivalent legacy runtime contract | `core-rust/src/search.rs` using shared symbol routing | Rust unit tests + Tencent Smartbox parsing | **Rust-only extension** |
 | Market breadth | Legacy market/data scripts | `core-rust/src/market.rs` | Rust Core + Android CI | **Migrated** |
 | Limit-up / consecutive limit | Legacy shortline endpoints | `core-rust/src/shortline.rs` | Rust Core + Android CI | **Migrated** |
+| Emotion review · 今日情绪 (`cn_shortline_emotion` / `_facts` / `_board_ladder` / `_firstboard` / `_cycle`) | `shortline_emotion.py`, `shortline_facts.py`, `shortline_boards.py` | `core-rust/src/emotion.rs` + `EmotionPanels.tsx` (`/mobile/shortline/emotion`, `/mobile/shortline/cycle`) | Rust unit tests on frozen pools + ignored live probe; frontend rendering on a frozen real 2026-10-16 response; browser smoke | **Migrated for mobile; themes use Eastmoney industry (PC uses THS reasons), loss/feedback settled-only** |
+| Emotion review · AI 复盘 / AI 周报 / 近 5 天 / 情绪历史 / 明日验证 / 涨停样本 / 结构变化 | PC `/shortline/:tab` views | Not migrated | None | **Pending** |
+| 盯盘 · 竞价与盘中路径 / 昨日梯队实时 / 大票涨幅 | PC `/watch/intraday`, `shortline_watch` | Not migrated | None | **Pending** |
 | Sector rotation | Legacy rotation endpoints | `core-rust/src/rotation.rs` | Rust Core + Android CI | **Migrated** |
 | Watchlist | No equivalent mobile SQLite contract | `core-rust/src/storage.rs` | Rust build/Android UI | **Rust-only extension** |
 | Trading journal / fills | Legacy PC journal flows | `journal.rs` + `journal_mutation.rs` | Rust Core + Android UI | **Migrated for mobile** |
@@ -54,9 +57,10 @@ Android APK PASS
 | Calendar | Legacy trade/calendar flows | calendar.rs + CalendarPanel.tsx | Local event CRUD tests; full exchange/announcement calendar parity pending | **Mobile extension; partial PC scope** |
 | Stock research deterministic data | profile/financials/announcements/estimates/valuation scripts | research.rs + ResearchPanel.tsx | Basic profile, financials, announcements and EPS estimates routes | **Partial; valuation history and research workflow pending** |
 | Lite backtest | Python backtest/ | backtest.rs + BacktestPanel.tsx | Rust SMA/bar tests; next-open execution; no taxes/fees/slippage | **Mobile Lite extension; advanced parity pending** |
-| Notes / reports / inbox | Legacy desktop local/product flows | documents.rs + LibraryPanel.tsx | SQLite CRUD + versioned backup tests | **Mobile local document extension** |
+| Notes / reports / inbox | Legacy desktop local/product flows | documents.rs + LibraryPanel.tsx (separate routes, keyword/category/unread filters) | SQLite CRUD + versioned backup tests + filter unit test | **Mobile local document extension; auto-archive pending** |
 | Debate / deep research | Node/Agent/Python workflows | Not migrated | None | **Pending / redesign rather than runtime port** |
 | Mobile presentation / settings | Mobile extension | presentation.ts + AppearanceSettings + MobileHeader + shared theme tokens | v0.1.18 CI: 431 frontend tests; browser theme/density/navigation, single-row stock tabs / 3-column metrics and 18 fixture screenshots; Android #38926573218 passed | **Implemented and preview released; device visual/lifecycle checks pending** |
+| Mobile information architecture | PC `lib/nav.ts` sidebar | workspace.ts + WorkspaceNavigation.tsx (5 groups, sub-tabs, searchable directory) | Render tests for group tabs / nav / directory; every entry has a route; smoke checks one-row nav and sub-tabs | **Implemented (0.1.19)** |
 | Mobile routes / Back / notification navigation | N/A | mobileRoutes.ts + nativeNavigation.ts + reminder intent handoff | JS history/StrictMode tests, Rust target tests, Kotlin route tests; Android CI and device checks recorded in handoff | **Mobile extension; device smoke pending** |
 | Full PC backend contract | `orchestrator/` + Python scripts | Mobile Rust Core only covers selected domains | End-to-end parity suite pending | **Pending** |
 | Production Android release | Desktop release is separate | Debug-signed ARM64 APK CI + immutable GitHub preview Release | APK build/signature/SHA256 verification; publishing only after tests | **Preview delivery implemented; production signing/AAB/device upgrades pending** |

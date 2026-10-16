@@ -1,37 +1,41 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  BookmarkPlus,
-  ChartNoAxesCombined,
-  ChevronRight,
-  Database,
-  Flame,
-  Layers3,
-  NotebookPen,
-  RefreshCw,
-  Search,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowLeft, BookmarkPlus, ChevronRight, Database, RefreshCw, Search, Star, Trash2 } from "lucide-react";
 
+import { AiWorkspace } from "./AiWorkspace";
+import { BacktestPanel } from "./BacktestPanel";
 import { BoardDetailPanel } from "./BoardDetailPanel";
-import { DiscoveryWorkspace, type DiscoveryView } from "./DiscoveryWorkspace";
-import { JournalWorkspace, type JournalView } from "./JournalWorkspace";
+import { CalendarPanel } from "./CalendarPanel";
+import { CandidatePanel } from "./CandidatePanel";
+import { DailyReviewPanel } from "./DailyReviewPanel";
+import { EmotionTodayPanel, FirstBoardPanel, HomeEmotionBrief, LadderPanel, LimitUpTablePanel, MarketFactsPanel, ThemesPanel } from "./EmotionPanels";
+import { GpuRentPanel } from "./GpuRentPanel";
+import { JournalPanelV2 } from "./JournalPanelV2";
+import { JournalReviewPanel } from "./JournalReviewPanel";
+import { LibraryPanel } from "./LibraryPanel";
 import { MarketOverview } from "./MarketOverview";
 import { MobileHeader, HomeShortcuts } from "./MobileHeader";
+import { MonitorPanel } from "./MonitorPanel";
+import { NewsPanel } from "./NewsPanel";
+import { ReminderPanel } from "./ReminderPanel";
+import { RiskPanel } from "./RiskPanel";
+import { RotationPanel } from "./RotationPanel";
+import { SectorPanel } from "./SectorPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { WatchQuotesPanel } from "./WatchQuotesPanel";
+import { FunctionDirectory, GroupTabs, WorkspaceNav } from "./WorkspaceNavigation";
 import { usePresentation } from "./presentation";
 import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
-import { ShortlinePanel } from "./ShortlinePanel";
 import { StockDetailPanel } from "./StockDetailPanel";
 import { StockInsightsPanel } from "./StockInsightsPanel";
 import { useMobileNavigation } from "./useMobileNavigation";
+import type { MobilePage } from "./mobileRoutes";
 import "./mobile.css";
 import "./mobile-presentation.css";
-
-type Tab = "market" | "shortline" | "rotation" | "watchlist" | "journal";
+import "./discovery.css";
+import "./journal-workspace.css";
+import "./library.css";
+import "./shortline.css";
 
 interface Evidence {
   field: string;
@@ -160,15 +164,7 @@ export function MobileApp() {
   const presentation = usePresentation();
   const page = route.page;
   const isStock = page === "stock";
-  const discoveryPages: DiscoveryView[] = ["rotation", "sector", "candidate", "calendar", "backtest", "news", "signals"];
-  const journalPages: JournalView[] = ["records", "daily", "review", "ai", "library", "reminders", "settings"];
-  const tab: Tab = page === "market" || isStock ? "market"
-    : page === "monitor" || page === "limitUp" || page === "risk" ? "shortline"
-    : page === "watch" || page === "hold" ? "watchlist"
-    : page === "board" || discoveryPages.includes(page as DiscoveryView) ? "rotation" : "journal";
-  const stockView = page === "hold" ? "hold" : "watch";
-  const setTab = (next: Tab) => navigate({ page: next === "shortline" ? "monitor"
-    : next === "watchlist" ? "watch" : next === "journal" ? "records" : next });
+  const go = (next: MobilePage) => navigate({ page: next });
   const [query, setQuery] = useState("");
   const [activeSymbol, setActiveSymbol] = useState("");
   const [quote, setQuote] = useState<Envelope | null>(null);
@@ -348,192 +344,193 @@ export function MobileApp() {
     openSymbol(symbol);
   }
 
+  const searchBlock = <>
+    <form
+      className="mobile-search"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submitSearch();
+      }}
+    >
+      <Search size={18} />
+      <input
+        inputMode="search"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="代码 / 名称 / 拼音，如 300308、430047、茅台"
+        aria-label="股票搜索"
+        autoComplete="off"
+      />
+      <button type="submit" disabled={loading || searching || !query.trim()}>
+        {loading || searching ? <RefreshCw className="spin" size={17} /> : "查询"}
+      </button>
+    </form>
+
+    {suggestions.length > 0 && query.trim() !== activeSymbol && (
+      <div className="mobile-watch-list" style={{ marginTop: 8 }} aria-label="股票搜索结果">
+        {suggestions.map((item) => (
+          <div className="mobile-watch-row" key={`${item.market}-${item.symbol}`}>
+            <button className="mobile-watch-open" type="button" onClick={() => void openSymbol(item.symbol)}>
+              <div>
+                <strong>{item.name}</strong>
+                <span>{item.market} · {item.symbol}{item.pinyin ? ` · ${item.pinyin}` : ""}</span>
+              </div>
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
+  </>;
+
+  const stockBlock = <section className="mobile-section">
+    {searchBlock}
+    {loading && <div className="mobile-empty" role="status">正在加载 {route.symbol} 行情…</div>}
+    {!loading && error && (
+      <button className="mobile-back" type="button" onClick={() => setQuoteRevision((value) => value + 1)}>重新加载行情</button>
+    )}
+    {quote && loadedSymbol === route.symbol && (
+      <>
+        <article className="mobile-quote-card">
+          <div className="mobile-quote-head">
+            <div>
+              <div className="mobile-symbol-line">
+                <strong>{currentName || activeSymbol}</strong>
+                <span>{quote.market} · {quote.symbol}</span>
+              </div>
+              <div className="mobile-price-row">
+                <span className="mobile-price">{formatNumber(price)}</span>
+                <span className={changePct !== null && changePct < 0 ? "down" : "up"}>
+                  {changePct === null ? "—" : `${changePct >= 0 ? "+" : ""}${formatNumber(changePct)}%`}
+                </span>
+              </div>
+            </div>
+            <button className={`mobile-star ${isWatched ? "active" : ""}`} onClick={() => void toggleWatch()} aria-label="自选">
+              {isWatched ? <Star size={22} fill="currentColor" /> : <BookmarkPlus size={22} />}
+            </button>
+          </div>
+
+          <div className="mobile-chart-wrap">
+            <div className="mobile-card-label">近 60 日 · 前复权</div>
+            <Sparkline rows={klineRows} />
+          </div>
+
+          <div className="mobile-metrics">
+            <div><span>PE(TTM)</span><strong>{formatNumber(pe)}</strong></div>
+            <div><span>PB</span><strong>{formatNumber(pb)}</strong></div>
+            <div><span>换手率</span><strong>{turnover === null ? "—" : `${formatNumber(turnover)}%`}</strong></div>
+            <div><span>总市值</span><strong>{formatMarketCap(marketCap, quote.primary_source)}</strong></div>
+          </div>
+
+          <div className="mobile-source-line">
+            <Database size={14} />
+            数据源：{quote.primary_source ?? "—"} · 状态：{quote.status}
+            {quote.extra?.quote_date ? ` · ${String(quote.extra.quote_date)}` : ""}
+          </div>
+        </article>
+
+        <StockDetailPanel quote={quote} rows={klineRows} />
+        <ResearchPanel symbol={activeSymbol} />
+        <StockInsightsPanel key={activeSymbol} symbol={activeSymbol} onOpenBoard={(board) => navigate({ page: "board", board })} />
+      </>
+    )}
+  </section>;
+
+  const watchBlock = <section className="mobile-section">
+    <div className="mobile-section-title">
+      <div><h1>我的自选</h1><p>自选保存在手机本地；点星标加入，在这里查看报价与管理。</p></div>
+      <span>{watchlist.length} 只</span>
+    </div>
+    <WatchQuotesPanel watchlist={watchlist} onOpenSymbol={openFromList} />
+    {watchlist.length === 0 ? (
+      <div className="mobile-empty">查询股票后点右上角星标，即可加入自选。</div>
+    ) : (
+      <details className="watch-manage"><summary>管理自选 · 删除或打开股票</summary><div className="mobile-watch-list">
+        {watchlist.map((item) => (
+          <div className="mobile-watch-row" key={item.symbol}>
+            <button className="mobile-watch-open" onClick={() => openFromList(item.symbol)}>
+              <div><strong>{item.name || item.symbol}</strong><span>{item.symbol}</span></div>
+              <ChevronRight size={18} />
+            </button>
+            <button className="mobile-delete" onClick={() => void removeWatch(item.symbol)} aria-label={`删除 ${item.symbol}`}>
+              <Trash2 size={17} />
+            </button>
+          </div>
+        ))}
+      </div></details>
+    )}
+  </section>;
+
+  function renderPage(): ReactNode {
+    switch (page) {
+      case "market": return <section className="mobile-section">
+        <MarketOverview />
+        <HomeEmotionBrief onOpen={() => go("emotion")} />
+        <HomeShortcuts onNavigate={go} />
+        <WatchQuotesPanel watchlist={watchlist} limit={6} onOpenSymbol={openFromList} onOpenAll={() => go("watch")} />
+        <div className="mobile-section-title mobile-stock-search-heading">
+          <div><h1>个股行情</h1><p>支持沪深北代码、名称和拼音搜索；腾讯实时行情失败时自动降级东财。</p></div>
+        </div>
+        {searchBlock}
+      </section>;
+      case "functions": return <FunctionDirectory onNavigate={go} />;
+      case "my": return <FunctionDirectory onNavigate={go} group="my" />;
+      case "research": return <section className="mobile-section research-home">
+        <div className="mobile-section-title"><div><h1>个股深挖</h1><p>行情、K 线结构、公司资料、财务、公告、研报、资金流、量价观察与所属板块。</p></div></div>
+        {searchBlock}
+        <WatchQuotesPanel watchlist={watchlist} limit={8} onOpenSymbol={openFromList} onOpenAll={() => go("watch")} />
+      </section>;
+      case "stock": return stockBlock;
+      case "monitor": return <MonitorPanel onOpenSymbol={openFromList} />;
+      case "risk": return <RiskPanel onOpenSymbol={openFromList} />;
+      case "watch": return watchBlock;
+      case "hold": return <section className="mobile-section"><PortfolioPanel onOpenSymbol={openFromList} /></section>;
+      case "emotion": return <EmotionTodayPanel onNavigate={go} />;
+      case "ladder": return <LadderPanel onOpenSymbol={openFromList} />;
+      case "limitUp": return <LimitUpTablePanel onOpenSymbol={openFromList} />;
+      case "firstBoard": return <FirstBoardPanel onOpenSymbol={openFromList} />;
+      case "seal": return <MarketFactsPanel onOpenSymbol={openFromList} />;
+      case "themes": return <ThemesPanel onOpenSymbol={openFromList} />;
+      case "daily": return <DailyReviewPanel onOpenSymbol={openFromList} />;
+      case "records": return <JournalPanelV2 onOpenSymbol={openFromList} />;
+      case "review": return <JournalReviewPanel onOpenSymbol={openFromList} />;
+      case "rotation": return <RotationPanel onOpenBoard={(board) => navigate({ page: "board", board })} />;
+      case "board": return <BoardDetailPanel key={route.board} code={route.board!} onOpenSymbol={openFromList} />;
+      case "sector": return <SectorPanel />;
+      case "news": return <NewsPanel />;
+      case "signals": return <GpuRentPanel />;
+      case "candidate": return <CandidatePanel onOpenSymbol={openFromList} />;
+      case "backtest": return <BacktestPanel />;
+      case "ai": return <AiWorkspace />;
+      case "calendar": return <CalendarPanel />;
+      case "reminders": return <ReminderPanel />;
+      case "library":
+      case "notes": return <LibraryPanel kind="note" />;
+      case "reports": return <LibraryPanel kind="report" />;
+      case "inbox": return <LibraryPanel kind="inbox" />;
+      case "settings": return <SettingsPanel onOpenAi={() => go("ai")} onOpenReminders={() => go("reminders")} />;
+    }
+  }
+
+  const showBack = isStock || page === "board" || page === "settings" || page === "functions";
   return (
     <div className="mobile-app">
       <MobileHeader version={appVersion} ready={Boolean(health?.ok)} theme={presentation.resolvedTheme}
         onToggleTheme={() => presentation.update({ theme: presentation.resolvedTheme === "dark" ? "light" : "dark" })}
-        onOpenSettings={() => navigate({ page: "settings" })} />
+        onOpenSettings={() => go("settings")} />
 
-      <main className="mobile-main">
-        {page !== "market" && (
+      <main className="mobile-main" data-page={page}>
+        <GroupTabs page={page} onNavigate={go} />
+        {showBack && (
           <button className="mobile-back" type="button" onClick={back}>
             <ArrowLeft size={18} /> 返回
           </button>
         )}
         {error && <div className="mobile-error">{error}</div>}
-
-        {tab === "market" && (
-          <section className="mobile-section">
-            {!isStock && <MarketOverview />}
-
-            <div className="mobile-section-title mobile-stock-search-heading">
-              <div>
-                <h1>个股行情</h1>
-                <p>支持沪深北代码、名称和拼音搜索；腾讯实时行情失败时自动降级东财。</p>
-              </div>
-            </div>
-
-            <form
-              className="mobile-search"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submitSearch();
-              }}
-            >
-              <Search size={18} />
-              <input
-                inputMode="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="代码 / 名称 / 拼音，如 300308、430047、茅台"
-                aria-label="股票搜索"
-                autoComplete="off"
-              />
-              <button type="submit" disabled={loading || searching || !query.trim()}>
-                {loading || searching ? <RefreshCw className="spin" size={17} /> : "查询"}
-              </button>
-            </form>
-
-            {suggestions.length > 0 && query.trim() !== activeSymbol && (
-              <div className="mobile-watch-list" style={{ marginTop: 8 }} aria-label="股票搜索结果">
-                {suggestions.map((item) => (
-                  <div className="mobile-watch-row" key={`${item.market}-${item.symbol}`}>
-                    <button className="mobile-watch-open" type="button" onClick={() => void openSymbol(item.symbol)}>
-                      <div>
-                        <strong>{item.name}</strong>
-                        <span>{item.market} · {item.symbol}{item.pinyin ? ` · ${item.pinyin}` : ""}</span>
-                      </div>
-                      <ChevronRight size={18} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!isStock && <>
-              <HomeShortcuts onNavigate={(page) => navigate({ page })} />
-              <WatchQuotesPanel watchlist={watchlist} limit={6} onOpenSymbol={openFromList} onOpenAll={() => navigate({ page: "watch" })} />
-            </>}
-
-            {isStock && loading && <div className="mobile-empty" role="status">正在加载 {route.symbol} 行情…</div>}
-            {isStock && !loading && error && (
-              <button className="mobile-back" type="button" onClick={() => setQuoteRevision((value) => value + 1)}>重新加载行情</button>
-            )}
-
-            {isStock && quote && loadedSymbol === route.symbol && (
-              <>
-                <article className="mobile-quote-card">
-                  <div className="mobile-quote-head">
-                    <div>
-                      <div className="mobile-symbol-line">
-                        <strong>{currentName || activeSymbol}</strong>
-                        <span>{quote.market} · {quote.symbol}</span>
-                      </div>
-                      <div className="mobile-price-row">
-                        <span className="mobile-price">{formatNumber(price)}</span>
-                        <span className={changePct !== null && changePct < 0 ? "down" : "up"}>
-                          {changePct === null ? "—" : `${changePct >= 0 ? "+" : ""}${formatNumber(changePct)}%`}
-                        </span>
-                      </div>
-                    </div>
-                    <button className={`mobile-star ${isWatched ? "active" : ""}`} onClick={() => void toggleWatch()} aria-label="自选">
-                      {isWatched ? <Star size={22} fill="currentColor" /> : <BookmarkPlus size={22} />}
-                    </button>
-                  </div>
-
-                  <div className="mobile-chart-wrap">
-                    <div className="mobile-card-label">近 60 日 · 前复权</div>
-                    <Sparkline rows={klineRows} />
-                  </div>
-
-                  <div className="mobile-metrics">
-                    <div><span>PE(TTM)</span><strong>{formatNumber(pe)}</strong></div>
-                    <div><span>PB</span><strong>{formatNumber(pb)}</strong></div>
-                    <div><span>换手率</span><strong>{turnover === null ? "—" : `${formatNumber(turnover)}%`}</strong></div>
-                    <div><span>总市值</span><strong>{formatMarketCap(marketCap, quote.primary_source)}</strong></div>
-                  </div>
-
-                  <div className="mobile-source-line">
-                    <Database size={14} />
-                    数据源：{quote.primary_source ?? "—"} · 状态：{quote.status}
-                    {quote.extra?.quote_date ? ` · ${String(quote.extra.quote_date)}` : ""}
-                  </div>
-                </article>
-
-                <StockDetailPanel quote={quote} rows={klineRows} />
-                <ResearchPanel symbol={activeSymbol} />
-                <StockInsightsPanel key={activeSymbol} symbol={activeSymbol} onOpenBoard={(board) => navigate({ page: "board", board })} />
-              </>
-            )}
-          </section>
-        )}
-
-        {tab === "shortline" && <ShortlinePanel onOpenSymbol={openFromList} view={page === "limitUp" ? "limit-up" : page === "risk" ? "risk" : "monitor"} onViewChange={(view) => navigate({ page: view === "limit-up" ? "limitUp" : view === "risk" ? "risk" : "monitor" })} />}
-        {tab === "rotation" && (page === "board"
-          ? <BoardDetailPanel key={route.board} code={route.board!} onOpenSymbol={openFromList} />
-          : <DiscoveryWorkspace onOpenSymbol={openFromList} onOpenBoard={(board) => navigate({ page: "board", board })} view={page as DiscoveryView} onViewChange={(view) => navigate({ page: view })} />)}
-
-        {tab === "watchlist" && (
-          <section className="mobile-section">
-            <div className="mobile-section-title">
-              <div><h1>自选与持仓</h1><p>自选、成交和持仓都保存在手机本地。</p></div>
-              {stockView === "watch" && <span>{watchlist.length} 只</span>}
-            </div>
-
-            <div className="mobile-stock-tabs" role="tablist" aria-label="自选与持仓">
-              <button role="tab" aria-selected={stockView === "watch"} className={stockView === "watch" ? "active" : ""} onClick={() => navigate({ page: "watch" })}>自选</button>
-              <button role="tab" aria-selected={stockView === "hold"} className={stockView === "hold" ? "active" : ""} onClick={() => navigate({ page: "hold" })}>持仓</button>
-            </div>
-
-            {stockView === "watch" && (
-              <WatchQuotesPanel watchlist={watchlist} onOpenSymbol={openFromList} />
-            )}
-
-            {stockView === "watch" && (
-              watchlist.length === 0 ? (
-                <div className="mobile-empty">查询股票后点右上角星标，即可加入自选。</div>
-              ) : (
-                <details className="watch-manage"><summary>管理自选 · 删除或打开股票</summary><div className="mobile-watch-list">
-                  {watchlist.map((item) => (
-                    <div className="mobile-watch-row" key={item.symbol}>
-                      <button className="mobile-watch-open" onClick={() => openFromList(item.symbol)}>
-                        <div><strong>{item.name || item.symbol}</strong><span>{item.symbol}</span></div>
-                        <ChevronRight size={18} />
-                      </button>
-                      <button className="mobile-delete" onClick={() => void removeWatch(item.symbol)} aria-label={`删除 ${item.symbol}`}>
-                        <Trash2 size={17} />
-                      </button>
-                    </div>
-                  ))}
-                </div></details>
-              )
-            )}
-
-            {stockView === "hold" && <PortfolioPanel onOpenSymbol={openFromList} />}
-          </section>
-        )}
-
-        {page === "settings" && <SettingsPanel onOpenAi={() => navigate({ page: "ai" })} onOpenReminders={() => navigate({ page: "reminders" })} />}
-        {tab === "journal" && page !== "settings" && <JournalWorkspace onOpenSymbol={openFromList} view={journalPages.includes(page as JournalView) ? page as JournalView : "records"} onViewChange={(view) => navigate({ page: view })} />}
+        {renderPage()}
       </main>
 
-      <nav className="mobile-nav" style={{ gridTemplateColumns: "repeat(5, 1fr)" }} aria-label="主导航">
-        <button className={tab === "market" ? "active" : ""} onClick={() => setTab("market")}>
-          <ChartNoAxesCombined size={20} /><span>行情</span>
-        </button>
-        <button className={tab === "shortline" ? "active" : ""} onClick={() => setTab("shortline")}>
-          <Flame size={20} /><span>短线</span>
-        </button>
-        <button className={tab === "rotation" ? "active" : ""} onClick={() => setTab("rotation")}>
-          <Layers3 size={20} /><span>发现</span>
-        </button>
-        <button className={tab === "watchlist" ? "active" : ""} onClick={() => setTab("watchlist")}>
-          <Star size={20} /><span>自选持仓</span>
-        </button>
-        <button className={tab === "journal" ? "active" : ""} onClick={() => setTab("journal")}>
-          <NotebookPen size={20} /><span>日志</span>
-        </button>
-      </nav>
+      <WorkspaceNav page={page} onNavigate={go} />
     </div>
   );
 }

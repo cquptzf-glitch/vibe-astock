@@ -51,14 +51,45 @@ test("通知 IPC 跨 StrictMode 重挂载不丢冷启动入口，后台点击只
   }
 });
 
-test("移动发现路由和工作台子页渲染选中的栏目", async () => {
+test("栏目子页签标出当前页，同组功能一屏可见，五个一级栏目对应桌面侧栏", async () => {
   await withRenderer(async (r) => {
-    const { DiscoveryWorkspace } = await r.load("/src/mobile/DiscoveryWorkspace.tsx");
-    const html = r.html(DiscoveryWorkspace, { view: "backtest", onViewChange: () => undefined });
-    assert.match(html, /aria-selected="true"[^>]*>[\s\S]*?回测/);
-    assert.match(textOf(html), /本地日线策略回测/);
-    const { JournalWorkspace } = await r.load("/src/mobile/JournalWorkspace.tsx");
-    const daily = r.html(JournalWorkspace, { view: "daily", onViewChange: () => undefined, onOpenSymbol: () => undefined });
+    const { GroupTabs, WorkspaceNav, FunctionDirectory } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
+    const tabs = r.html(GroupTabs, { page: "backtest", onNavigate: () => undefined });
+    assert.match(tabs, /aria-selected="true"[^>]*>历史回测/);
+    for (const label of ["个股深挖", "板块轮动", "资讯雷达", "产业信号", "候选池", "AI 助手"]) assert.ok(textOf(tabs).includes(label), label);
+    const review = textOf(r.html(GroupTabs, { page: "ladder", onNavigate: () => undefined }));
+    for (const label of ["今日情绪", "连板天梯", "涨停全表", "首板名单", "盘面事实", "行业题材", "每日复盘", "交易日志", "交易统计"]) assert.ok(review.includes(label), label);
+    assert.equal(r.html(GroupTabs, { page: "market", onNavigate: () => undefined }), "");
+    const nav = r.html(WorkspaceNav, { page: "firstBoard", onNavigate: () => undefined });
+    assert.deepEqual([...textOf(nav).matchAll(/首页|盯盘|复盘|研究|我的/g)].map((m) => m[0]), ["首页", "盯盘", "复盘", "研究", "我的"]);
+    assert.match(nav, /aria-current="page"[^>]*>(?:<svg[\s\S]*?<\/svg>)?<span>复盘/);
+    const my = textOf(r.html(FunctionDirectory, { onNavigate: () => undefined, group: "my" }));
+    for (const label of ["事件日历", "提醒规则", "研究记录", "我的研报", "收件箱", "应用设置"]) assert.ok(my.includes(label), label);
+    assert.ok(!my.includes("连板天梯"));
+  });
+});
+
+test("新栏目路由可解析与反解析，工作台每个条目都有对应路由", async () => {
+  await withRenderer(async (r) => {
+    const { parseMobileRoute, mobilePath, MOBILE_PATHS } = await r.load("/src/mobile/mobileRoutes.ts");
+    const { WORKSPACE_ENTRIES, workspaceGroup } = await r.load("/src/mobile/workspace.ts");
+    for (const entry of WORKSPACE_ENTRIES) {
+      assert.ok(MOBILE_PATHS[entry.page], entry.page);
+      assert.deepEqual(parseMobileRoute(mobilePath({ page: entry.page })), { page: entry.page });
+    }
+    assert.deepEqual(parseMobileRoute("#/mobile/review/first-board"), { page: "firstBoard" });
+    assert.equal(workspaceGroup("stock"), "research");
+    assert.equal(workspaceGroup("library"), "my");
+    assert.equal(workspaceGroup("records"), "review");
+  });
+});
+
+test("每日复盘与回测页面仍可独立渲染", async () => {
+  await withRenderer(async (r) => {
+    const { BacktestPanel } = await r.load("/src/mobile/BacktestPanel.tsx");
+    assert.match(textOf(r.html(BacktestPanel, {})), /本地日线策略回测/);
+    const { DailyReviewPanel } = await r.load("/src/mobile/DailyReviewPanel.tsx");
+    const daily = r.html(DailyReviewPanel, { onOpenSymbol: () => undefined });
     assert.match(daily, /日复盘/);
     assert.match(daily, /今日观察/);
   });

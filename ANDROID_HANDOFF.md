@@ -1301,3 +1301,26 @@ APK CI run 是否成功
 - [APK artifact #12057990874](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38926573218/artifacts/12057990874) 含 APK/校验文件，CI artifacts 保留 30 天；长期下载入口为 Release。
 - 本轮无 SQLite schema/migration、原生插件/权限或业务 Core route 新增。仍为 debug-signed 预览包；真机返回/重建/通知/弱网、正式签名/AAB 与覆盖升级未验收。更换安装前应导出业务备份。
 - 所有剩余业务移植与工程验收继续见 ANDROID_REMAINING.md；未把本轮 UI 交付计为全功能迁移完成。
+
+### 五大栏目导航与情绪复盘「今日情绪」迁移（0.1.19，未推送）
+
+维护者反馈：UI 不够细致，要参考原版功能并重新设计布局与功能分布。本轮先用两个只读子任务逐页清点桌面版 finance 路由与移动端/Rust 现状，差距已写进 ANDROID_REMAINING.md「对照桌面版仍缺的页面与交互」。
+
+完成：
+
+- **信息架构**：`workspace.ts` 定义五个一级栏目（首页/盯盘/复盘/研究/我的，对应桌面版 `lib/nav.ts`）和 29 个条目；`WorkspaceNavigation.tsx` 提供底部导航、栏目内横向子页签（sticky，当前页自动滚入可见区）和可搜索「全部功能」。`MobileApp.tsx` 改为按页面 switch 渲染，删除 `ShortlinePanel`/`JournalWorkspace`/`DiscoveryWorkspace` 三个嵌套容器及已无引用的 `JournalPanel.tsx`/`journal.css`。旧路由全部保留。
+- **Rust `emotion.rs`**：移植 `shortline_emotion.py` / `shortline_facts.py` / `shortline_boards.py` 口径。一次并发取复盘日涨停/炸板/跌停/昨日涨停池和前一交易日涨停池；交易日历取上证指数日线日期（东财失败改腾讯）。默认复盘日 = 最近已收盘交易日（15:05 后才算今天），未来/非交易日/超出一年的日期 400。只有当天涨停池必需，其余池各自降级为 `available:false + reason`，整体 `status: partial`。缺必要列（zbc/lbc/ylbc）整池拒用，不按默认值补。主板 ST 2026-07-06 起 10%、创业板 2020-08-24 前 10%。
+- **真实数据发现**：2026-10-16 新华传媒 11 板在东财昨日涨停池（ylbc=10）里，却不在 10-15 涨停池。展示用的「昨日板数」用昨日涨停池补缺；晋级率仍只用前一日涨停池，与桌面版一致。
+- **前端**：`emotionData.ts`（类型、各页共用的复盘日、同一路径 5 分钟内存缓存）、`EmotionPanels.tsx`（今日情绪/连板天梯/涨停全表/首板名单/盘面事实/行业题材/首页情绪速览）、`emotion.css`（只用主题 token）。资料库按路由拆为研究记录/我的研报/收件箱，增加检索、分类、未读筛选与全文展开。
+- **修复**：底部导航在 `mobile.css` 里是 3 列，五个栏目会折成两行；改为 5 列，并在浏览器冒烟里断言单行。子页签负边距曾在紧凑密度下横向溢出 12px，已去掉。
+
+新增 Core route：`GET /mobile/shortline/emotion?date=YYYY-MM-DD`、`GET /mobile/shortline/cycle?days=3..30&date=`。新增移动路由来自上一会话已写好的 `/mobile/review/*`、`/mobile/library/*`、`/mobile/functions`、`/mobile/my`、`/mobile/research`。无 SQLite schema/migration、原生插件或权限变化；不向模型发送本地数据。
+
+验证（本机）：
+
+- Rust：`cargo test --locked` 64 项 + 1 项 parity 通过（新增 11 项 emotion 单元测试 + 3 个路由入参拒绝用例）；`emotion::tests::live_emotion_and_cycle_probe` 为 ignored 实时探测，对真实上游跑通：61 涨停 / 49 炸板 / 10 跌停 / 最高 11 板，与东财原始池 tc 一致。本机走代理时 reqwest 访问 push2his 会被断开，已由腾讯日历兜底。
+- 前端：`tsc --noEmit`、`npm run build` 通过；`npm test` 427/428，失败的是 `agent_error.test.ts`（本机未装 orchestrator 的 ajv，CI 会装）。新增 `mobile_emotion.test.ts`，使用 Rust 真实返回裁剪的冻结样本 `desktop/test/fixtures/mobile-emotion-2026-10-16.json`（公开行情，无用户数据）；导航/首页快捷测试按新结构重写。
+- 浏览器：用 Playwright 1.56.1 + 本机 Edge 跑 `desktop/test/mobile-ui-smoke.mjs`（CI 用 chromium），6 组视口/主题、底部导航单行、复盘子页签单行、无横向溢出、30 张截图全部通过；已人工查看 390 白色首页/今日情绪、360 深色连板天梯、768 白色今日情绪。
+- 未做：未推送、未跑 GitHub Android CI/APK 编译、未发布 0.1.19 预览版、未做发布前隐私扫描、无真机验收。
+
+下一步建议：情绪历史/近 5 天（需要先把每日已收盘读数存 SQLite）→ 明日验证条件与对账 → 盯盘异动流与昨日梯队实时 → 竞价与盘中路径 → 交易日志分组/风险与复查页签。

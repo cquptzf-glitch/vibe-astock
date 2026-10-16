@@ -11,6 +11,7 @@ mod calendar;
 mod daily_review;
 mod data_summary;
 mod documents;
+mod emotion;
 mod discovery;
 mod industry_signals;
 mod news;
@@ -313,6 +314,8 @@ impl AppCore {
             ("GET", "/mobile/stock/boards") => Ok(discovery_response(stock_context::stock_boards(&self.client, &request.path).await)),
             ("GET", "/mobile/stock/observations") => Ok(discovery_response(observations::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/shortline/risk") => Ok(discovery_response(anomalies::fetch(&self.client, &request.path).await)),
+            ("GET", "/mobile/shortline/emotion") => Ok(discovery_response(emotion::emotion(&self.client, &request.path).await)),
+            ("GET", "/mobile/shortline/cycle") => Ok(discovery_response(emotion::cycle(&self.client, &request.path).await)),
             ("GET", "/mobile/news/catalog") => Ok(MobileApiResponse::ok(news::catalog()?)),
             ("GET", "/mobile/news") => Ok(discovery_response(news::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/industry/gpu-rent") => Ok(discovery_response(industry_signals::gpu_rent(&self.client, &request.path).await)),
@@ -399,6 +402,9 @@ mod discovery_contract_tests {
             "/mobile/stock/observations?symbol=../../private",
             "/mobile/shortline/risk?kind=arbitrary",
             "/mobile/shortline/risk?page=0",
+            "/mobile/shortline/emotion?date=2026-13-40",
+            "/mobile/shortline/emotion?date=../../x",
+            "/mobile/shortline/cycle?days=99",
         ] {
             let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
             assert_eq!(response.status,400,"{path}: {}",response.body);
