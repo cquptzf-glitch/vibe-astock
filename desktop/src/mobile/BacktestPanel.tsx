@@ -24,6 +24,12 @@ type Result = {
   note: string;
 };
 
+type SummaryRow = {
+  label: string;
+  value: string;
+  signed?: boolean;
+};
+
 async function runBacktest(body: Record<string, unknown>): Promise<Result> {
   const response = await fetch("/api/mobile/backtest", {
     method: "POST",
@@ -37,10 +43,6 @@ async function runBacktest(body: Record<string, unknown>): Promise<Result> {
 
 function pct(value: number | null): string {
   return value === null || !Number.isFinite(value) ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-}
-
-function money(value: number): string {
-  return value.toLocaleString("zh-CN", { maximumFractionDigits: 0 });
 }
 
 function EquityCurve({ points }: { points: [string, number][] }) {
@@ -94,15 +96,15 @@ export function BacktestPanel() {
     }
   }
 
-  const summary = useMemo(() => {
-    if (!result) return null;
+  const summary = useMemo<SummaryRow[]>(() => {
+    if (!result) return [];
     return [
-      ["策略收益", pct(result.metrics.total_return_pct)],
-      ["买入持有", pct(result.metrics.buy_hold_return_pct)],
-      ["超额收益", pct(result.metrics.excess_return_pct)],
-      ["最大回撤", pct(result.metrics.max_drawdown_pct)],
-      ["胜率", pct(result.metrics.win_rate_pct)],
-      ["已平仓", `${result.metrics.closed_trades} 笔`],
+      { label: "策略收益", value: pct(result.metrics.total_return_pct), signed: true },
+      { label: "买入持有", value: pct(result.metrics.buy_hold_return_pct), signed: true },
+      { label: "超额收益", value: pct(result.metrics.excess_return_pct), signed: true },
+      { label: "最大回撤", value: pct(result.metrics.max_drawdown_pct), signed: true },
+      { label: "胜率", value: pct(result.metrics.win_rate_pct) },
+      { label: "已平仓", value: `${result.metrics.closed_trades} 笔` },
     ];
   }, [result]);
 
@@ -127,7 +129,7 @@ export function BacktestPanel() {
           <div className="backtest-meta"><span>{result.symbol} · {result.market}</span><span>{result.period.start ?? "—"} → {result.period.end ?? "—"}</span><span>{result.period.bars} 根</span></div>
           <article className="backtest-result">
             <div className="backtest-result-head"><div><strong>{result.strategy.name}</strong><span>MA{result.strategy.fast} / MA{result.strategy.slow}</span></div><span className="backtest-badge">历史核对工具</span></div>
-            <div className="backtest-metrics">{summary?.map(([label, value]) => <div key={label}><span>{label}</span><strong className={label === "最大回撤" || label === "超额收益" || label === "策略收益" ? (value.startsWith("-") ? "down" : "up") : ""}>{value}</strong></div>)}</div>
+            <div className="backtest-metrics">{summary.map(({ label, value, signed }) => <div key={label}><span>{label}</span><strong className={signed ? (value.startsWith("-") ? "down" : value === "—" ? "" : "up") : ""}>{value}</strong></div>)}</div>
             <EquityCurve points={result.equity_curve} />
           </article>
           <p className="backtest-note">{result.note}。{result.strategy.fees}；{result.strategy.adjustment}。</p>
