@@ -1,7 +1,7 @@
 import { BarChart3, BrainCircuit, CalendarCheck2, NotebookPen, Settings2 } from "lucide-react";
 import { useState } from "react";
 
-import { AiReviewPanel } from "./AiReviewPanel";
+import { AiWorkspace } from "./AiWorkspace";
 import { DailyReviewPanel } from "./DailyReviewPanel";
 import { JournalPanelV2 } from "./JournalPanelV2";
 import { JournalReviewPanel } from "./JournalReviewPanel";
@@ -61,7 +61,7 @@ export function JournalWorkspace({ onOpenSymbol }: { onOpenSymbol: (symbol: stri
       {view === "records" && <JournalPanelV2 onOpenSymbol={onOpenSymbol} />}
       {view === "daily" && <DailyReviewPanel onOpenSymbol={onOpenSymbol} />}
       {view === "review" && <JournalReviewPanel onOpenSymbol={onOpenSymbol} />}
-      {view === "ai" && <AiReviewPanel />}
+      {view === "ai" && <AiWorkspace />}
       {view === "settings" && <SettingsPanel />}
     </section>
   );
