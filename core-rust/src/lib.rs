@@ -1,4 +1,5 @@
 mod ai_chat;
+mod ai_config;
 mod ai_review;
 mod daily_review;
 mod data_summary;
@@ -73,6 +74,19 @@ impl AppCore {
         Ok(Self { client, db_path })
     }
 
+    pub fn legacy_ai_credential(&self) -> Result<Option<(String, String)>> {
+        Ok(ai_config::legacy_credential(&self.db_path)?
+            .map(|credential| (credential.base_url, credential.api_key)))
+    }
+
+    pub fn clear_legacy_ai_key(&self) -> Result<()> {
+        ai_config::clear_legacy_key(&self.db_path)
+    }
+
+    pub fn ai_base_url(&self) -> Result<Option<String>> {
+        ai_config::base_url(&self.db_path)
+    }
+
     pub async fn handle(&self, request: MobileApiRequest) -> MobileApiResponse {
         match self.handle_inner(request).await {
             Ok(response) => response,
@@ -83,6 +97,11 @@ impl AppCore {
     async fn handle_inner(&self, request: MobileApiRequest) -> Result<MobileApiResponse> {
         let route = request.path.split('?').next().unwrap_or("/");
         let method = request.method.to_uppercase();
+        let secure_key_present = request
+            .body
+            .get("__secure_key_present")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
 
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
@@ -108,9 +127,9 @@ impl AppCore {
                 "provider_templates": {}
             }))),
             ("GET", "/local-agents") => Ok(MobileApiResponse::ok(json!([]))),
-            ("GET", "/mobile/data/summary") => {
-                Ok(MobileApiResponse::ok(data_summary::summary(&self.db_path)?))
-            }
+            ("GET", "/mobile/data/summary") => Ok(MobileApiResponse::ok(
+                data_summary::summary(&self.db_path, secure_key_present)?,
+            )),
             ("GET", "/mobile/daily-review") => match daily_review::get(&self.db_path, &request.path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "daily_review", error.to_string())),
@@ -146,10 +165,14 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "journal_update", error.to_string())),
             },
-            ("GET", "/mobile/ai/config") => {
-                Ok(MobileApiResponse::ok(ai_review::config_view(&self.db_path)?))
-            }
-            ("POST", "/mobile/ai/config") => match ai_review::save_config(&self.db_path, &request.body) {
+            ("GET", "/mobile/ai/config") => Ok(MobileApiResponse::ok(
+                ai_review::config_view(&self.db_path, secure_key_present)?,
+            )),
+            ("POST", "/mobile/ai/config") => match ai_review::save_config(
+                &self.db_path,
+                &request.body,
+                secure_key_present,
+            ) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "ai_config", error.to_string())),
             },
