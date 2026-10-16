@@ -25,15 +25,6 @@ pub enum RunError {
     Internal(anyhow::Error),
 }
 
-impl RunError {
-    pub fn message(&self) -> String {
-        match self {
-            Self::BadRequest(message) | Self::Upstream(message) => message.clone(),
-            Self::Internal(error) => error.to_string(),
-        }
-    }
-}
-
 impl From<anyhow::Error> for RunError {
     fn from(value: anyhow::Error) -> Self {
         Self::Internal(value)
@@ -81,21 +72,27 @@ pub fn save_config(db_path: &Path, body: &Value) -> Result<Value> {
         return Err(anyhow!("请填写模型名称"));
     }
 
+    // Never carry a credential across provider endpoints implicitly. If the Base URL changes,
+    // the old key is cleared unless the user explicitly supplies a new non-empty key.
+    let base_changed = current.as_ref().is_some_and(|item| item.base_url != base_url);
+    let existing_key = || current.as_ref().map(|item| item.api_key.clone()).unwrap_or_default();
     let clear_key = body.get("clear_key").and_then(Value::as_bool).unwrap_or(false);
     let api_key = if clear_key {
         String::new()
     } else if let Some(value) = body.get("api_key") {
         let value = value.as_str().ok_or_else(|| anyhow!("api_key 必须是字符串"))?.trim();
         if value.is_empty() {
-            current.as_ref().map(|item| item.api_key.clone()).unwrap_or_default()
+            if base_changed { String::new() } else { existing_key() }
         } else {
             if value.len() > 4096 {
                 return Err(anyhow!("API Key 过长"));
             }
             value.to_string()
         }
+    } else if base_changed {
+        String::new()
     } else {
-        current.as_ref().map(|item| item.api_key.clone()).unwrap_or_default()
+        existing_key()
     };
 
     let updated_at = Utc::now().to_rfc3339();
