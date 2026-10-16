@@ -5,8 +5,8 @@
 
 .journal-workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
   padding: 4px;
   border-radius: 14px;
   background: rgba(128, 140, 160, 0.08);
@@ -16,16 +16,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   min-height: 38px;
-  padding: 0 5px;
+  padding: 0 3px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 10px;
   background: transparent;
   color: var(--mobile-muted, #7b8494);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 10px;
   white-space: nowrap;
 }
 
@@ -33,4 +33,16 @@
   background: var(--mobile-card, rgba(255, 255, 255, 0.08));
   color: inherit;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 360px) {
+  .journal-workspace-tabs button {
+    gap: 2px;
+    font-size: 9px;
+  }
+
+  .journal-workspace-tabs button svg {
+    width: 12px;
+    height: 12px;
+  }
 }
