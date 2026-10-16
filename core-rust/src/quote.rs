@@ -1,3 +1,4 @@
+use crate::symbol::{normalize_stock_symbol, SymbolKey};
 use anyhow::{anyhow, Result};
 use chrono::{FixedOffset, TimeZone, Utc};
 use encoding_rs::GBK;
@@ -75,8 +76,8 @@ async fn fetch_quote(client: &Client, symbol: &str) -> Result<Value> {
 }
 
 async fn fetch_tencent_quote(client: &Client, raw_symbol: &str) -> Result<Value> {
-    let symbol = SymbolInfo::parse(raw_symbol)?;
-    let url = format!("https://qt.gtimg.cn/q={}", symbol.tencent_code);
+    let symbol = normalize_stock_symbol(raw_symbol)?;
+    let url = format!("https://qt.gtimg.cn/q={}", symbol.tencent);
     let bytes = client.get(url).send().await?.error_for_status()?.bytes().await?;
     let (decoded, _, _) = GBK.decode(&bytes);
     let text = decoded.into_owned();
@@ -122,8 +123,8 @@ async fn fetch_tencent_quote(client: &Client, raw_symbol: &str) -> Result<Value>
 
     Ok(json!({
         "script": "fetch_quote",
-        "symbol": symbol.code,
-        "market": symbol.market,
+        "symbol": symbol.digits,
+        "market": symbol.market.as_str(),
         "status": if stale { "partial" } else { "ok" },
         "fetched_at": now,
         "primary_source": "tencent",
@@ -150,13 +151,13 @@ async fn fetch_tencent_quote(client: &Client, raw_symbol: &str) -> Result<Value>
 }
 
 async fn fetch_eastmoney_quote(client: &Client, raw_symbol: &str) -> Result<Value> {
-    let symbol = SymbolInfo::parse(raw_symbol)?;
+    let symbol = normalize_stock_symbol(raw_symbol)?;
     let response = client
         .get("https://push2.eastmoney.com/api/qt/stock/get")
         .query(&[
             ("fltt", "2"),
             ("invt", "2"),
-            ("secid", symbol.eastmoney_secid.as_str()),
+            ("secid", symbol.eastmoney.as_str()),
             (
                 "fields",
                 "f43,f48,f58,f60,f86,f116,f117,f163,f164,f167,f168,f170",
@@ -203,8 +204,8 @@ async fn fetch_eastmoney_quote(client: &Client, raw_symbol: &str) -> Result<Valu
 
     Ok(json!({
         "script": "fetch_quote",
-        "symbol": symbol.code,
-        "market": symbol.market,
+        "symbol": symbol.digits,
+        "market": symbol.market.as_str(),
         "status": "ok",
         "fetched_at": now,
         "primary_source": "eastmoney",
@@ -222,12 +223,12 @@ async fn fetch_eastmoney_quote(client: &Client, raw_symbol: &str) -> Result<Valu
 }
 
 async fn fetch_kline(client: &Client, raw_symbol: &str, bars: usize) -> Result<Value> {
-    let symbol = SymbolInfo::parse(raw_symbol)?;
+    let symbol = normalize_stock_symbol(raw_symbol)?;
     let bars_string = bars.to_string();
     let response = client
         .get("https://push2his.eastmoney.com/api/qt/stock/kline/get")
         .query(&[
-            ("secid", symbol.eastmoney_secid.as_str()),
+            ("secid", symbol.eastmoney.as_str()),
             ("fields1", "f1,f2,f3,f4,f5,f6"),
             ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58"),
             ("klt", "101"),
@@ -314,8 +315,8 @@ async fn fetch_kline(client: &Client, raw_symbol: &str, bars: usize) -> Result<V
 
     Ok(json!({
         "script": "fetch_kline",
-        "symbol": symbol.code,
-        "market": symbol.market,
+        "symbol": symbol.digits,
+        "market": symbol.market.as_str(),
         "status": "ok",
         "fetched_at": now,
         "primary_source": "eastmoney",
@@ -331,57 +332,6 @@ async fn fetch_kline(client: &Client, raw_symbol: &str, bars: usize) -> Result<V
         "errors": [],
         "missing": [],
     }))
-}
-
-#[derive(Debug)]
-struct SymbolInfo {
-    code: String,
-    market: String,
-    tencent_code: String,
-    eastmoney_secid: String,
-}
-
-impl SymbolInfo {
-    fn parse(raw: &str) -> Result<Self> {
-        let upper = raw.trim().to_uppercase().replace(' ', "");
-        let (code, market) = if let Some(code) = upper.strip_prefix("SH") {
-            (
-                code.trim_start_matches(|c| c == '.' || c == ':').to_string(),
-                "SH",
-            )
-        } else if let Some(code) = upper.strip_prefix("SZ") {
-            (
-                code.trim_start_matches(|c| c == '.' || c == ':').to_string(),
-                "SZ",
-            )
-        } else if upper.ends_with(".SH") {
-            (upper.trim_end_matches(".SH").to_string(), "SH")
-        } else if upper.ends_with(".SZ") {
-            (upper.trim_end_matches(".SZ").to_string(), "SZ")
-        } else if upper.len() == 6 && upper.chars().all(|c| c.is_ascii_digit()) {
-            (
-                upper.clone(),
-                if upper.starts_with('6') || upper.starts_with('9') {
-                    "SH"
-                } else {
-                    "SZ"
-                },
-            )
-        } else {
-            return Err(anyhow!("Android MVP 当前先支持沪深 A 股代码: {raw}"));
-        };
-
-        if code.len() != 6 || !code.chars().all(|c| c.is_ascii_digit()) {
-            return Err(anyhow!("股票代码格式错误: {raw}"));
-        }
-        let is_sh = market == "SH";
-        Ok(Self {
-            tencent_code: format!("{}{}", if is_sh { "sh" } else { "sz" }, code),
-            eastmoney_secid: format!("{}.{}", if is_sh { "1" } else { "0" }, code),
-            code,
-            market: market.to_string(),
-        })
-    }
 }
 
 fn china_offset() -> FixedOffset {
@@ -429,7 +379,7 @@ fn quote_date(ts: &str) -> Option<String> {
 }
 
 fn evidence_set(
-    symbol: &SymbolInfo,
+    symbol: &SymbolKey,
     fetched_at: &str,
     period: &str,
     source: &str,
@@ -458,7 +408,7 @@ fn evidence_set(
 }
 
 fn evidence(
-    symbol: &SymbolInfo,
+    symbol: &SymbolKey,
     fetched_at: &str,
     period: &str,
     source: &str,
@@ -469,9 +419,9 @@ fn evidence(
     adjustment: &str,
 ) -> Value {
     json!({
-        "id": format!("mobile:{}:{}:{}:{}", source, symbol.code, field, period),
-        "symbol": symbol.code,
-        "market": symbol.market,
+        "id": format!("mobile:{}:{}:{}:{}", source, symbol.digits, field, period),
+        "symbol": symbol.digits,
+        "market": symbol.market.as_str(),
         "field": field,
         "value": value,
         "unit": unit,
