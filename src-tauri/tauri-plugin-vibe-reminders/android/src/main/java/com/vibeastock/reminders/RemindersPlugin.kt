@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import app.tauri.annotation.Command
+import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
@@ -23,7 +24,6 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.Charset
-import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -37,7 +37,11 @@ private const val CHANNEL_ID = "vibe_astock_market_reminders"
 private const val INTERVAL_MINUTES = 15L
 private val MARKET_ZONE: ZoneId = ZoneId.of("Asia/Shanghai")
 
-private data class SyncRulesArgs(val snapshotJson: String)
+@InvokeArg
+class SyncRulesArgs {
+    lateinit var snapshotJson: String
+}
+
 private data class QuoteSnapshot(val price: Double, val quoteDate: String)
 
 @TauriPlugin
@@ -150,8 +154,8 @@ class ReminderWorker(
                 fetchTencentQuote(quoteKey).also { quoteCache[quoteKey] = it }
             } ?: continue
 
-            // Do not trigger from stale previous-trading-day snapshots on
-            // weekends, holidays, pre-market startup or long suspensions.
+            // Avoid triggering from previous-trading-day snapshots on weekends,
+            // holidays, pre-market startup, or long suspensions.
             if (quote.quoteDate != marketDate) continue
 
             val tolerance = rule.optDouble("tolerance_pct", 1.0).coerceIn(0.05, 20.0)
