@@ -115,13 +115,28 @@ pub fn migrate_legacy<R: Runtime>(app: &AppHandle<R>, core: &AppCore) -> Result<
 
     #[cfg(target_os = "android")]
     {
-        let already_secure = app
-            .secure_storage()
-            .contains(AI_API_KEY_SLOT)
-            .map_err(|error| format!("检查 Android Keystore 凭据失败: {error}"))?;
-        if !already_secure {
+        let legacy_scope = normalize_scope(&base_url);
+        let secure = load(app)?;
+        let usable_for_legacy_provider = secure.as_ref().is_some_and(|credential| {
+            normalize_scope(&credential.base_url) == legacy_scope
+                && !credential.api_key.trim().is_empty()
+        });
+
+        if !usable_for_legacy_provider {
+            // Overwrite an absent/corrupt/different-provider record with the credential that
+            // belongs to the SQLite provider being migrated. Only scrub SQLite after the
+            // Keystore round-trip proves the new record can be read back and scoped correctly.
             save(app, &base_url, &api_key)?;
         }
+
+        let migrated = load(app)?
+            .filter(|credential| {
+                normalize_scope(&credential.base_url) == legacy_scope
+                    && credential.api_key.trim() == api_key.trim()
+            })
+            .ok_or_else(|| "Android Keystore 凭据迁移校验失败，旧版 Key 已保留".to_string())?;
+        let _ = migrated;
+
         core.clear_legacy_ai_key()
             .map_err(|error| format!("擦除旧版 SQLite API Key 失败: {error}"))?;
     }
