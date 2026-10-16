@@ -5,7 +5,7 @@
 
 .journal-workspace-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   padding: 4px;
   border-radius: 14px;
@@ -16,14 +16,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
+  min-width: 0;
   min-height: 38px;
+  padding: 0 5px;
   border: 0;
   border-radius: 11px;
   background: transparent;
   color: var(--mobile-muted, #7b8494);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .journal-workspace-tabs button.active {
