@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn parses_sh_sz_and_bj_a_share_suggestions() {
-        let raw = r#"v_hint=\"sh~600519~贵州茅台~GZMT~GP-A^sz~300308~中际旭创~ZJXC~GP-A^bj~430047~诺思兰德~NSLD~GP-A^sh~000001~上证指数~SZZS~ZS^hk~00700~腾讯控股~TXKG~GP\";"#;
+        let raw = r#"v_hint="sh~600519~贵州茅台~GZMT~GP-A^sz~300308~中际旭创~ZJXC~GP-A^bj~430047~诺思兰德~NSLD~GP-A^sh~000001~上证指数~SZZS~ZS^hk~00700~腾讯控股~TXKG~GP";"#;
         let items = parse_suggestions(raw, 8).expect("parse suggestions");
         assert_eq!(items.len(), 3);
         assert_eq!(items[0]["symbol"], "600519");
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn rejects_exchange_code_mismatch() {
-        let raw = r#"v_hint=\"sz~600519~贵州茅台~GZMT~GP-A^sh~300308~中际旭创~ZJXC~GP-A^sz~430047~诺思兰德~NSLD~GP-A\";"#;
+        let raw = r#"v_hint="sz~600519~贵州茅台~GZMT~GP-A^sh~300308~中际旭创~ZJXC~GP-A^sz~430047~诺思兰德~NSLD~GP-A";"#;
         assert!(parse_suggestions(raw, 8)
             .expect("parse mismatched suggestions")
             .is_empty());
@@ -141,9 +141,9 @@ mod tests {
 
     #[test]
     fn respects_limit_and_no_result_marker() {
-        let raw = r#"v_hint=\"sh~600519~贵州茅台~GZMT~GP-A^sz~000001~平安银行~PAYH~GP-A\";"#;
+        let raw = r#"v_hint="sh~600519~贵州茅台~GZMT~GP-A^sz~000001~平安银行~PAYH~GP-A";"#;
         assert_eq!(parse_suggestions(raw, 1).expect("parse suggestions").len(), 1);
-        assert!(parse_suggestions(r#"v_hint=\"N\";"#, 8)
+        assert!(parse_suggestions(r#"v_hint="N";"#, 8)
             .expect("parse empty suggestions")
             .is_empty());
     }
