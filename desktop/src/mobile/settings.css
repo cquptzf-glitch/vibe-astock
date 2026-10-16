@@ -47,6 +47,7 @@
 }
 
 .settings-error,
+.settings-message,
 .settings-loading {
   margin-top: 14px;
   padding: 14px;
@@ -55,11 +56,16 @@
   color: #8d96a1;
   background: #12161b;
   font-size: 12px;
+  line-height: 1.6;
 }
 
 .settings-error {
   color: #ffb0a2;
   border-color: rgba(228, 87, 46, .3);
+}
+
+.settings-message {
+  color: #aab2bb;
 }
 
 .settings-loading {
@@ -133,6 +139,52 @@
 
 .settings-heading svg {
   color: #e46a43;
+}
+
+.settings-heading > span {
+  margin-left: auto;
+  color: #747d88;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.settings-notification-body {
+  padding: 12px 14px 14px;
+}
+
+.settings-notification-body p {
+  margin: 0;
+  color: #7b8490;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.settings-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.settings-actions button {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #303740;
+  border-radius: 10px;
+  color: #bcc3cb;
+  background: #171c22;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.settings-actions button.primary {
+  border-color: #cf633f;
+  color: #fff;
+  background: #d85f39;
+}
+
+.settings-actions button:disabled {
+  opacity: .42;
 }
 
 .settings-list > div {
