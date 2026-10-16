@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronRight, Flame, RefreshCw, TimerReset } from "lucide-react";
 
+import { MonitorPanel } from "./MonitorPanel";
 import "./shortline.css";
 
 interface LimitUpItem {
@@ -67,6 +68,7 @@ function boardLabel(days: number): string {
 }
 
 export function ShortlinePanel({ onOpenSymbol }: ShortlinePanelProps) {
+  const [view, setView] = useState<"monitor" | "limit-up">("monitor");
   const [data, setData] = useState<LimitUpResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -103,8 +105,24 @@ export function ShortlinePanel({ onOpenSymbol }: ShortlinePanelProps) {
   const firstBoardCount = groups.find(([days]) => days === 1)?.[1].length ?? 0;
   const multiBoardCount = Math.max(0, (data?.count ?? 0) - firstBoardCount);
 
+  if (view === "monitor") {
+    return (
+      <section className="shortline-panel">
+        <div className="shortline-tabs" role="tablist" aria-label="短线">
+          <button type="button" className="active" role="tab" aria-selected="true">盯盘</button>
+          <button type="button" role="tab" aria-selected="false" onClick={() => setView("limit-up")}>涨停池</button>
+        </div>
+        <MonitorPanel onOpenSymbol={onOpenSymbol} />
+      </section>
+    );
+  }
+
   return (
     <section className="shortline-panel">
+      <div className="shortline-tabs" role="tablist" aria-label="短线">
+        <button type="button" role="tab" aria-selected="false" onClick={() => setView("monitor")}>盯盘</button>
+        <button type="button" className="active" role="tab" aria-selected="true">涨停池</button>
+      </div>
       <div className="shortline-title-row">
         <div>
           <div className="shortline-kicker"><Flame size={15} /> 短线情绪</div>
