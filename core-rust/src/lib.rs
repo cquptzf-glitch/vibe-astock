@@ -4,6 +4,7 @@ mod ai_review;
 mod backup;
 mod daily_review;
 mod data_summary;
+mod documents;
 mod journal;
 mod journal_mutation;
 mod journal_review;
@@ -140,6 +141,22 @@ impl AppCore {
             ("GET", "/mobile/data/schema") => {
                 Ok(MobileApiResponse::ok(schema::info(&self.db_path)?))
             }
+            ("GET", "/mobile/documents") => match documents::list(&self.db_path, &request.path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "documents", error.to_string())),
+            },
+            ("POST", "/mobile/documents") => match documents::save(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "documents", error.to_string())),
+            },
+            ("DELETE", "/mobile/documents") => match documents::delete(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "documents", error.to_string())),
+            },
+            ("POST", "/mobile/documents/clear") => match documents::clear(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "documents", error.to_string())),
+            },
             ("GET", "/mobile/backup/export") => {
                 Ok(MobileApiResponse::ok(backup::export(&self.db_path)?))
             }
