@@ -188,3 +188,69 @@ fn normalize_base_url(value: &str) -> Result<String> {
 fn open(db_path: &Path) -> Result<Connection> {
     Connection::open(db_path).context("open mobile AI config sqlite")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_db() -> std::path::PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        std::env::temp_dir().join(format!("vibe-ai-config-{stamp}.sqlite3"))
+    }
+
+    #[test]
+    fn save_never_persists_api_key() {
+        let path = temp_db();
+        init(&path).expect("init config");
+        let result = save(
+            &path,
+            &json!({
+                "base_url": "https://example.com/v1/",
+                "model": "example-model",
+                "api_key": "plaintext-should-never-be-stored"
+            }),
+            true,
+        )
+        .expect("save metadata");
+
+        assert_eq!(result["key_present"], true);
+        assert_eq!(result["base_url"], "https://example.com/v1");
+        assert!(legacy_credential(&path).expect("read legacy").is_none());
+
+        let conn = Connection::open(&path).expect("open db");
+        let persisted: String = conn
+            .query_row("SELECT api_key FROM mobile_ai_config WHERE id = 1", [], |row| row.get(0))
+            .expect("read persisted key");
+        assert!(persisted.is_empty());
+        drop(conn);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn legacy_key_can_be_scrubbed_after_secure_migration() {
+        let path = temp_db();
+        init(&path).expect("init config");
+        let conn = Connection::open(&path).expect("open db");
+        conn.execute(
+            "INSERT INTO mobile_ai_config(id, base_url, model, api_key, updated_at)
+             VALUES (1, ?1, ?2, ?3, ?4)",
+            params!["https://legacy.example/v1", "legacy-model", "legacy-secret", "now"],
+        )
+        .expect("insert legacy config");
+        drop(conn);
+
+        let legacy = legacy_credential(&path)
+            .expect("load legacy")
+            .expect("legacy exists");
+        assert_eq!(legacy.base_url, "https://legacy.example/v1");
+        assert_eq!(legacy.api_key, "legacy-secret");
+
+        clear_legacy_key(&path).expect("scrub legacy key");
+        assert!(legacy_credential(&path).expect("reload legacy").is_none());
+        let _ = std::fs::remove_file(path);
+    }
+}
