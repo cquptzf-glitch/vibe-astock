@@ -21,8 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.7"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.7-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.8"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.8-arm64.apk"
 
     steps:
       - name: Checkout
@@ -97,21 +97,45 @@ jobs:
       - name: Initialize Android project
         run: cargo tauri android init --ci
 
-      - name: Build installable APK
-        run: cargo tauri android build --ci --debug --apk --target aarch64
+      - name: Build installable size-optimized APK
+        # Keep the Android debug signing path for sideloadable CI artifacts, while
+        # src-tauri/Cargo.toml strips/optimizes the Rust dev profile aggressively.
+        run: cargo tauri android build --ci --debug --apk --split-per-abi --target aarch64
 
-      - name: Prepare and verify APK
+      - name: Prepare, inspect and verify APK
         shell: bash
         run: |
           APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print -quit)"
           if [ -z "$APK" ] || [ ! -f "$APK" ]; then
             echo "Android APK was not produced" >&2
-            find src-tauri/gen/android/app/build/outputs -maxdepth 6 -type f -print || true
+            find src-tauri/gen/android/app/build/outputs -maxdepth 7 -type f -print || true
             exit 1
           fi
 
           mkdir -p dist
           cp "$APK" "dist/${ANDROID_APK_NAME}"
+
+          SIZE_BYTES="$(stat -c%s "dist/${ANDROID_APK_NAME}")"
+          SIZE_MIB="$(awk -v bytes="$SIZE_BYTES" 'BEGIN { printf "%.2f", bytes / 1024 / 1024 }')"
+          echo "APK size: ${SIZE_BYTES} bytes (${SIZE_MIB} MiB)"
+          {
+            echo "## Android APK size"
+            echo ""
+            echo "- File: \`${ANDROID_APK_NAME}\`"
+            echo "- Size: **${SIZE_MIB} MiB** (${SIZE_BYTES} bytes)"
+            echo ""
+            echo "### Largest uncompressed APK entries"
+            echo '```text'
+            unzip -l "dist/${ANDROID_APK_NAME}" | awk 'NF >= 4 && $1 ~ /^[0-9]+$/ { print $1, $4 }' | sort -nr | head -n 20
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Largest APK entries:"
+          unzip -l "dist/${ANDROID_APK_NAME}" | awk 'NF >= 4 && $1 ~ /^[0-9]+$/ { print $1, $4 }' | sort -nr | head -n 20
+
+          if [ "$SIZE_BYTES" -gt 83886080 ]; then
+            echo "::warning::APK remains larger than 80 MiB; inspect the size report above."
+          fi
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner -perm -111 | sort -V | tail -n 1)"
           if [ -z "$APKSIGNER" ]; then
@@ -124,7 +148,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.7-arm64
+          name: vibe-astock-android-mvp-v0.1.8-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -138,20 +162,22 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.7
+          ## Vibe AStock Android MVP v0.1.8
 
-          Eighth installable Android MVP built from the `android-mvp` branch.
+          Ninth installable Android MVP built from the `android-mvp` branch.
 
-          ### New in v0.1.7
-          - Adds A-share symbol search directly in the Android Rust Core using Tencent Smartbox
-          - Search supports stock code, Chinese name and pinyin; no Node/Python service is required
-          - Mobile quote page now shows debounced search suggestions and opens a selected result directly
-          - Search results are restricted to Shanghai/Shenzhen A-share stocks, excluding indexes, funds and overseas securities
-          - Exact 6-digit stock codes still open directly without waiting for a suggestion request
-          - Adds fixture-based Rust tests for Smartbox parsing and runs `cargo test` in Android CI before packaging
+          ### New in v0.1.8
+          - Adds a dedicated local portfolio view under “自选与持仓”
+          - Open positions are derived from Trading Journal fills instead of maintaining a second position database
+          - Portfolio refreshes realtime quotes and calculates latest market value, unrealized P/L and unrealized return
+          - Shows average cost, shares, planned stop/target, stop coverage and planned risk from the local review model
+          - Fixes the strict TypeScript error in v0.1.7 symbol search and removes the stale-suggestion submit edge case
+          - Optimizes the Rust Android dev profile for sideload builds: size optimization, stripped symbols, thin LTO, one codegen unit and abort panic strategy
+          - Builds only the ARM64 split APK and emits an APK size / largest-file report in GitHub Actions
 
           ### Already included
           - Market overview and breadth
+          - A-share code/name/pinyin symbol search
           - Limit-up pool and consecutive-limit ladder with latest-trading-day fallback
           - Concept/industry rotation with today vs. 5-day fund-flow observation labels
           - Realtime stock quote with Tencent primary source and Eastmoney fallback
@@ -160,22 +186,21 @@ jobs:
           - Local journal performance/discipline/risk dashboard
           - Opt-in OpenAI-compatible AI journal review with payload preview and aggregate-only default scope
 
-          ### Security note
-          - Model credentials remain in Android app-private SQLite and are never echoed back through the mobile API
-          - Changing the AI Base URL clears an existing credential unless a replacement key is explicitly supplied
-          - Android Keystore migration remains a production-hardening task after the MVP feature pass
+          ### Build and security note
+          - CI artifacts remain debug-signed so they are directly installable without committing a production signing key
+          - Rust native code is stripped and size-optimized even in this test-signing build
+          - Production distribution will use the release Android variant with a persistent private signing certificate
+          - Model credentials remain in Android app-private SQLite; Android Keystore migration is still production hardening work
 
           ### Installation
           - Android 7.0+ (minSdk 24)
-          - ARM64 devices only in this MVP build
-          - Direct sideload APK; this is a debug-signed prerelease for functional testing, not a Google Play production build
+          - ARM64 devices only
+          - Direct sideload APK intended for functional testing
 
           The `.sha256` file is provided for download integrity verification.
           EOF
           )
 
-          # Re-publishing the same MVP version after a fix must also retarget the tag.
-          # Upload --clobber alone would leave the tag pointing at the older commit.
           if gh release view "$ANDROID_RELEASE_TAG" >/dev/null 2>&1; then
             gh release delete "$ANDROID_RELEASE_TAG" --cleanup-tag --yes
           fi
@@ -184,6 +209,6 @@ jobs:
             "dist/${ANDROID_APK_NAME}" \
             "dist/${ANDROID_APK_NAME}.sha256" \
             --target "$GITHUB_SHA" \
-            --title "Vibe AStock Android MVP v0.1.7" \
+            --title "Vibe AStock Android MVP v0.1.8" \
             --notes "$NOTES" \
             --prerelease
