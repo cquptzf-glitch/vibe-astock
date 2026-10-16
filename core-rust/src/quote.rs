@@ -50,7 +50,7 @@ pub async fn fetch_endpoint(client: &Client, body: &Value) -> std::result::Resul
     }))
 }
 
-async fn fetch_quote(client: &Client, symbol: &SymbolKey) -> Result<Value> {
+pub(crate) async fn fetch_quote(client: &Client, symbol: &SymbolKey) -> Result<Value> {
     match fetch_tencent_quote(client, symbol).await {
         Ok(value) => Ok(value),
         Err(primary_error) => {
