@@ -1,3 +1,4 @@
+use crate::symbol::normalize_stock_symbol;
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use rusqlite::{params, Connection, Transaction};
@@ -389,10 +390,12 @@ fn parse_fill(value: &Value, sort_order: usize) -> Result<Fill> {
 
 fn symbol(body: &Value) -> Result<String> {
     let value = body.get("symbol").and_then(Value::as_str).unwrap_or("").trim();
-    if value.len() != 6 || !value.bytes().all(|c| c.is_ascii_digit()) {
-        return Err(anyhow!("代码要是 6 位数字(交易日志只管 A 股)"));
+    if value.is_empty() {
+        return Err(anyhow!("股票代码不能为空"));
     }
-    Ok(value.to_string())
+    normalize_stock_symbol(value)
+        .map(|symbol| symbol.digits)
+        .map_err(|error| anyhow!("股票代码不正确: {error}"))
 }
 
 fn playbook(body: &Value) -> Result<Option<String>> {
