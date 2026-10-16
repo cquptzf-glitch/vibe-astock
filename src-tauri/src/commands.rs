@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
+use tauri_plugin_vibe_reminders::VibeRemindersExt;
 use tauri_plugin_vibe_share::VibeShareExt;
 use vibe_astock_core::{AppCore, MobileApiRequest, MobileApiResponse};
 
@@ -31,6 +32,17 @@ fn put_internal(body: &mut Value, key: &str, value: Value) {
 
 fn normalized_scope(value: &str) -> String {
     value.trim().trim_end_matches('/').to_string()
+}
+
+fn sync_reminders(app: &AppHandle, state: &AppCore) -> Result<Value, String> {
+    let snapshot = state
+        .reminder_snapshot()
+        .map_err(|error| format!("读取提醒规则失败: {error}"))?;
+    let status = app
+        .vibe_reminders()
+        .sync_rules(&snapshot)
+        .map_err(|error| format!("同步 Android 后台提醒失败: {error}"))?;
+    serde_json::to_value(status).map_err(|error| format!("序列化提醒调度状态失败: {error}"))
 }
 
 #[tauri::command]
@@ -68,6 +80,34 @@ pub async fn mobile_api(
 ) -> Result<MobileApiResponse, String> {
     let route = request.path.split('?').next().unwrap_or("").to_string();
     let method = request.method.to_uppercase();
+
+    if method == "GET" && route == "/mobile/reminders/status" {
+        return match app.vibe_reminders().status() {
+            Ok(status) => Ok(MobileApiResponse {
+                status: 200,
+                body: serde_json::to_value(status)
+                    .map_err(|error| format!("序列化提醒调度状态失败: {error}"))?,
+            }),
+            Err(error) => Ok(response_error(500, "reminder_scheduler", error.to_string())),
+        };
+    }
+
+    if (route == "/mobile/reminders" && (method == "POST" || method == "DELETE"))
+        || (route == "/mobile/backup/import" && method == "POST")
+    {
+        let mut response = state.handle(request).await;
+        if response.status == 200 {
+            match sync_reminders(&app, &state) {
+                Ok(status) => {
+                    if let Some(object) = response.body.as_object_mut() {
+                        object.insert("scheduler".to_string(), status);
+                    }
+                }
+                Err(error) => return Ok(response_error(500, "reminder_scheduler", error)),
+            }
+        }
+        return Ok(response);
+    }
 
     if method == "GET" && (route == "/mobile/ai/config" || route == "/mobile/data/summary") {
         let present = match secure_ai::key_present(&app, &state) {
