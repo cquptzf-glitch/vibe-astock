@@ -1,11 +1,15 @@
-import { Activity, BarChart3, Gauge, TrendingDown, TrendingUp } from "lucide-react";
+import { Activity, BarChart3, Gauge, Share2, TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 
+import { shareText } from "./nativeShare";
 import "./stock-detail.css";
 
 interface QuoteLike {
+  symbol?: string;
+  market?: string;
   evidence: { field: string; value: number | string | null; unit: string }[];
   primary_source: string | null;
+  extra?: Record<string, unknown>;
 }
 
 interface Bar {
@@ -155,6 +159,31 @@ export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unkn
   if (!latest || !stats) return null;
   const trendPositive = stats.trend === "多头排列";
   const trendNegative = stats.trend === "空头排列";
+  const displayName = String(quote.extra?.name ?? quote.symbol ?? "个股");
+  const symbol = quote.symbol ?? "";
+
+  async function shareSnapshot() {
+    const lines = [
+      `【${displayName}${symbol ? ` ${symbol}` : ""}】`,
+      `${quote.market ? `${quote.market} · ` : ""}${latest.date} K线收盘 ${price(latest.close)}`,
+      `价格结构：${stats.trend}；距 MA20 ${signedPct(stats.ma20Bias)}`,
+      `近5日 ${signedPct(stats.return5)} · 近20日 ${signedPct(stats.return20)} · 近60日 ${signedPct(stats.return60)}`,
+      `MA5 ${price(stats.ma5)} · MA10 ${price(stats.ma10)} · MA20 ${price(stats.ma20)}`,
+      `20日区间 ${price(stats.low20)} ~ ${price(stats.high20)}，当前位置 ${Math.round(stats.rangePosition)}%`,
+      `数据源：${quote.primary_source ?? "—"}`,
+      "",
+      "来自 Vibe AStock Android，仅作行情记录与复盘，不构成投资建议。",
+    ];
+    try {
+      await shareText({
+        title: `${displayName}${symbol ? ` ${symbol}` : ""} · Vibe AStock`,
+        text: lines.join("\n"),
+        chooserTitle: "分享个股行情",
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   return (
     <article className="stock-detail-card">
@@ -163,10 +192,15 @@ export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unkn
           <span className="stock-detail-kicker"><BarChart3 size={14} /> 个股详情</span>
           <h2>价格结构 · 近 60 日观察</h2>
         </div>
-        <span className={`stock-trend-pill ${trendPositive ? "positive" : trendNegative ? "negative" : ""}`}>
-          {trendPositive ? <TrendingUp size={13} /> : trendNegative ? <TrendingDown size={13} /> : <Activity size={13} />}
-          {stats.trend}
-        </span>
+        <div className="stock-detail-actions">
+          <button className="stock-share-button" type="button" onClick={() => void shareSnapshot()} aria-label="分享个股行情">
+            <Share2 size={14} />
+          </button>
+          <span className={`stock-trend-pill ${trendPositive ? "positive" : trendNegative ? "negative" : ""}`}>
+            {trendPositive ? <TrendingUp size={13} /> : trendNegative ? <TrendingDown size={13} /> : <Activity size={13} />}
+            {stats.trend}
+          </span>
+        </div>
       </div>
 
       <CandleChart bars={bars} />

@@ -10,7 +10,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
-        // Register native secure storage before setup so legacy credentials can migrate safely.
+        .plugin(tauri_plugin_vibe_share::init())
         .plugin(tauri_plugin_vibe_secure_storage::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
@@ -20,7 +20,7 @@ pub fn run() {
             app.manage(core);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::mobile_api])
+        .invoke_handler(tauri::generate_handler![commands::mobile_api, commands::share_text])
         .run(tauri::generate_context!())
         .expect("error while running Vibe AStock mobile");
 }

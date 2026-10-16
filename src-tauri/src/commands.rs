@@ -1,8 +1,17 @@
+use serde::Deserialize;
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
+use tauri_plugin_vibe_share::VibeShareExt;
 use vibe_astock_core::{AppCore, MobileApiRequest, MobileApiResponse};
 
 use crate::secure_ai;
+
+#[derive(Debug, Deserialize)]
+pub struct ShareTextCommand {
+    pub title: Option<String>,
+    pub text: String,
+    pub chooser_title: Option<String>,
+}
 
 fn response_error(status: u16, code: &str, message: impl Into<String>) -> MobileApiResponse {
     MobileApiResponse {
@@ -22,6 +31,33 @@ fn put_internal(body: &mut Value, key: &str, value: Value) {
 
 fn normalized_scope(value: &str) -> String {
     value.trim().trim_end_matches('/').to_string()
+}
+
+#[tauri::command]
+pub fn share_text(app: AppHandle, request: ShareTextCommand) -> Result<Value, String> {
+    let title = request.title.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let text = request.text.trim();
+    let chooser_title = request
+        .chooser_title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if text.is_empty() {
+        return Err("没有可分享的内容".to_string());
+    }
+    if text.chars().count() > 100_000 {
+        return Err("分享内容过长".to_string());
+    }
+    if title.is_some_and(|value| value.chars().count() > 300) {
+        return Err("分享标题过长".to_string());
+    }
+
+    app.vibe_share()
+        .share_text(title, text, chooser_title)
+        .map_err(|error| format!("打开系统分享失败: {error}"))?;
+
+    Ok(json!({ "ok": true }))
 }
 
 #[tauri::command]
@@ -96,7 +132,6 @@ pub async fn mobile_api(
         } else if let Some(api_key) = pending_key.as_deref() {
             secure_ai::save(&app, &new_base, api_key)
         } else if normalized_scope(&old_base) != normalized_scope(&new_base) {
-            // Credentials are provider-scoped: changing endpoints never carries an old key over.
             secure_ai::delete(&app)
         } else {
             Ok(())

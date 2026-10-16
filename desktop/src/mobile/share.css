@@ -1,0 +1,39 @@
+.stock-detail-actions,
+.portfolio-title-actions,
+.daily-review-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.stock-share-button,
+.portfolio-title-actions button,
+.daily-review-title-actions button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #2b323b;
+  border-radius: 12px;
+  color: #89929e;
+  background: #12161b;
+}
+
+.stock-share-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+}
+
+.stock-share-button:active,
+.portfolio-title-actions button:active,
+.daily-review-title-actions button:active {
+  transform: scale(.96);
+}
+
+.portfolio-title-actions button:disabled,
+.daily-review-title-actions button:disabled {
+  opacity: .45;
+}

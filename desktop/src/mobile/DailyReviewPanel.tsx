@@ -4,12 +4,14 @@ import {
   RefreshCw,
   Repeat2,
   Save,
+  Share2,
   ShieldAlert,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { shareText } from "./nativeShare";
 import "./daily-review.css";
 
 type MarketOverview = {
@@ -193,6 +195,38 @@ export function DailyReviewPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: stri
     }
   }
 
+  async function shareReview() {
+    const persistent = rotation?.summary.persistent.slice(0, 6).map((item) => item.name).join(" / ") || "—";
+    const newHot = rotation?.summary.new_hot.slice(0, 6).map((item) => item.name).join(" / ") || "—";
+    const cooling = rotation?.summary.cooling.slice(0, 6).map((item) => item.name).join(" / ") || "—";
+    const leaderText = leaders.length
+      ? leaders.map((item) => `${item.name}(${item.code}) ${Math.max(1, item.limit_days ?? 1)}板`).join(" / ")
+      : "—";
+    const text = [
+      `【Vibe AStock · ${reviewDate} 市场日复盘】`,
+      `上涨 / 下跌：${value(breadth?.up ?? null)} / ${value(breadth?.down ?? null)}，差额 ${advanceDecline ?? "—"}`,
+      `涨停 / 跌停：${value(market?.sentiment.limit_up ?? limitUp?.count ?? null)} / ${value(market?.sentiment.limit_down ?? null)}，最高 ${maxBoard || "—"} 板`,
+      `炸板：${value(market?.sentiment.broken_board ?? null)}，封板率：${pct(market?.sentiment.seal_rate ?? null)}`,
+      `高标：${leaderText}`,
+      `持续强：${persistent}`,
+      `新走强：${newHot}`,
+      `退潮观察：${cooling}`,
+      observation.trim() ? `\n今日观察：\n${observation.trim()}` : "",
+      tomorrowCheck.trim() ? `\n明日验证：\n${tomorrowCheck.trim()}` : "",
+      "",
+      "自动数据与主观记录来自 Vibe AStock Android，仅作市场复盘，不构成投资建议。",
+    ].filter(Boolean).join("\n");
+    try {
+      await shareText({
+        title: `${reviewDate} 市场日复盘 · Vibe AStock`,
+        text,
+        chooserTitle: "分享市场日复盘",
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   return (
     <section className="daily-review-panel">
       <div className="daily-review-title">
@@ -201,9 +235,14 @@ export function DailyReviewPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: stri
           <h1>{reviewDate} · 今日与明日验证</h1>
           <p>自动汇总市场、涨停高度和题材轮动；主观观察只保存在手机本地。</p>
         </div>
-        <button onClick={() => void refresh()} disabled={loading || saving} aria-label="刷新日复盘">
-          <RefreshCw size={17} className={loading ? "spin" : ""} />
-        </button>
+        <div className="daily-review-title-actions">
+          <button onClick={() => void shareReview()} disabled={loading} aria-label="分享日复盘">
+            <Share2 size={17} />
+          </button>
+          <button onClick={() => void refresh()} disabled={loading || saving} aria-label="刷新日复盘">
+            <RefreshCw size={17} className={loading ? "spin" : ""} />
+          </button>
+        </div>
       </div>
 
       {error && <div className="daily-review-error">{error}</div>}

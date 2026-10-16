@@ -2,12 +2,14 @@ import {
   BriefcaseBusiness,
   ChevronRight,
   RefreshCw,
+  Share2,
   ShieldAlert,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { shareText } from "./nativeShare";
 import "./portfolio.css";
 
 type RiskPosition = {
@@ -154,6 +156,29 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
     };
   }, [positions]);
 
+  async function sharePortfolio() {
+    if (!review || positions.length === 0) return;
+    const rows = positions.map((position) => {
+      const label = position.name || position.symbol;
+      return `${label} ${position.symbol} · ${position.open_shares.toLocaleString("zh-CN")}股 · 成本 ${money(position.avg_cost)} · 最新 ${money(position.price)} · 浮盈亏 ${position.unrealized_pnl !== null && position.unrealized_pnl > 0 ? "+" : ""}${money(position.unrealized_pnl)}元 (${pct(position.unrealized_pct)})`;
+    });
+    const text = [
+      "【Vibe AStock · 本地持仓快照】",
+      `持仓 ${positions.length} 只 · 成本 ${money(review.risk.open_cost_total)} 元 · 最新市值 ${money(summary.marketValue)} 元`,
+      `浮动盈亏 ${summary.unrealized !== null && summary.unrealized > 0 ? "+" : ""}${money(summary.unrealized)} 元`,
+      `止损覆盖 ${review.risk.stop_covered}/${review.risk.open_positions} · 计划风险 ${money(review.risk.planned_risk_total)} 元`,
+      "",
+      ...rows,
+      "",
+      "数据来自本机交易日志与当前行情，仅作个人记录与复盘，不构成投资建议。",
+    ].join("\n");
+    try {
+      await shareText({ title: "Vibe AStock · 持仓快照", text, chooserTitle: "分享持仓快照" });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   return (
     <section className="portfolio-panel">
       <div className="portfolio-title-row">
@@ -162,9 +187,14 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
           <h2>持仓 · 浮盈亏 · 计划风险</h2>
           <p>由交易日志成交自动汇总，不维护第二套持仓数据。</p>
         </div>
-        <button onClick={() => void refresh()} disabled={loading} aria-label="刷新持仓">
-          <RefreshCw size={17} className={loading ? "spin" : ""} />
-        </button>
+        <div className="portfolio-title-actions">
+          <button onClick={() => void sharePortfolio()} disabled={loading || positions.length === 0} aria-label="分享持仓快照">
+            <Share2 size={17} />
+          </button>
+          <button onClick={() => void refresh()} disabled={loading} aria-label="刷新持仓">
+            <RefreshCw size={17} className={loading ? "spin" : ""} />
+          </button>
+        </div>
       </div>
 
       {error && <div className="portfolio-error">持仓刷新失败：{error}</div>}

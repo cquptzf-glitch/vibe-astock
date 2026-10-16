@@ -1,6 +1,6 @@
 [package]
 name = "vibe-astock-mobile"
-version = "0.1.11"
+version = "0.1.12"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -19,11 +19,9 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-vibe-secure-storage = { path = "tauri-plugin-vibe-secure-storage" }
+tauri-plugin-vibe-share = { path = "tauri-plugin-vibe-share" }
 vibe-astock-core = { path = "../core-rust" }
 
-# Android MVP artifacts are debug-signed for direct sideloading in CI, but the
-# Rust native library does not need debug symbols. Keep it small and close to
-# release-code characteristics without committing a production signing key.
 [profile.dev]
 opt-level = "s"
 debug = 0
