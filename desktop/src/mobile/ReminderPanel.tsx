@@ -1,4 +1,4 @@
-import { Bell, BellOff, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Bell, BellOff, RefreshCw, Save, Smartphone, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import "./reminders.css";
 
@@ -20,6 +20,7 @@ type ReminderRule = {
 };
 
 type ReminderList = { count: number; items: ReminderRule[] };
+type SchedulerStatus = { scheduled: boolean; rule_count: number; interval_minutes: number };
 
 type Draft = {
   id: number | null;
@@ -69,10 +70,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function ReminderPanel() {
   const [items, setItems] = useState<ReminderRule[]>([]);
+  const [scheduler, setScheduler] = useState<SchedulerStatus | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [schedulerError, setSchedulerError] = useState("");
 
   const stockRule = draft.kind !== "daily_review";
   const enabledCount = useMemo(() => items.filter((item) => item.enabled).length, [items]);
@@ -80,9 +83,16 @@ export function ReminderPanel() {
   async function load() {
     setLoading(true);
     setError("");
+    setSchedulerError("");
     try {
       const result = await api<ReminderList>("/mobile/reminders");
       setItems(result.items);
+      try {
+        setScheduler(await api<SchedulerStatus>("/mobile/reminders/status"));
+      } catch (e) {
+        setScheduler(null);
+        setSchedulerError(e instanceof Error ? e.message : String(e));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -183,6 +193,20 @@ export function ReminderPanel() {
         <button type="button" className="mobile-delete" onClick={() => void load()} aria-label="刷新提醒" disabled={loading}>
           <RefreshCw size={17} className={loading ? "spin" : ""} />
         </button>
+      </div>
+
+      <div className={`reminder-scheduler ${scheduler?.scheduled ? "active" : ""} ${schedulerError ? "error" : ""}`}>
+        <Smartphone size={16} />
+        <div>
+          <strong>{schedulerError ? "原生调度状态不可用" : scheduler?.scheduled ? "Android 后台检查已调度" : "Android 后台检查未调度"}</strong>
+          <span>
+            {schedulerError
+              ? schedulerError
+              : scheduler
+                ? `${scheduler.rule_count} 条规则同步到 WorkManager · 系统间隔 ${scheduler.interval_minutes} 分钟`
+                : loading ? "正在读取 WorkManager 状态…" : "尚未读取原生调度状态"}
+          </span>
+        </div>
       </div>
 
       <article className="mobile-quote-card reminder-editor">
