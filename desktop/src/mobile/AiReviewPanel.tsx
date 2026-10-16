@@ -100,7 +100,7 @@ export function AiReviewPanel() {
       });
       setConfig(next);
       setApiKey("");
-      setMessage("模型配置已保存到手机应用私有数据。API Key 不会从接口回显。");
+      setMessage("模型配置已保存。API Key 已写入 Android Keystore，不会从接口回显。");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -120,7 +120,7 @@ export function AiReviewPanel() {
       setApiKey("");
       setPreview(null);
       setResult(null);
-      setMessage("模型配置和本地保存的 API Key 已清除。");
+      setMessage("模型配置和 Android Keystore 中的 API Key 已清除。");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -208,13 +208,13 @@ export function AiReviewPanel() {
             autoComplete="off"
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder={config?.key_present ? "已保存；留空保持不变" : "可选；无鉴权的本地兼容接口可留空"}
+            placeholder={config?.key_present ? "已安全保存；留空保持不变" : "可选；无鉴权的本地兼容接口可留空"}
           />
         </label>
         <div className="ai-review-config-meta">
           <ShieldCheck size={14} />
           <span>
-            Key 仅保存在 Android 应用私有 SQLite，接口永不回显。MVP 尚未迁移到 Android Keystore；敏感生产环境建议等待后续加固。
+            API Key 使用 Android Keystore 设备密钥进行 AES-256-GCM 加密；SQLite 只保存 Base URL 与模型名称，接口永不回显 Key。
           </span>
         </div>
         <div className="ai-review-actions">
