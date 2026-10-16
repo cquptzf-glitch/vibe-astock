@@ -5,6 +5,7 @@ mod journal_review;
 mod market;
 mod quote;
 mod rotation;
+mod search;
 mod shortline;
 mod storage;
 
@@ -58,7 +59,7 @@ impl AppCore {
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
-            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.6")
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/0.1.7")
             .build()?;
 
         Ok(Self { client, db_path })
@@ -78,10 +79,10 @@ impl AppCore {
         match (method.as_str(), route) {
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
-                "version": "0.1.6-mobile"
+                "version": "0.1.7-mobile"
             }))),
             ("GET", "/product") => Ok(MobileApiResponse::ok(json!({
-                "version": "0.1.6-mobile",
+                "version": "0.1.7-mobile",
                 "provider": {
                     "profile": null,
                     "kind": null,
@@ -149,6 +150,15 @@ impl AppCore {
                     Ok(MobileApiResponse::error(502, "ai_upstream", message))
                 }
                 Err(ai_review::RunError::Internal(error)) => Err(error),
+            },
+            ("POST", "/mobile/symbol-search") => match search::symbols(&self.client, &request.body).await {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(search::SearchError::BadRequest(message)) => {
+                    Ok(MobileApiResponse::error(400, "symbol_search", message))
+                }
+                Err(search::SearchError::Upstream(error)) => {
+                    Ok(MobileApiResponse::error(502, "symbol_search_upstream", error.to_string()))
+                }
             },
             ("GET", "/mobile/market-overview") => {
                 Ok(MobileApiResponse::ok(market::overview(&self.client).await?))

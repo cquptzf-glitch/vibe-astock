@@ -54,6 +54,23 @@ interface WatchListResult {
   items: WatchItem[];
 }
 
+interface SymbolSearchItem {
+  symbol: string;
+  name: string;
+  market: string;
+  pinyin: string;
+  category: string;
+  source: string;
+}
+
+interface SymbolSearchResult {
+  query: string;
+  items: SymbolSearchItem[];
+  count: number;
+  source: string;
+  fetched_at: string;
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
@@ -95,6 +112,13 @@ function formatMarketCap(value: number | null, source: string | null): string {
   return `${yi.toLocaleString("zh-CN", { maximumFractionDigits: 2 })} 亿`;
 }
 
+function isDirectSymbol(value: string): boolean {
+  const normalized = value.trim().toUpperCase().replace(/\s+/g, "");
+  return /^\d{6}$/.test(normalized)
+    || /^(SH|SZ)[.:]?\d{6}$/.test(normalized)
+    || /^\d{6}\.(SH|SZ)$/.test(normalized);
+}
+
 function Sparkline({ rows }: { rows: unknown[][] }) {
   const points = useMemo(() => {
     const closes = rows
@@ -128,6 +152,8 @@ export function MobileApp() {
   const [quote, setQuote] = useState<Envelope | null>(null);
   const [klineRows, setKlineRows] = useState<unknown[][]>([]);
   const [watchlist, setWatchlist] = useState<WatchItem[]>([]);
+  const [suggestions, setSuggestions] = useState<SymbolSearchItem[]>([]);
+  const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [health, setHealth] = useState<{ ok: boolean; version: string } | null>(null);
@@ -146,6 +172,14 @@ export function MobileApp() {
     setWatchlist(result.items);
   }
 
+  async function searchSymbols(keyword: string): Promise<SymbolSearchItem[]> {
+    const result = await api<SymbolSearchResult>("/mobile/symbol-search", {
+      method: "POST",
+      body: JSON.stringify({ query: keyword, limit: 8 }),
+    });
+    return result.items;
+  }
+
   useEffect(() => {
     void Promise.all([
       loadWatchlist(),
@@ -153,11 +187,41 @@ export function MobileApp() {
     ]).catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
+  useEffect(() => {
+    const keyword = query.trim();
+    if (!keyword || keyword === activeSymbol || isDirectSymbol(keyword)) {
+      setSuggestions([]);
+      setSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setSearching(true);
+      void searchSymbols(keyword)
+        .then((items) => {
+          if (!cancelled) setSuggestions(items);
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query, activeSymbol]);
+
   async function openSymbol(raw: string) {
     const symbol = raw.trim().toUpperCase();
     if (!symbol) return;
     setLoading(true);
     setError("");
+    setSuggestions([]);
     try {
       const quoteResult = await api<FetchResult>("/fetch", {
         method: "POST",
@@ -183,6 +247,31 @@ export function MobileApp() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function submitSearch() {
+    const keyword = query.trim();
+    if (!keyword) return;
+    if (isDirectSymbol(keyword)) {
+      await openSymbol(keyword);
+      return;
+    }
+
+    setSearching(true);
+    setError("");
+    try {
+      const items = suggestions.length > 0 ? suggestions : await searchSymbols(keyword);
+      setSuggestions(items);
+      if (items.length === 0) {
+        setError(`没有找到沪深 A 股：${keyword}`);
+        return;
+      }
+      await openSymbol(items[0].symbol);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSearching(false);
     }
   }
 
@@ -227,7 +316,7 @@ export function MobileApp() {
       <header className="mobile-header">
         <div>
           <div className="mobile-brand">Vibe AStock</div>
-          <div className="mobile-subtitle">Android · Rust Core · v0.1.6</div>
+          <div className="mobile-subtitle">Android · Rust Core · v0.1.7</div>
         </div>
         <div className={`mobile-status ${health?.ok ? "ok" : ""}`}>
           <Wifi size={14} />
@@ -245,7 +334,7 @@ export function MobileApp() {
             <div className="mobile-section-title" style={{ marginTop: 22 }}>
               <div>
                 <h1>个股行情</h1>
-                <p>腾讯实时行情，失败自动降级东财；K 线为前复权。</p>
+                <p>支持代码、名称和拼音搜索；腾讯实时行情失败时自动降级东财。</p>
               </div>
             </div>
 
@@ -253,29 +342,46 @@ export function MobileApp() {
               className="mobile-search"
               onSubmit={(event) => {
                 event.preventDefault();
-                void openSymbol(query);
+                void submitSearch();
               }}
             >
               <Search size={18} />
               <input
-                inputMode="numeric"
+                inputMode="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="输入 A 股代码，如 300308"
-                aria-label="股票代码"
+                placeholder="代码 / 名称 / 拼音，如 300308、茅台、GZMT"
+                aria-label="股票搜索"
+                autoComplete="off"
               />
-              <button type="submit" disabled={loading || !query.trim()}>
-                {loading ? <RefreshCw className="spin" size={17} /> : "查询"}
+              <button type="submit" disabled={loading || searching || !query.trim()}>
+                {loading || searching ? <RefreshCw className="spin" size={17} /> : "查询"}
               </button>
             </form>
+
+            {suggestions.length > 0 && query.trim() !== activeSymbol && (
+              <div className="mobile-watch-list" style={{ marginTop: 8 }} aria-label="股票搜索结果">
+                {suggestions.map((item) => (
+                  <div className="mobile-watch-row" key={`${item.market}-${item.symbol}`}>
+                    <button className="mobile-watch-open" type="button" onClick={() => void openSymbol(item.symbol)}>
+                      <div>
+                        <strong>{item.name}</strong>
+                        <span>{item.market} · {item.symbol}{item.pinyin ? ` · ${item.pinyin}` : ""}</span>
+                      </div>
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {!quote && !loading && (
               <div className="mobile-hero-card">
                 <ChartNoAxesCombined size={34} />
                 <h1>选一只股票继续</h1>
-                <p>行情与 K 线都由手机内 Rust Core 直接访问公开数据源，不依赖电脑端服务。</p>
+                <p>行情、搜索与 K 线都由手机内 Rust Core 直接访问公开数据源，不依赖电脑端服务。</p>
                 <div className="mobile-chips">
-                  <span>腾讯行情</span><span>东财降级</span><span>前复权 K 线</span><span>SQLite 自选</span>
+                  <span>名称/拼音搜索</span><span>腾讯行情</span><span>东财降级</span><span>前复权 K 线</span><span>SQLite 自选</span>
                 </div>
               </div>
             )}

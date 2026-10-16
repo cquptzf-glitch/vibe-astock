@@ -21,8 +21,8 @@ jobs:
     env:
       CI: "true"
       NDK_VERSION: "27.2.12479018"
-      ANDROID_RELEASE_TAG: "android-mvp-v0.1.6"
-      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.6-arm64.apk"
+      ANDROID_RELEASE_TAG: "android-mvp-v0.1.7"
+      ANDROID_APK_NAME: "vibe-astock-android-mvp-v0.1.7-arm64.apk"
 
     steps:
       - name: Checkout
@@ -91,8 +91,8 @@ jobs:
       - name: Typecheck and build frontend
         run: npm run build --prefix desktop
 
-      - name: Check Rust core
-        run: cargo check --manifest-path core-rust/Cargo.toml
+      - name: Test Rust core
+        run: cargo test --manifest-path core-rust/Cargo.toml
 
       - name: Initialize Android project
         run: cargo tauri android init --ci
@@ -124,7 +124,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vibe-astock-android-mvp-v0.1.6-arm64
+          name: vibe-astock-android-mvp-v0.1.7-arm64
           path: |
             dist/${{ env.ANDROID_APK_NAME }}
             dist/${{ env.ANDROID_APK_NAME }}.sha256
@@ -138,25 +138,17 @@ jobs:
         shell: bash
         run: |
           NOTES=$(cat <<'EOF'
-          ## Vibe AStock Android MVP v0.1.6
+          ## Vibe AStock Android MVP v0.1.7
 
-          Seventh installable Android MVP built from the `android-mvp` branch.
+          Eighth installable Android MVP built from the `android-mvp` branch.
 
-          ### New in v0.1.6
-          - Adds user-configured OpenAI-compatible Chat Completions API support directly in the Android Rust Core
-          - Adds an AI Review tab inside the local Trading Journal workspace
-          - Model Base URL, model name and optional API key are stored only in Android app-private SQLite; the API key is never returned to the UI after saving
-          - Changing the API Base URL clears the previously saved key unless the user explicitly supplies a new key, preventing a credential from being carried to another provider
-          - AI review is never automatic: the user must explicitly press the send button
-          - Default AI scope sends only aggregated review statistics: overall performance, recent-10 stats, discipline, playbook performance and risk summary
-          - Raw fills, journal notes and API keys are always excluded from the AI payload
-          - Open-position symbol/cost/stop details are opt-in and disabled by default
-          - Adds a local preview endpoint/UI so users can inspect the exact JSON payload before any network request
-          - AI prompt is constrained to historical review, discipline and risk analysis; it must not produce stock picks or buy/sell instructions
-
-          ### Security note
-          - v0.1.6 keeps model credentials in Android app-private SQLite and never echoes the saved key back through the mobile API
-          - This MVP has not yet migrated credentials to Android Keystore; production hardening remains planned
+          ### New in v0.1.7
+          - Adds A-share symbol search directly in the Android Rust Core using Tencent Smartbox
+          - Search supports stock code, Chinese name and pinyin; no Node/Python service is required
+          - Mobile quote page now shows debounced search suggestions and opens a selected result directly
+          - Search results are restricted to Shanghai/Shenzhen A-share stocks, excluding indexes, funds and overseas securities
+          - Exact 6-digit stock codes still open directly without waiting for a suggestion request
+          - Adds fixture-based Rust tests for Smartbox parsing and runs `cargo test` in Android CI before packaging
 
           ### Already included
           - Market overview and breadth
@@ -166,6 +158,12 @@ jobs:
           - Forward-adjusted K-line data and enhanced stock detail analysis
           - Local SQLite watchlist and editable Trading Journal with appendable fills
           - Local journal performance/discipline/risk dashboard
+          - Opt-in OpenAI-compatible AI journal review with payload preview and aggregate-only default scope
+
+          ### Security note
+          - Model credentials remain in Android app-private SQLite and are never echoed back through the mobile API
+          - Changing the AI Base URL clears an existing credential unless a replacement key is explicitly supplied
+          - Android Keystore migration remains a production-hardening task after the MVP feature pass
 
           ### Installation
           - Android 7.0+ (minSdk 24)
@@ -186,6 +184,6 @@ jobs:
             "dist/${ANDROID_APK_NAME}" \
             "dist/${ANDROID_APK_NAME}.sha256" \
             --target "$GITHUB_SHA" \
-            --title "Vibe AStock Android MVP v0.1.6" \
+            --title "Vibe AStock Android MVP v0.1.7" \
             --notes "$NOTES" \
             --prerelease
