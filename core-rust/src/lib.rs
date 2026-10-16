@@ -2,6 +2,7 @@ mod ai_chat;
 mod ai_config;
 mod ai_review;
 mod backup;
+mod calendar;
 mod daily_review;
 mod data_summary;
 mod documents;
@@ -141,6 +142,18 @@ impl AppCore {
             ("GET", "/mobile/data/schema") => {
                 Ok(MobileApiResponse::ok(schema::info(&self.db_path)?))
             }
+            ("GET", "/mobile/calendar") => match calendar::list(&self.db_path, &request.path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "calendar", error.to_string())),
+            },
+            ("POST", "/mobile/calendar") => match calendar::save(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "calendar", error.to_string())),
+            },
+            ("DELETE", "/mobile/calendar") => match calendar::delete(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "calendar", error.to_string())),
+            },
             ("GET", "/mobile/documents") => match documents::list(&self.db_path, &request.path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "documents", error.to_string())),
