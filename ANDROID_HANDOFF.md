@@ -1359,6 +1359,8 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 
 验证（本机）：Rust 78 项 + 1 项 parity；`chart::live::live_chart_probe` 对真实上游跑通日/周/5 分钟/北交所 K 线、分时、五日、快照，并直接验证腾讯备用路径各周期（北交所在腾讯只有 1 根，已在 note 中提示）。前端 435/436（agent_error 缺 ajv），新增 `mobile_chart.test.ts` 与真实样本 `desktop/test/fixtures/mobile-chart-600519.json`；本机 Edge 浏览器冒烟 48 张截图，含 K 线点按十字线、拖动后“回到最新”可用、MACD 切换、分时切换；已人工查看 390 深色 K 线、360 白色个股页与 K 线。
 
+发布前隐私扫描：候选 65 / HEAD 65 / 历史 71 个既有命中，新增 0。CI 与发布：代码 66a8496 的 [Android CI #38989460626](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38989460626) 与 [跨平台 #38989460648](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38989460648) 全部成功；已发布 [Android 0.1.21 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.21)，标签固定在 66a8496940c313e828de115fca93c7d82464b23c；APK 23,655,181 bytes（22.56 MiB），SHA256：ea473744eb1a6cce842bf0710138db5f1646f774ec8acaada531d0728c555dd1。真机验收与正式签名/AAB 仍未做。
+
 环境变化：本机文件透明加密已不再生效，仓库文件对 Shell/Node/git 都是明文；维护者已移除 fileops MCP 与对应全局指令，后续直接用常规工具读写。
 
 下一步建议：盯盘异动流与昨日梯队实时 → 竞价与盘中路径 → 涨停样本 → 交易日志分组/风险与复查页签 → 每日复盘市场状态八格。K 线可继续补：叠加对比指数、画线工具、成交明细（逐笔）与资金流副图。

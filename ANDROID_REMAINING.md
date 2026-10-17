@@ -1,6 +1,6 @@
 # Android 未完成功能清单
 
-开发中版本：0.1.21（个股 K 线与盘口按常用证券 App 重做：分时/五日/日周月 K/60·30·15·5 分钟、前复权/不复权、MA/BOLL、VOL/MACD/KDJ/RSI、拖动/缩放/十字线、20 项盘口与五档）。本地通过：Rust 78 项 + 1 项 parity（3 项 ignored 实时探测已对真实上游跑通）、前端类型检查与构建、435/436 项前端测试（agent_error 缺 ajv）、本机 Edge 浏览器冒烟 6 组视口/主题 48 张截图（含 K 线点按十字线、拖动平移、副图切换、分时切换）。CI 与发布结果见 ANDROID_HANDOFF.md 末尾。
+当前版本：已发布 [Android 0.1.21 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.21)（个股 K 线与盘口按常用证券 App 重做：分时/五日/日周月 K/60·30·15·5 分钟、前复权/不复权、MA/BOLL、VOL/MACD/KDJ/RSI、拖动/缩放/十字线、20 项盘口与五档）。本地通过：Rust 78 项 + 1 项 parity（3 项 ignored 实时探测已对真实上游跑通）、前端类型检查与构建、435/436 项前端测试（agent_error 缺 ajv）、本机 Edge 浏览器冒烟 6 组视口/主题 48 张截图（含 K 线点按十字线、拖动平移、副图切换、分时切换）。代码 66a8496 的 Android CI #38989460626 与跨平台 #38989460648 全部成功；ARM64 APK 23,655,181 bytes（22.56 MiB），SHA256 ea473744eb1a6cce842bf0710138db5f1646f774ec8acaada531d0728c555dd1，仍为 debug-signed 预览版；真机验收未完成。发布前隐私扫描候选 65 / HEAD 65 / 历史 71 既有命中，新增 0。
 
 上一发布版本：已发布 [Android 0.1.20 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.20)（复盘新增近 5 天、情绪历史、明日验证；SQLite schema v5 / 备份 v5）。本地通过：Rust 72 项单元/接口 + 1 项 parity（连续 3 次全量通过；2 项 ignored 实时探测对真实上游跑通）、前端类型检查与构建、431/432 项前端测试（未通过的是本机缺 orchestrator 依赖 ajv 的 agent_error）、本机 Edge 浏览器冒烟 6 组视口/主题 42 张截图。代码 2d49f00 的 Android CI #38983459066 与跨平台 #38983459069 全部成功；ARM64 APK 23,597,797 bytes（22.50 MiB），SHA256 c06e1f4676e1ad04bea137dc2fc734a6bd04019335adcb68abfa2d7eaceab460，仍为 debug-signed 预览版；真机验收未完成。发布前隐私扫描候选 65 / HEAD 65 / 历史 71 既有命中，新增 0。
 
