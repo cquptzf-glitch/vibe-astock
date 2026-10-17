@@ -1401,3 +1401,25 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 环境注意：本机 DLP 会让 shell 里读 `*.md` 得到密文（Read/Edit 工具和 Node 读到的是明文）；修改这几份文档请用 Read/Edit 工具，提交前用 `git cat-file -p :<path>` 确认 blob 是明文。
 
 下一步建议：① 补发布前隐私扫描后 push、看 CI、发 0.1.22 预览版（需主人确认）；② 交易日志剩余：模式卡（版本化）、MFE/MAE 复查与复查清单、按情绪环境/当时板位分组、「看错还是没执行好」四象限、问题记录修复；③ 情绪复盘的 AI 复盘/周报/结构变化；④ 市场面板补沪深 300 估值（需要 xls 解析）；⑤ 隐私模式（金额/股数/价位遮罩、权益曲线不画）。
+
+### 交易日志分析页补全：模式卡、复查、入场环境、归因、问题记录（0.1.22 续，已提交、未 push、未发布）
+
+任务：把桌面版交易日志还没迁的分析页补到手机端。五个功能各一个提交（在分支 `claude/strange-brattain-b0a759`，基线 `2d92a32`，**还没合进 `android-mvp`**），都是复盘栏目里的子页签：
+
+- **模式卡**（`journal_modes.rs`、`JournalModesPanel.tsx`，`GET/POST /mobile/journal/modes`）：改打法或五段文字开新版本、次日生效、旧版本不动；只改名字不开新版本；超长（800/60/300 字，按字数）直接拒收不截断；每版少于 6 笔不比较，同日生效的几版只认最后一版，建卡之前的交易单独列。卡片放表 `mobile_journal_modes`（versions 存 JSON），**进备份**。
+- **复查**（`journal_excursion.rs`、`journal_inbox.rs`、`JournalExcursionPanel.tsx`，`GET /mobile/journal/excursion?mode=cache|fetch`、`GET /mobile/journal/inbox`）：复查清单按用户自己的中位仓位/持有天数/规矩筛（`Row.peak_cost` 是桌面版 `episode.amount`），只读缓存不联网；MFE/MAE 只在点「取行情并计算」时联网取腾讯不复权日线，按代码+买入日+卖出日永久缓存在 `mobile_journal_bars`（卖出当天 15:30 前取的不算定稿，收盘后再点重取一次）；有成交没取到的单笔列原因。
+- **入场环境**（`journal_env.rs`、`JournalEnvPanel.tsx`，`GET /mobile/journal/environment`）：情绪分三等分（复用 `samples::{entry_score,regime_cuts,regime_of}` 与情绪历史日缓存 `emotion_history::series`），板位用涨停/炸板池成员（`mobile_journal_env_days`，两张池都取到且已收盘才存）；取不到的日子分原因列缺口，不补；入场日 15:30 前不分组。
+- **看错还是没执行好**（`journal_attribution.rs`、`JournalAttributionPanel.tsx`，`GET /mobile/journal/attribution?date=`）：用 `emotion_history::verify_view` 的 `track.days`（明日验证对账，事后/暂定不计）做判对/判错，按入场日对齐；盈亏 0 的日子不进格；`emotion_history` 里 `next_session`、`BASELINE_DAYS` 改成了 `pub(crate)`。
+- **问题记录**（`journal_problems.rs`、`JournalProblemsPanel.tsx`，`GET/POST /mobile/journal/problems`）：按日期重放找卖超/卖在买之前、日期无效、空记录、没填盈亏的补记；动作 update_fill / delete_fill / delete_entry / set_manual_pnl，改完不能更糟、至少留一笔成交、入场日跟最早成交；非 A 股只列出不删。
+
+**schema/备份决定**：v6 还没发布，所以不另开版本号给 0.1.22 单独留 v6，而是新增迁移 `migrate_6_to_7`，当前 schema = 7、备份格式 = 7（`CURRENT_SCHEMA_VERSION`、`backup.rs` 的 `SCHEMA_VERSION`）；`REQUIRED_TABLES` 现在是切片（`&[&str]`），v6 的 17 张表保留为 `REQUIRED_V6_TABLES` 给 5→6 迁移校验。备份 `data.journal_modes` 缺省为空数组；v1–v6 备份恢复后模式卡清空（`legacy_missing_journal_modes_are_empty`）；备份里的卡片逐张校验（id、名字、打法、版本号递增、日期、字数），不合规整份拒收。往返与旧版本恢复测试在 `backup::tests::journal_modes_round_trip_and_older_backups_restore_with_no_cards`。
+
+**共用改动**：`journal_risk.rs` 新增 `is_journal_symbol`（A 股股票判断）、`entry_day`、`va_order`（桌面版列表顺序）、`analysis()`（设置 + 只含 A 股股票的行 + 被排除的记录）；`Row` 加 `peak_cost`、`Entry` 加 `note`；「风险与纪律」现在也只算 A 股股票（返回里多 `excluded_non_stock`）。新增样式在 `journal-analysis.css`。
+
+验证（本机）：
+
+- Rust `cargo test --locked`：159 项 + 1 项 parity 通过（15 项 ignored）；每个模块都有纯计算测试，MFE/MAE 与入场环境用假取数函数测永久缓存、盘中取的重取、取失败不影响别的笔；`live_tencent_probe`（2026-09-21~10-16 贵州茅台 14 根不复权日线，收盘价与真实一致）和 `live_environment_probe`（真实日历/情绪读数/涨停炸板池，首次约数秒、第二次读缓存 55 ms）对真实上游跑通。
+- 前端：`tsc --noEmit`、`npm run build` 通过；`npm test` 477 项中 476 项通过（agent_error 缺 ajv）。新增 `mobile_journal_{modes,excursion,env,attribution,problems}.test.ts`，夹具全是**合成数据**（各模块的 `dump_synthetic_fixture` 生成，命令写在测试函数的注释里，不含真实成交或行情），并各有一条「页面不登记 AI 页面上下文」的源码守卫。
+- 浏览器：Playwright 1.56.1 + 本机 Edge 跑 `desktop/test/mobile-ui-smoke.mjs`，6 组视口/主题、108 张截图通过（新增模式卡含新建编辑器、复查、入场环境、归因、问题记录含展开成交编辑）；已人工查看 360 深色模式卡、360 白色复查、390 深色归因、360 白色问题记录。本机跑法：`npm run preview --prefix desktop -- --host 127.0.0.1 --port 4173` 起静态页，把冒烟脚本里的 `chromium.launch({ headless: true })` 换成带 `channel: "msedge"` 的副本，`VIBE_UI_RUNTIME` 指向装了 playwright 的目录（本机是 `C:/Users/<用户>/node_modules/playwright`）。worktree 里没有 `desktop/node_modules` 时用目录联接指到主工作区的。
+
+**没做 / 待办**：完整发布前隐私扫描、push、Android CI、APK 构建与发布、真机验收、把这五个提交合进 `android-mvp`（分支 `claude/strange-brattain-b0a759`，每功能一个提交，可直接 cherry-pick）。模式卡与交易分析页同样没有隐私模式遮罩（全局隐私模式未做）。**不要 push、不要新建 Release**（AGENTS.md 6.4，需要仓库主人授权）。
