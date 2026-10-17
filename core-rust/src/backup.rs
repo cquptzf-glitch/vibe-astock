@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 7;
+const SCHEMA_VERSION: u32 = 8;
 const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
@@ -51,6 +51,9 @@ struct BackupData {
     journal_modes: Vec<crate::journal_modes::Card>,
     #[serde(default)]
     regime_events: Vec<crate::structure::Event>,
+    /// v8 起:现金分红(用户手填);旧备份没有,恢复后为空
+    #[serde(default)]
+    dividends: Vec<crate::portfolio::Dividend>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +73,13 @@ struct WatchlistRow {
     name: String,
     created_at: String,
     updated_at: String,
+    /// v8 起:用户写的分组、标签与自定义顺序;旧备份没有,恢复后为空
+    #[serde(default)]
+    group: String,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    sort_order: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,6 +203,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             journal_settings: crate::journal_settings::read_row(&conn)?,
             journal_modes: crate::journal_modes::read_cards(&conn)?,
             regime_events: crate::structure::read_events(&conn)?,
+            dividends: crate::portfolio::read_dividends(&conn)?,
         },
     };
     validate_envelope(&backup)?;
@@ -232,11 +243,12 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM mobile_journal_settings", [])?;
     tx.execute("DELETE FROM mobile_journal_modes", [])?;
     tx.execute("DELETE FROM mobile_regime_events", [])?;
+    tx.execute("DELETE FROM mobile_dividends", [])?;
     tx.execute(
         "DELETE FROM sqlite_sequence WHERE name IN (
             'journal_entries', 'journal_fills', 'mobile_ai_messages',
             'mobile_documents', 'mobile_calendar_events', 'mobile_reminders',
-            'mobile_verifications', 'mobile_journal_modes', 'mobile_regime_events'
+            'mobile_verifications', 'mobile_journal_modes', 'mobile_regime_events', 'mobile_dividends'
         )",
         [],
     )?;
@@ -246,8 +258,8 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
             .map_err(|error| anyhow!("备份中的自选代码无效 {}: {error}", row.symbol))?
             .digits;
         tx.execute(
-            "INSERT INTO watchlist(symbol, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
-            params![symbol, &row.name, &row.created_at, &row.updated_at],
+            "INSERT INTO watchlist(symbol, name, created_at, updated_at, grp, tags, sort_order) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![symbol, &row.name, &row.created_at, &row.updated_at, &row.group, serde_json::to_string(&row.tags)?, row.sort_order],
         )?;
     }
 
@@ -410,6 +422,9 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     for event in &backup.data.regime_events {
         crate::structure::write_event(&tx, event)?;
     }
+    for dividend in &backup.data.dividends {
+        crate::portfolio::write_dividend(&tx, dividend)?;
+    }
     for card in &backup.data.journal_modes {
         crate::journal_modes::write_card(&tx, card)?;
     }
@@ -470,6 +485,7 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         || backup.data.verifications.len() > 100_000
         || backup.data.journal_modes.len() > crate::journal_modes::CARDS_MAX
         || backup.data.regime_events.len() > crate::structure::EVENTS_MAX
+        || backup.data.dividends.len() > crate::portfolio::DIVIDENDS_MAX
     {
         return Err(anyhow!("备份记录数量超过安全上限"));
     }
@@ -482,6 +498,8 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
             return Err(anyhow!("备份中存在重复自选代码: {}", row.symbol));
         }
         ensure_text(&row.name, 300, "自选名称")?;
+        crate::storage::clean_group(&row.group).map_err(|error| anyhow!("自选 {} 的分组无效: {error}", row.symbol))?;
+        crate::storage::clean_tags(&row.tags).map_err(|error| anyhow!("自选 {} 的标签无效: {error}", row.symbol))?;
     }
 
     let mut entry_ids = HashSet::new();
@@ -648,6 +666,15 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
             return Err(anyhow!("{problem}"));
         }
     }
+    let mut dividend_ids = HashSet::new();
+    for dividend in &backup.data.dividends {
+        if dividend.id <= 0 || !dividend_ids.insert(dividend.id) {
+            return Err(anyhow!("分红包含无效或重复 ID: {}", dividend.id));
+        }
+        if let Some(problem) = crate::portfolio::dividend_problem(dividend, None) {
+            return Err(anyhow!("{problem}"));
+        }
+    }
     for card in &backup.data.journal_modes {
         if let Some(problem) = crate::journal_modes::card_problem(card) {
             return Err(anyhow!("交易日志模式卡无效: {problem}"));
@@ -725,7 +752,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "verifications": backup.data.verifications.len(),
             "journal_settings": backup.data.journal_settings.is_some() as usize,
             "journal_modes": backup.data.journal_modes.len(),
-            "regime_events": backup.data.regime_events.len()
+            "regime_events": backup.data.regime_events.len(),
+            "dividends": backup.data.dividends.len()
         },
         "compatibility": {
             "current_schema_version": SCHEMA_VERSION,
@@ -736,7 +764,9 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "legacy_missing_verifications_are_empty": backup.schema_version <= 4,
             "legacy_missing_journal_settings_are_default": backup.schema_version <= 5,
             "legacy_missing_journal_modes_are_empty": backup.schema_version <= 6,
-            "legacy_missing_regime_events_are_empty": backup.schema_version <= 6
+            "legacy_missing_regime_events_are_empty": backup.schema_version <= 6,
+            "legacy_missing_watchlist_groups_are_empty": backup.schema_version <= 7,
+            "legacy_missing_dividends_are_empty": backup.schema_version <= 7
         },
         "security": {
             "credentials_included": false,
@@ -748,7 +778,7 @@ fn preview(backup: &BackupEnvelope) -> Value {
 
 fn read_watchlist(conn: &Connection) -> Result<Vec<WatchlistRow>> {
     let mut stmt = conn.prepare(
-        "SELECT symbol, COALESCE(name, ''), created_at, updated_at FROM watchlist ORDER BY created_at, symbol",
+        "SELECT symbol, COALESCE(name, ''), created_at, updated_at, COALESCE(grp, ''), COALESCE(tags, ''), sort_order FROM watchlist ORDER BY created_at, symbol",
     )?;
     let rows = stmt
         .query_map([], |row| {
@@ -757,6 +787,9 @@ fn read_watchlist(conn: &Connection) -> Result<Vec<WatchlistRow>> {
                 name: row.get(1)?,
                 created_at: row.get(2)?,
                 updated_at: row.get(3)?,
+                group: row.get(4)?,
+                tags: crate::storage::tags_of(&row.get::<_, String>(5)?),
+                sort_order: row.get(6)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -1008,7 +1041,7 @@ mod tests {
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
-        assert_eq!(backup["schema_version"], 7);
+        assert_eq!(backup["schema_version"], 8);
         assert_eq!(backup["data"]["journal_settings"], Value::Null);
         assert_eq!(backup["data"]["verifications"], json!([]));
         assert_eq!(backup["data"]["journal_modes"], json!([]));
@@ -1186,7 +1219,7 @@ mod tests {
         )
         .unwrap();
         let backup = export(&source).unwrap();
-        assert_eq!(backup["schema_version"], 7);
+        assert_eq!(backup["schema_version"], 8);
         assert_eq!(backup["data"]["journal_settings"]["equity_base"], 150000.0);
         assert_eq!(validate(&backup).unwrap()["counts"]["journal_settings"], 1);
 
@@ -1225,7 +1258,7 @@ mod tests {
         crate::journal_modes::act(&source, &json!({"action": "save", "card_id": card_id, "name": "首板早封", "playbook": "打板", "setup": "9:45 前封", "entry": "排板", "changes": "收紧"})).unwrap();
         crate::journal_modes::act(&source, &made("另一张", "x")).unwrap();
         let backup = export(&source).unwrap();
-        assert_eq!(backup["schema_version"], 7);
+        assert_eq!(backup["schema_version"], 8);
         assert_eq!(backup["data"]["journal_modes"].as_array().unwrap().len(), 2);
         assert_eq!(backup["data"]["journal_modes"][0]["versions"].as_array().unwrap().len(), 2);
         let preview = validate(&backup).unwrap();
@@ -1306,6 +1339,100 @@ mod tests {
         assert!(validate(&long).unwrap_err().to_string().contains("最多 60 字"));
         let mut dup = backup;
         dup["data"]["regime_events"][1]["id"] = dup["data"]["regime_events"][0]["id"].clone();
+        assert!(validate(&dup).unwrap_err().to_string().contains("重复 ID"));
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(target);
+    }
+
+    #[test]
+    fn watchlist_groups_tags_and_order_round_trip_and_older_backups_restore_empty() {
+        let source = temp_db("wl-source");
+        let target = temp_db("wl-target");
+        init_all(&source);
+        for (symbol, name) in [("600519", "贵州茅台"), ("000001", "平安银行"), ("300308", "中际旭创")] {
+            crate::storage::upsert(&source, &json!({"symbol": symbol, "name": name})).unwrap();
+        }
+        crate::storage::set_meta(&source, &json!({"symbol": "600519", "group": "白酒", "tags": ["核心", "高股息", "核心"]})).unwrap();
+        crate::storage::set_order(&source, &json!({"symbols": ["300308", "600519", "000001"]})).unwrap();
+        let listed = crate::storage::list(&source).unwrap();
+        let symbols: Vec<&str> = listed["items"].as_array().unwrap().iter().map(|r| r["symbol"].as_str().unwrap()).collect();
+        assert_eq!(symbols, ["300308", "600519", "000001"], "自定义顺序");
+        assert_eq!(listed["items"][1]["group"], "白酒");
+        assert_eq!(listed["items"][1]["tags"], json!(["核心", "高股息"]), "标签去重");
+        assert_eq!(listed["groups"], json!(["白酒"]));
+
+        let backup = export(&source).unwrap();
+        assert_eq!(validate(&backup).unwrap()["compatibility"]["legacy_missing_watchlist_groups_are_empty"], false);
+        init_all(&target);
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": backup.clone()})).unwrap();
+        let back = crate::storage::list(&target).unwrap();
+        assert_eq!(back["items"], listed["items"], "分组、标签、顺序随备份恢复");
+
+        // v7 及更早的备份没有这三项:恢复后为空分组、无标签、没有自定义顺序
+        let mut legacy = backup.clone();
+        legacy["schema_version"] = json!(7);
+        for row in legacy["data"]["watchlist"].as_array_mut().unwrap() {
+            let obj = row.as_object_mut().unwrap();
+            obj.remove("group");
+            obj.remove("tags");
+            obj.remove("sort_order");
+        }
+        assert_eq!(validate(&legacy).unwrap()["compatibility"]["legacy_missing_watchlist_groups_are_empty"], true);
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": legacy})).unwrap();
+        let old = crate::storage::list(&target).unwrap();
+        assert!(old["items"].as_array().unwrap().iter().all(|r| r["group"] == "" && r["tags"] == json!([]) && r["sort_order"].is_null()));
+        assert_eq!(old["groups"], json!([]));
+
+        // 过长 / 带逗号 / 太多标签:整份拒收
+        let mut long = backup.clone();
+        long["data"]["watchlist"][0]["group"] = json!("字".repeat(13));
+        assert!(validate(&long).unwrap_err().to_string().contains("分组"));
+        let mut many = backup;
+        many["data"]["watchlist"][0]["tags"] = json!(["a", "b", "c", "d", "e", "f"]);
+        assert!(validate(&many).unwrap_err().to_string().contains("标签"));
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(target);
+    }
+
+    #[test]
+    fn dividends_round_trip_and_older_backups_restore_with_none() {
+        let source = temp_db("div-source");
+        let target = temp_db("div-target");
+        init_all(&source);
+        crate::portfolio::act(&source, &json!({"action": "save", "symbol": "600519", "date": "2026-06-01", "amount": 300.5, "note": "年度分红"})).unwrap();
+        crate::portfolio::act(&source, &json!({"action": "save", "symbol": "000001", "date": "2026-07-01", "amount": 88.0})).unwrap();
+        let backup = export(&source).unwrap();
+        assert_eq!(backup["data"]["dividends"].as_array().unwrap().len(), 2);
+        let preview = validate(&backup).unwrap();
+        assert_eq!((preview["counts"]["dividends"].clone(), preview["compatibility"]["legacy_missing_dividends_are_empty"].clone()), (json!(2), json!(false)));
+
+        init_all(&target);
+        crate::portfolio::act(&target, &json!({"action": "save", "symbol": "300308", "date": "2026-01-01", "amount": 1.0})).unwrap();
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": backup.clone()})).unwrap();
+        let back = crate::portfolio::view(&target).unwrap();
+        assert_eq!(back["totals"]["dividends"], json!(388.5), "恢复后是备份里的两条,设备上原有的被替换");
+        assert_eq!(back["dividends"].as_array().unwrap().len(), 2);
+        // 恢复后新建的编号接在后面,不撞
+        crate::portfolio::act(&target, &json!({"action": "save", "symbol": "600519", "date": "2026-08-01", "amount": 5.0})).unwrap();
+        assert_eq!(crate::portfolio::view(&target).unwrap()["dividends"].as_array().unwrap().len(), 3);
+
+        // v7 及更早的备份没有这一项:恢复后清空
+        let mut legacy = backup.clone();
+        legacy["schema_version"] = json!(7);
+        legacy["data"].as_object_mut().unwrap().remove("dividends");
+        assert_eq!(validate(&legacy).unwrap()["compatibility"]["legacy_missing_dividends_are_empty"], true);
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": legacy})).unwrap();
+        assert_eq!(crate::portfolio::view(&target).unwrap()["totals"]["dividends"], json!(0.0));
+
+        // 金额非正 / 日期无效 / 重复 id:整份拒收
+        let mut bad = backup.clone();
+        bad["data"]["dividends"][0]["amount"] = json!(-1.0);
+        assert!(validate(&bad).unwrap_err().to_string().contains("大于 0"));
+        let mut date = backup.clone();
+        date["data"]["dividends"][0]["date"] = json!("2026-13-40");
+        assert!(validate(&date).unwrap_err().to_string().contains("日期无效"));
+        let mut dup = backup;
+        dup["data"]["dividends"][1]["id"] = dup["data"]["dividends"][0]["id"].clone();
         assert!(validate(&dup).unwrap_err().to_string().contains("重复 ID"));
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(target);

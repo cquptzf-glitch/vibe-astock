@@ -1451,3 +1451,12 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - 紧凑:`compact.css` 在紧凑密度下用 `html[data-mobile-density="compact"] body .mobile-app …` 的高优先级选择器收紧;「舒适」不动。标题块只留 h1(`h1 + p` 与 h1 前的小标题隐藏)。新增页面如果有自己的标题块/卡片,默认会被这些通用规则收紧,有特殊需要再单独覆盖。
 - 控件:`controls.tsx` 提供 `WebSelect`(`<option>` 子元素语法,onChange 给 `{target:{value}}`,原来写给原生 select 的处理函数直接可用)、`DateField`(自绘月历,周一开头,`min`/`max`/今天)、`Sheet`、`DialogHost` + `askConfirm`/`showAlert`(没挂 DialogHost 时退回 window.confirm/alert);复选框用 CSS 画。**新代码不要再直接用 `<select>`、`<input type="date">`、`window.confirm/alert`**。系统文件选择器(`type="file"`、插件的文件对话框)无法替代。
 - 测试:`mobile_controls.test.ts`(月历格、下拉/日期 SSR),`mobile_presentation.test.ts` 改成检查六项底部菜单;冒烟脚本改为点底部「设置」、操作自绘下拉与日期,并在比较舒适/紧凑高度前等数据加载完(之前的断言有时序偶发)。
+
+### 我的股票:自选增强、已实现与分红、表格导入(0.1.24)
+
+- **自选**(`storage.rs`、`monitor.rs`、`WatchlistPanel.tsx`、`watchlistView.ts`):`/mobile/monitor` 的自选行新增 `pe_ttm`/`pb`/`turnover_pct`(腾讯批量行情第 39/46/38 列,兜底路径读 evidence 同名字段)、`group`、`tags`;新路由 `POST /mobile/watchlist/meta`(分组 ≤ 12 字、标签 ≤ 5 个且每个 ≤ 8 字,超长/带逗号/控制字符拒收)与 `POST /mobile/watchlist/order`(必须给全部代码、不重复、不多不少);`list` 按 `sort_order IS NULL, sort_order, created_at` 排,新加的排末尾。负市盈率/市净率前端显示「亏损」「净资产为负」,排序时当缺值。选了分组后上移下移只在该分组内换位(`moveVisible`)。
+- **已实现与分红**(`portfolio.rs`、`PortfolioIncome.tsx`):`GET /mobile/portfolio/summary`、`POST /mobile/portfolio/dividend`。已实现 = 手机端「交易统计」口径(清仓后才计、净额、没填费用按设置费率估);分红 `mobile_dividends` 手填、日期不能是未来、金额 > 0、同代码同日同金额不重复、上限 5000 条;成本法只有移动加权平均。
+- **表格导入**(`trade_import.rs`、`TradeImport.tsx`,`POST /mobile/journal/import/preview` 与 `/mobile/journal/import`):列名别名与 desktop `tradeCsv.ts` 一致;1–5 位纯数字代码、负数数量、未来日期等拒收;按代码、日期重放切轮(同日先买后卖);卖出超过此前买入的行写问题;与已记成交/分红完全相同的行标已记过;期初持仓与送转行不支持。导入前后各重算一遍计划,在一个事务里写(`journal::insert_record_tx` 是从手动记一笔里抽出来共用的)。前端 `decodeFile` 先 UTF-8 严格解码、失败再 GBK。
+- **schema v8**:`migrate_7_to_8` 给 watchlist 补 `grp`/`tags`/`sort_order`(先查 `pragma_table_info`,幂等)并建 `mobile_dividends`;`migrate_6_to_7` 的表清单校验改为「当前清单去掉 v8 新表」。备份 v8:`watchlist` 行加 `group`/`tags`/`sort_order`(`#[serde(default)]`),新增 `dividends`;兼容标志 `legacy_missing_watchlist_groups_are_empty`、`legacy_missing_dividends_are_empty`(schema_version ≤ 7)。
+- **CI 冒烟失败的定位办法**(0.1.24 第一次推送失败时用的):冒烟脚本 `catch` 里输出 `::error title=Mobile UI smoke failed::...`,GitHub 把它变成 check-run annotation,`GET /repos/<owner>/<repo>/check-runs/<job id>/annotations` 匿名可读(Actions 日志和 artifact 下载需要登录)。原因:选完下拉选项后立刻点同一个触发器,面板遮罩还没卸载。
+- 验证(本机):Rust 191 项 + 1 项 parity 通过;前端 501 项中 500 项通过(agent_error 缺 ajv);Edge 与 Playwright Chromium 冒烟各跑过,144 张截图;已人工查看 360 白色自选、360 深色持仓已实现与分红、360 白色表格导入。

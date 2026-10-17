@@ -1,0 +1,73 @@
+{
+  "totals": {
+    "realized_pnl": 1560.5,
+    "dividends": 388.5,
+    "combined": 1949.0,
+    "closed_trades": 5,
+    "wins": 3,
+    "losses": 2,
+    "open_symbols": 2,
+    "closed_symbols": 2
+  },
+  "holdings": [
+    {
+      "symbol": "600519",
+      "name": "样本白酒",
+      "open_shares": 100.0,
+      "avg_cost": 1450.0,
+      "open_cost": 145000.0,
+      "realized_pnl": 2100.0,
+      "closed_trades": 2,
+      "dividends": 300.5
+    },
+    {
+      "symbol": "300308",
+      "name": "样本光模块",
+      "open_shares": 200.0,
+      "avg_cost": 52.5,
+      "open_cost": 10500.0,
+      "realized_pnl": 0.0,
+      "closed_trades": 0,
+      "dividends": 0.0
+    }
+  ],
+  "closed": [
+    {
+      "symbol": "000001",
+      "name": "样本银行",
+      "realized_pnl": -539.5,
+      "closed_trades": 3,
+      "dividends": 88.0,
+      "last_date": "2026-07-01"
+    },
+    {
+      "symbol": "000002",
+      "name": "",
+      "realized_pnl": 0.0,
+      "closed_trades": 0,
+      "dividends": 0.0,
+      "last_date": "2026-06-02"
+    }
+  ],
+  "dividends": [
+    {
+      "id": 2,
+      "symbol": "000001",
+      "name": "样本银行",
+      "date": "2026-07-01",
+      "amount": 88.0,
+      "note": ""
+    },
+    {
+      "id": 1,
+      "symbol": "600519",
+      "name": "样本白酒",
+      "date": "2026-06-01",
+      "amount": 300.5,
+      "note": "年度分红"
+    }
+  ],
+  "method": "移动加权平均",
+  "fees_default": true,
+  "note": "已实现盈亏只计清仓的交易(净额,扣买卖费用,没填费用的按设置里的费率估);现金分红单独记为收入,不改持仓成本、不并进已实现盈亏。分红是手填的,不会自动抓取。个人持仓、盈亏与分红只在本机,不进任何 AI。"
+}

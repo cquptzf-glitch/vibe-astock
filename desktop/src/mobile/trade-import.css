@@ -1,0 +1,20 @@
+.trade-import { margin: 6px 0; border: 1px solid var(--mobile-border); border-radius: 10px; background: var(--mobile-card); }
+.mobile-app .ti-toggle { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; padding: 0 10px; border: 0; background: transparent; color: var(--mobile-text); font-size: 13px; text-align: left; }
+.ti-body { display: grid; gap: 6px; padding: 0 10px 10px; min-width: 0; }
+.ti-note { margin: 0; color: var(--mobile-muted); font-size: 10.5px; line-height: 1.45; }
+.mobile-app .ti-body textarea { width: 100%; min-height: 80px; padding: 6px 8px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); color: var(--mobile-text); font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+.ti-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.mobile-app .ti-actions button, .mobile-app .ti-done button { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); font-size: 12px; }
+.mobile-app .ti-actions button.primary { border-color: transparent; background: var(--mobile-primary-fill); color: var(--mobile-on-accent); }
+.mobile-app .ti-actions button:disabled, .mobile-app .ti-done button:disabled { opacity: .5; }
+.ti-preview { display: grid; gap: 6px; }
+.ti-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.ti-stats > div { display: grid; padding: 4px 6px; border-radius: 7px; background: var(--mobile-soft); }
+.ti-stats span { font-size: 10px; color: var(--mobile-muted); }
+.ti-stats strong { font-size: 14px; }
+.ti-stats small { font-size: 9.5px; color: var(--mobile-muted); }
+.ti-stats .down { color: var(--mobile-up); }
+.ti-preview td small { display: block; color: var(--mobile-warning); font-size: 10px; overflow-wrap: anywhere; }
+.ti-preview tr.ti-duplicate td { color: var(--mobile-muted); }
+.ti-preview tr.ti-problem td:last-child { color: var(--mobile-warning); }
+.ti-done { display: grid; gap: 6px; padding: 7px 9px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); font-size: 12px; }

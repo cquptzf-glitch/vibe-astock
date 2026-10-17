@@ -17,6 +17,10 @@ struct QuoteRow {
     limit_up: Option<f64>,
     limit_down: Option<f64>,
     quote_date: Option<String>,
+    /// 市盈率(TTM,倍)、市净率(倍)、换手率(%);亏损股的市盈率/市净率腾讯给负数,这里原样保留,前端显示「亏损」
+    pe_ttm: Option<f64>,
+    pb: Option<f64>,
+    turnover_pct: Option<f64>,
 }
 
 pub async fn snapshot(client: &Client, db_path: &std::path::Path) -> Result<Value> {
@@ -178,6 +182,9 @@ async fn fetch_batch(
                 limit_up,
                 limit_down,
                 quote_date,
+                pe_ttm: number(fields.get(39)),
+                pb: number(fields.get(46)),
+                turnover_pct: number(fields.get(38)),
             },
         );
     }
@@ -232,6 +239,9 @@ fn quote_from_envelope(value: &Value) -> Option<QuoteRow> {
         limit_up: number_for("limit_up"),
         limit_down: number_for("limit_down"),
         quote_date,
+        pe_ttm: number_for("pe_ttm"),
+        pb: number_for("pb"),
+        turnover_pct: number_for("turnover_pct"),
     })
 }
 
@@ -246,6 +256,11 @@ fn render_watch_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> Val
         "amount_yuan": quote.and_then(|q| q.amount_yuan),
         "limit_up": quote.and_then(|q| q.limit_up),
         "limit_down": quote.and_then(|q| q.limit_down),
+        "pe_ttm": quote.and_then(|q| q.pe_ttm),
+        "pb": quote.and_then(|q| q.pb),
+        "turnover_pct": quote.and_then(|q| q.turnover_pct),
+        "group": item.get("group").cloned().unwrap_or(json!("")),
+        "tags": item.get("tags").cloned().unwrap_or(json!([])),
         "quote_date": quote.and_then(|q| q.quote_date.as_deref()),
         "is_today": quote.and_then(|q| q.quote_date.as_deref()).is_some_and(|date| date == today),
         "available": quote.is_some_and(|q| q.price.is_some()),
@@ -359,10 +374,28 @@ mod tests {
             limit_up: Some(1600.0),
             limit_down: Some(1400.0),
             quote_date: Some("2026-10-16".into()),
+            pe_ttm: None,
+            pb: None,
+            turnover_pct: None,
         };
         let value = render_position_item(&item, Some(&quote), "2026-10-16");
         assert_eq!(value["risk_state"], "stop_reached");
         assert_eq!(value["unrealized_pnl"], -11_000.0);
         assert_eq!(value["market_value"], 149_000.0);
+    }
+
+    #[test]
+    fn watch_rows_carry_valuation_turnover_group_and_tags_without_inventing_values() {
+        let item = json!({"symbol": "600519", "name": "贵州茅台", "group": "白酒", "tags": ["核心"]});
+        let quote = QuoteRow {
+            name: "贵州茅台".into(), price: Some(1329.0), change_pct: Some(1.22), amount_yuan: None, limit_up: None, limit_down: None,
+            quote_date: Some("2026-10-16".into()), pe_ttm: Some(20.4), pb: Some(6.61), turnover_pct: Some(0.31),
+        };
+        let row = render_watch_item(&item, Some(&quote), "2026-10-16");
+        assert_eq!((row["pe_ttm"].clone(), row["pb"].clone(), row["turnover_pct"].clone()), (json!(20.4), json!(6.61), json!(0.31)));
+        assert_eq!((row["group"].clone(), row["tags"].clone()), (json!("白酒"), json!(["核心"])));
+        let none = render_watch_item(&json!({"symbol": "000001"}), None, "2026-10-16");
+        assert!(none["pe_ttm"].is_null() && none["turnover_pct"].is_null(), "没行情不补 0");
+        assert_eq!((none["group"].clone(), none["tags"].clone()), (json!(""), json!([])));
     }
 }

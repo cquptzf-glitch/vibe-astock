@@ -5,7 +5,7 @@ import { usePresentation } from "./presentation";
 import { useForegroundRefresh } from "./useForegroundRefresh";
 import { SectionLink } from "./MobileHeader";
 
-export interface WatchQuote { symbol: string; name: string; price: number | null; change_pct: number | null; amount_yuan: number | null; quote_date: string | null; available: boolean; is_today: boolean }
+export interface WatchQuote { symbol: string; name: string; price: number | null; change_pct: number | null; amount_yuan: number | null; quote_date: string | null; available: boolean; is_today: boolean; pe_ttm?: number | null; pb?: number | null; turnover_pct?: number | null; group?: string; tags?: string[] }
 export function WatchQuoteRows({ items, onOpenSymbol }: { items: WatchQuote[]; onOpenSymbol: (symbol: string) => void }) {
   return <div className="watch-quote-table">
     <div className="watch-quote-columns" aria-hidden="true"><span>名称 / 代码</span><span>最新价</span><span>涨跌幅</span></div>

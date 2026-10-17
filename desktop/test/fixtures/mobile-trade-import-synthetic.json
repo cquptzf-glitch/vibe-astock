@@ -1,0 +1,109 @@
+{
+  "summary": {
+    "rows": 6,
+    "importable": 3,
+    "duplicates": 1,
+    "problems": 2,
+    "episodes": 2,
+    "closed_episodes": 1,
+    "open_episodes": 1,
+    "dividends": 1
+  },
+  "rows": [
+    {
+      "line": 2,
+      "date": "2026-03-05",
+      "type": "买入",
+      "symbol": "600519",
+      "name": "样本白酒",
+      "shares": 100,
+      "price": 1450,
+      "fee": 5,
+      "amount": null,
+      "status": "ok",
+      "why": null
+    },
+    {
+      "line": 3,
+      "date": "2026-03-20",
+      "type": "卖出",
+      "symbol": "600519",
+      "name": "样本白酒",
+      "shares": 100,
+      "price": 1500,
+      "fee": 12.5,
+      "amount": null,
+      "status": "ok",
+      "why": null
+    },
+    {
+      "line": 4,
+      "date": "2026-04-01",
+      "type": "买入",
+      "symbol": "000001",
+      "name": "样本银行",
+      "shares": 1000,
+      "price": 10,
+      "fee": null,
+      "amount": null,
+      "status": "duplicate",
+      "why": "已记过(同代码、同日、同方向、同价同量),不重复导入"
+    },
+    {
+      "line": 5,
+      "date": "2026-06-01",
+      "type": "现金分红",
+      "symbol": "600519",
+      "name": "样本白酒",
+      "shares": null,
+      "price": null,
+      "fee": null,
+      "amount": 300,
+      "status": "ok",
+      "why": null
+    },
+    {
+      "line": 6,
+      "date": "2026-05-01",
+      "type": "卖出",
+      "symbol": "300308",
+      "name": "样本光模块",
+      "shares": 999,
+      "price": 60,
+      "fee": null,
+      "amount": null,
+      "status": "problem",
+      "why": "卖出 999 股超过此前买入的 0 股(只看这份表里同一只票之前的买入)"
+    },
+    {
+      "line": 7,
+      "date": "2026-05-02",
+      "type": "送转",
+      "symbol": "600519",
+      "name": "",
+      "shares": null,
+      "price": null,
+      "fee": null,
+      "amount": null,
+      "status": "problem",
+      "why": "手机端暂不支持「送转」这类行(期初持仓、送转拆股),请手动记一笔"
+    }
+  ],
+  "episodes": [
+    {
+      "symbol": "600519",
+      "name": "样本白酒",
+      "fills": 2,
+      "open_shares": 0,
+      "closed": true
+    },
+    {
+      "symbol": "300308",
+      "name": "样本光模块",
+      "fills": 1,
+      "open_shares": 200,
+      "closed": false
+    }
+  ],
+  "note": "按日期重放切成「一轮一轮」的交易:同一只票连续买入到卖光算一轮;同一天先算买入再算卖出;只看这份表,不接在手机里已记的交易后面。费用留空的按设置里的费率估。导入前会再检查一遍;导入后每一轮都能在交易日志里单独删除。"
+}

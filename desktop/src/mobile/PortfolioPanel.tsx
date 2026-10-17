@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { shareText } from "./nativeShare";
+import { PortfolioIncome } from "./PortfolioIncome";
 import "./portfolio.css";
 
 type RiskPosition = {
@@ -265,6 +266,8 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
           <p className="portfolio-note">最新价来自当前行情源；持仓数量与成本来自本地交易日志。浮盈亏仅作记录与复盘，不构成投资建议。</p>
         </>
       )}
+
+      <PortfolioIncome />
     </section>
   );
 }

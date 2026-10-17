@@ -32,6 +32,7 @@ mod journal_settings;
 mod market;
 mod market_panel;
 mod monitor;
+mod portfolio;
 mod prev_broken;
 mod quote;
 mod reminders;
@@ -46,6 +47,7 @@ mod storage;
 mod structure;
 mod symbol;
 mod theme_tree;
+mod trade_import;
 mod watch;
 
 pub use symbol::{natural_market, normalize_stock_symbol, Market, SymbolKey};
@@ -247,6 +249,27 @@ impl AppCore {
             ("POST", "/mobile/watchlist") => {
                 Ok(MobileApiResponse::ok(storage::upsert(&self.db_path, &request.body)?))
             }
+            ("GET", "/mobile/portfolio/summary") => Ok(MobileApiResponse::ok(portfolio::view(&self.db_path)?)),
+            ("POST", "/mobile/portfolio/dividend") => match portfolio::act(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "portfolio_dividend", error.to_string())),
+            },
+            ("POST", "/mobile/journal/import/preview") => match trade_import::preview(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "trade_import", error.to_string())),
+            },
+            ("POST", "/mobile/journal/import") => match trade_import::import(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "trade_import", error.to_string())),
+            },
+            ("POST", "/mobile/watchlist/meta") => match storage::set_meta(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "watchlist_meta", error.to_string())),
+            },
+            ("POST", "/mobile/watchlist/order") => match storage::set_order(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "watchlist_order", error.to_string())),
+            },
             ("DELETE", "/mobile/watchlist") => {
                 Ok(MobileApiResponse::ok(storage::delete(&self.db_path, &request.body)?))
             }

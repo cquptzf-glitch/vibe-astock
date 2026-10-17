@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 7;
+pub const CURRENT_SCHEMA_VERSION: i64 = 8;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -106,6 +106,7 @@ const REQUIRED_TABLES: &[&str] = &[
     "mobile_ths_reasons",
     "mobile_structure_days",
     "mobile_regime_events",
+    "mobile_dividends",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -129,6 +130,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
+            migrate_7_to_8(&conn)?;
         }
         1 => {
             migrate_1_to_2(&conn)?;
@@ -137,6 +139,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
+            migrate_7_to_8(&conn)?;
         }
         2 => {
             migrate_2_to_3(&conn)?;
@@ -144,23 +147,31 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
+            migrate_7_to_8(&conn)?;
         }
         3 => {
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
+            migrate_7_to_8(&conn)?;
         }
         4 => {
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
+            migrate_7_to_8(&conn)?;
         }
         5 => {
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
+            migrate_7_to_8(&conn)?;
         }
-        6 => migrate_6_to_7(&conn)?,
+        6 => {
+            migrate_6_to_7(&conn)?;
+            migrate_7_to_8(&conn)?;
+        }
+        7 => migrate_7_to_8(&conn)?,
         CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
         other => {
             return Err(anyhow!(
@@ -388,8 +399,42 @@ fn migrate_6_to_7(conn: &Connection) -> Result<()> {
             updated_at TEXT NOT NULL
         );",
     )?;
-    verify_tables(conn, REQUIRED_TABLES)?;
+    // v7 的表清单 = 当前清单去掉 v8 才加的表
+    let v7: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| *t != "mobile_dividends").collect();
+    verify_tables(conn, &v7)?;
     conn.pragma_update(None, "user_version", 7)?;
+    Ok(())
+}
+
+/// 自选的分组、标签与自定义顺序(用户自己写的,进备份 v8)。旧库的 watchlist 只有 symbol/name/时间,这里补三列。
+fn migrate_7_to_8(conn: &Connection) -> Result<()> {
+    let have: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('watchlist')")?
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    for (column, ddl) in [
+        ("grp", "ALTER TABLE watchlist ADD COLUMN grp TEXT NOT NULL DEFAULT ''"),
+        ("tags", "ALTER TABLE watchlist ADD COLUMN tags TEXT NOT NULL DEFAULT ''"),
+        ("sort_order", "ALTER TABLE watchlist ADD COLUMN sort_order INTEGER"),
+    ] {
+        if !have.iter().any(|name| name == column) {
+            conn.execute(ddl, [])?;
+        }
+    }
+    // 现金分红(用户手填,进备份 v8):代码、日期、到手金额;不改持仓成本
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mobile_dividends (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            date TEXT NOT NULL,
+            amount REAL NOT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );",
+    )?;
+    verify_tables(conn, REQUIRED_TABLES)?;
+    conn.pragma_update(None, "user_version", 8)?;
     Ok(())
 }
 
@@ -472,7 +517,7 @@ mod tests {
 
     #[test]
     fn upgrades_every_supported_schema_to_current() {
-        for version in [1_i64, 2, 3, 4, 5, 6] {
+        for version in [1_i64, 2, 3, 4, 5, 6, 7] {
             let path = temp_db(&format!("schema-{version}"));
             let conn = Connection::open(&path).unwrap();
             create_legacy_tables(&conn);
@@ -490,6 +535,9 @@ mod tests {
             }
             if version >= 6 {
                 migrate_5_to_6(&conn).unwrap();
+            }
+            if version >= 7 {
+                migrate_6_to_7(&conn).unwrap();
             }
             conn.pragma_update(None, "user_version", version).unwrap();
             drop(conn);

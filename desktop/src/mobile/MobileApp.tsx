@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, BookmarkPlus, ChevronRight, RefreshCw, Search, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, BookmarkPlus, ChevronRight, RefreshCw, Search, Star } from "lucide-react";
 
 import { AiWorkspace } from "./AiWorkspace";
 import { BacktestPanel } from "./BacktestPanel";
@@ -15,6 +15,7 @@ import { JournalReviewPanel } from "./JournalReviewPanel";
 import { LibraryPanel } from "./LibraryPanel";
 import { MarketOverview } from "./MarketOverview";
 import { HomeShortcuts } from "./MobileHeader";
+import { WatchlistBoard } from "./WatchlistPanel";
 import { DialogHost } from "./controls";
 import { IntradayPanel } from "./IntradayPanel";
 import { MarketPanel } from "./MarketPanel";
@@ -283,18 +284,6 @@ export function MobileApp() {
     }
   }
 
-  async function removeWatch(symbol: string) {
-    try {
-      await api("/mobile/watchlist", {
-        method: "DELETE",
-        body: JSON.stringify({ symbol }),
-      });
-      await loadWatchlist();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
   function openFromList(symbol: string) {
     openSymbol(symbol);
   }
@@ -374,24 +363,7 @@ export function MobileApp() {
       <div><h1>我的自选</h1><p>自选保存在手机本地；点星标加入，在这里查看报价与管理。</p></div>
       <span>{watchlist.length} 只</span>
     </div>
-    <WatchQuotesPanel watchlist={watchlist} onOpenSymbol={openFromList} />
-    {watchlist.length === 0 ? (
-      <div className="mobile-empty">查询股票后点右上角星标，即可加入自选。</div>
-    ) : (
-      <details className="watch-manage"><summary>管理自选 · 删除或打开股票</summary><div className="mobile-watch-list">
-        {watchlist.map((item) => (
-          <div className="mobile-watch-row" key={item.symbol}>
-            <button className="mobile-watch-open" onClick={() => openFromList(item.symbol)}>
-              <div><strong>{item.name || item.symbol}</strong><span>{item.symbol}</span></div>
-              <ChevronRight size={18} />
-            </button>
-            <button className="mobile-delete" onClick={() => void removeWatch(item.symbol)} aria-label={`删除 ${item.symbol}`}>
-              <Trash2 size={17} />
-            </button>
-          </div>
-        ))}
-      </div></details>
-    )}
+    <WatchlistBoard onOpenSymbol={openFromList} onChanged={() => void loadWatchlist()} />
   </section>;
 
   function renderPage(): ReactNode {

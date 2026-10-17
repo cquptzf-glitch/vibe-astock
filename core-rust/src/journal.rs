@@ -172,7 +172,8 @@ pub fn act(db_path: &Path, body: &Value) -> Result<Value> {
     }
 }
 
-fn create_record(db_path: &Path, body: &Value) -> Result<Value> {
+/// 在已开的事务里写一条「记录 + 成交明细」,返回记录 id。手动记一笔和表格导入共用这一份检查与写入。
+pub(crate) fn insert_record_tx(tx: &Transaction<'_>, body: &Value) -> Result<i64> {
     let symbol = symbol(body)?;
     let fills = body
         .get("fills")
@@ -195,11 +196,8 @@ fn create_record(db_path: &Path, body: &Value) -> Result<Value> {
         .min()
         .unwrap_or("")
         .to_string();
-    let mut conn = open(db_path)?;
-    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
-    let tx = conn.transaction()?;
     let now = Utc::now().to_rfc3339();
-    let id = insert_entry(&tx, "episode", &symbol, body, &date, None, &now)?;
+    let id = insert_entry(tx, "episode", &symbol, body, &date, None, &now)?;
 
     for fill in parsed {
         tx.execute(
@@ -208,6 +206,14 @@ fn create_record(db_path: &Path, body: &Value) -> Result<Value> {
             params![id, fill.side, fill.date, fill.price, fill.shares, fill.fee, fill.sort_order],
         )?;
     }
+    Ok(id)
+}
+
+fn create_record(db_path: &Path, body: &Value) -> Result<Value> {
+    let mut conn = open(db_path)?;
+    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+    let tx = conn.transaction()?;
+    let id = insert_record_tx(&tx, body)?;
     tx.commit()?;
     Ok(json!({ "result": { "id": id }, "view": view(db_path)? }))
 }

@@ -105,3 +105,19 @@ html[data-mobile-density="compact"] body .mobile-app .settings-cards > div { pad
 html[data-mobile-density="compact"] body .mobile-app .settings-cards strong { font-size: 15px; }
 html[data-mobile-density="compact"] body .mobile-app .settings-list > div { padding: 6px 10px; font-size: 13px; }
 html[data-mobile-density="compact"] body .mobile-app .settings-block p { font-size: 11.5px; line-height: 1.45; }
+/* 持仓页标题块 */
+html[data-mobile-density="compact"] body .mobile-app .portfolio-panel { padding-top: 6px; }
+html[data-mobile-density="compact"] body .mobile-app :is(.portfolio-title-row, .journal-title-row) h2 { margin: 0; font-size: 16px; }
+html[data-mobile-density="compact"] body .mobile-app :is(.portfolio-title-row, .journal-title-row) p { display: none; }
+html[data-mobile-density="compact"] body .mobile-app :is(.portfolio-title-row, .journal-title-row) > div > span { display: none; }
+html[data-mobile-density="compact"] body .mobile-app .portfolio-title-actions button { min-width: 34px; min-height: 34px; }
+/* 交易日志页 */
+html[data-mobile-density="compact"] body .mobile-app .journal-v2 { gap: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .journal-v2-title { align-items: center; gap: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .journal-v2-title > div > span, html[data-mobile-density="compact"] body .mobile-app .journal-v2-title p { display: none; }
+html[data-mobile-density="compact"] body .mobile-app .journal-v2-title > button { width: 32px; height: 32px; min-height: 0; }
+html[data-mobile-density="compact"] body .mobile-app .journal-v2-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+html[data-mobile-density="compact"] body .mobile-app .journal-v2-summary > div { padding: 4px 6px; border-radius: 8px; }
+html[data-mobile-density="compact"] body .mobile-app .journal-v2-summary strong { margin-top: 0; font-size: 14px; }
+html[data-mobile-density="compact"] body .mobile-app .journal-v2-money { padding: 5px 9px; border-radius: 8px; }
+html[data-mobile-density="compact"] body .mobile-app .journal-v2-create-toggle { min-height: 34px; }

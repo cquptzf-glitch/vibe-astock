@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { WebSelect, DateField } from "./controls";
+import { TradeImportCard } from "./TradeImport";
 import {
   ChevronDown,
   ChevronUp,
@@ -334,6 +335,8 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
         <strong className={(data?.summary.net_pnl ?? 0) >= 0 ? "up" : "down"}>{money(data?.summary.net_pnl ?? null)} 元</strong>
         <small>未平仓 {openCount} 笔</small>
       </div>
+
+      <TradeImportCard onImported={() => void load()} />
 
       <button className="journal-v2-create-toggle" onClick={() => setShowCreate((value) => !value)}>
         <Plus size={16} /> 记一笔 {showCreate ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
