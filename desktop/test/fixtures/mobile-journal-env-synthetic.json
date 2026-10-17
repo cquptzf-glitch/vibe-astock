@@ -1,0 +1,267 @@
+{
+  "available": true,
+  "by_board": [
+    {
+      "avg": 3.17,
+      "best": 4.0,
+      "count": 3,
+      "key": "首板",
+      "money_scored": 3,
+      "net_pnl": 95.0,
+      "scored": 3,
+      "win_rate": 1.0,
+      "worst": 2.5
+    },
+    {
+      "avg": 5.75,
+      "best": 6.0,
+      "count": 2,
+      "key": "2板",
+      "money_scored": 2,
+      "net_pnl": 115.0,
+      "scored": 2,
+      "win_rate": 1.0,
+      "worst": 5.5
+    },
+    {
+      "avg": 8.0,
+      "best": 8.0,
+      "count": 1,
+      "key": "3板及以上",
+      "money_scored": 1,
+      "net_pnl": 80.0,
+      "scored": 1,
+      "win_rate": 1.0,
+      "worst": 8.0
+    },
+    {
+      "avg": -4.67,
+      "best": -3.0,
+      "count": 3,
+      "key": "炸板",
+      "money_scored": 3,
+      "net_pnl": -140.0,
+      "scored": 3,
+      "win_rate": 0.0,
+      "worst": -6.0
+    },
+    {
+      "avg": 0.17,
+      "best": 1.0,
+      "count": 3,
+      "key": "没碰涨停",
+      "money_scored": 3,
+      "net_pnl": 5.0,
+      "scored": 3,
+      "win_rate": 0.667,
+      "worst": -1.0
+    }
+  ],
+  "by_regime": [
+    {
+      "avg": 0.5,
+      "best": 5.5,
+      "count": 4,
+      "key": "情绪强",
+      "money_scored": 4,
+      "net_pnl": 20.0,
+      "scored": 4,
+      "win_rate": 0.5,
+      "worst": -5.0
+    },
+    {
+      "avg": 5.0,
+      "best": 8.0,
+      "count": 3,
+      "key": "情绪中",
+      "money_scored": 3,
+      "net_pnl": 150.0,
+      "scored": 3,
+      "win_rate": 1.0,
+      "worst": 1.0
+    },
+    {
+      "avg": -0.3,
+      "best": 4.0,
+      "count": 5,
+      "key": "情绪弱",
+      "money_scored": 5,
+      "net_pnl": -15.0,
+      "scored": 5,
+      "win_rate": 0.6,
+      "worst": -6.0
+    }
+  ],
+  "days": 12,
+  "gaps": [
+    "1 笔的入场日还没收盘,不分组"
+  ],
+  "generated_at": "2026-10-17T02:00:00Z",
+  "note": "按入场那天的市场环境分组。情绪强中弱是你交易过的这些日子之间相对比较(情绪分 = 涨停家数 × (1 + 最高连板) × (1 − 炸板率),同涨停样本统计);当时板位看入场那天收盘时这只票在不在涨停池、炸板池里。这是你自己的行为统计,不是对市场的预测。",
+  "regime_cuts": {
+    "high": 223.9,
+    "low": 163.2
+  },
+  "rows": [
+    {
+      "board": null,
+      "boards": null,
+      "broken_times": null,
+      "date": "2026-10-17",
+      "first_seal": null,
+      "industry": null,
+      "key": "mobile:13",
+      "money_effect": null,
+      "regime": null,
+      "score": null
+    },
+    {
+      "board": "没碰涨停",
+      "boards": null,
+      "broken_times": null,
+      "date": "2026-10-15",
+      "first_seal": null,
+      "industry": null,
+      "key": "mobile:12",
+      "money_effect": 1.5,
+      "regime": "情绪弱",
+      "score": 151.0
+    },
+    {
+      "board": "炸板",
+      "boards": null,
+      "broken_times": 2,
+      "date": "2026-10-14",
+      "first_seal": null,
+      "industry": "机器人",
+      "key": "mobile:11",
+      "money_effect": 1.5,
+      "regime": "情绪弱",
+      "score": 106.5
+    },
+    {
+      "board": "2板",
+      "boards": 2,
+      "broken_times": 1,
+      "date": "2026-10-13",
+      "first_seal": "09:30",
+      "industry": "半导体",
+      "key": "mobile:10",
+      "money_effect": 1.5,
+      "regime": "情绪强",
+      "score": 223.9
+    },
+    {
+      "board": "首板",
+      "boards": 1,
+      "broken_times": 1,
+      "date": "2026-10-12",
+      "first_seal": "09:30",
+      "industry": "半导体",
+      "key": "mobile:9",
+      "money_effect": 1.5,
+      "regime": "情绪弱",
+      "score": 163.2
+    },
+    {
+      "board": "没碰涨停",
+      "boards": null,
+      "broken_times": null,
+      "date": "2026-10-09",
+      "first_seal": null,
+      "industry": null,
+      "key": "mobile:8",
+      "money_effect": 1.5,
+      "regime": "情绪强",
+      "score": 297.6
+    },
+    {
+      "board": "炸板",
+      "boards": null,
+      "broken_times": 2,
+      "date": "2026-09-29",
+      "first_seal": null,
+      "industry": "机器人",
+      "key": "mobile:7",
+      "money_effect": 1.5,
+      "regime": "情绪强",
+      "score": 238.6
+    },
+    {
+      "board": "3板及以上",
+      "boards": 4,
+      "broken_times": 1,
+      "date": "2026-09-28",
+      "first_seal": "09:30",
+      "industry": "算力",
+      "key": "mobile:6",
+      "money_effect": 1.5,
+      "regime": "情绪中",
+      "score": 175.5
+    },
+    {
+      "board": "首板",
+      "boards": 1,
+      "broken_times": 1,
+      "date": "2026-09-25",
+      "first_seal": "09:30",
+      "industry": "半导体",
+      "key": "mobile:5",
+      "money_effect": 1.5,
+      "regime": "情绪强",
+      "score": 392.7
+    },
+    {
+      "board": "2板",
+      "boards": 2,
+      "broken_times": 1,
+      "date": "2026-09-24",
+      "first_seal": "09:30",
+      "industry": "半导体",
+      "key": "mobile:4",
+      "money_effect": 1.5,
+      "regime": "情绪中",
+      "score": 218.9
+    },
+    {
+      "board": "没碰涨停",
+      "boards": null,
+      "broken_times": null,
+      "date": "2026-09-23",
+      "first_seal": null,
+      "industry": null,
+      "key": "mobile:3",
+      "money_effect": 1.5,
+      "regime": "情绪中",
+      "score": 170.4
+    },
+    {
+      "board": "炸板",
+      "boards": null,
+      "broken_times": 2,
+      "date": "2026-09-22",
+      "first_seal": null,
+      "industry": "机器人",
+      "key": "mobile:2",
+      "money_effect": 1.5,
+      "regime": "情绪弱",
+      "score": 121.7
+    },
+    {
+      "board": "首板",
+      "boards": 1,
+      "broken_times": 1,
+      "date": "2026-09-21",
+      "first_seal": "09:30",
+      "industry": "半导体",
+      "key": "mobile:1",
+      "money_effect": 1.5,
+      "regime": "情绪弱",
+      "score": 76.5
+    }
+  ],
+  "scanned": 13,
+  "scored_days": 12,
+  "source": "东财涨停池 / 炸板池 + 情绪历史读数(已收盘的日子存本机);东财只留约一个月,更早的日子只读本机缓存",
+  "unsettled_trades": 1
+}

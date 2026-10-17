@@ -19,6 +19,7 @@ mod industry_signals;
 mod intraday;
 mod news;
 mod journal;
+mod journal_env;
 mod journal_excursion;
 mod journal_inbox;
 mod journal_modes;
@@ -266,6 +267,7 @@ impl AppCore {
                 Err(error) => Ok(MobileApiResponse::error(400, "journal_modes", error.to_string())),
             },
             ("GET", "/mobile/journal/excursion") => Ok(discovery_response(journal_excursion::view(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/journal/environment") => Ok(discovery_response(journal_env::view(&self.client, &self.db_path).await)),
             ("GET", "/mobile/journal/inbox") => match journal_inbox::view(&self.db_path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(500, "journal_inbox", error.to_string())),
