@@ -84,38 +84,6 @@ function volumeText(value: number): string {
   return value.toLocaleString("zh-CN");
 }
 
-function CandleChart({ bars }: { bars: Bar[] }) {
-  const visible = bars.slice(-30);
-  if (visible.length < 2) return <div className="stock-detail-empty">K 线不足，暂时无法绘制蜡烛图</div>;
-  const max = Math.max(...visible.map((bar) => bar.high));
-  const min = Math.min(...visible.map((bar) => bar.low));
-  const span = max - min || 1;
-  const width = 300;
-  const height = 124;
-  const step = width / visible.length;
-  const bodyWidth = Math.max(2.8, step * 0.58);
-  const y = (value: number) => 7 + ((max - value) / span) * (height - 14);
-
-  return (
-    <svg className="stock-candles" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="近 30 日蜡烛图">
-      {visible.map((bar, index) => {
-        const x = index * step + step / 2;
-        const openY = y(bar.open);
-        const closeY = y(bar.close);
-        const highY = y(bar.high);
-        const lowY = y(bar.low);
-        const rising = bar.close >= bar.open;
-        return (
-          <g key={`${bar.date}-${index}`} className={rising ? "candle-up" : "candle-down"}>
-            <line x1={x} x2={x} y1={highY} y2={lowY} />
-            <rect x={x - bodyWidth / 2} y={Math.min(openY, closeY)} width={bodyWidth} height={Math.max(1.6, Math.abs(closeY - openY))} rx="0.5" />
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
 export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unknown[][] }) {
   const bars = useMemo(() => parseBars(rows), [rows]);
   const latest = bars.length ? bars[bars.length - 1]! : null;
@@ -203,8 +171,6 @@ export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unkn
           </span>
         </div>
       </div>
-
-      <CandleChart bars={bars} />
 
       <div className="stock-detail-returns">
         <div><span>近 5 日</span><strong className={(stats.return5 ?? 0) >= 0 ? "up" : "down"}>{signedPct(stats.return5)}</strong></div>

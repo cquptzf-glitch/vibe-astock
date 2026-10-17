@@ -8,6 +8,7 @@ mod backup;
 mod backtest;
 mod boards;
 mod calendar;
+mod chart;
 mod daily_review;
 mod data_summary;
 mod documents;
@@ -312,6 +313,9 @@ impl AppCore {
                 shortline::limit_up_pool(&self.client, &request.path).await?,
             )),
             ("GET", "/mobile/stock/fund-flow") => Ok(discovery_response(stock_context::fund_flow(&self.client, &request.path).await)),
+            ("GET", "/mobile/stock/kline") => Ok(discovery_response(chart::kline(&self.client, &request.path).await)),
+            ("GET", "/mobile/stock/intraday") => Ok(discovery_response(chart::intraday(&self.client, &request.path).await)),
+            ("GET", "/mobile/stock/snapshot") => Ok(discovery_response(chart::snapshot(&self.client, &request.path).await)),
             ("GET", "/mobile/stock/boards") => Ok(discovery_response(stock_context::stock_boards(&self.client, &request.path).await)),
             ("GET", "/mobile/stock/observations") => Ok(discovery_response(observations::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/shortline/risk") => Ok(discovery_response(anomalies::fetch(&self.client, &request.path).await)),
@@ -411,6 +415,11 @@ mod discovery_contract_tests {
             "/mobile/shortline/emotion?date=../../x",
             "/mobile/shortline/cycle?days=99",
             "/mobile/shortline/history?days=4",
+            "/mobile/stock/kline?symbol=600519&period=m1",
+            "/mobile/stock/kline?symbol=600519&adjust=hfq",
+            "/mobile/stock/kline?symbol=bad",
+            "/mobile/stock/intraday?symbol=600519&days=3",
+            "/mobile/stock/snapshot?symbol=../x",
             "/mobile/shortline/history?refresh=yes",
             "/mobile/shortline/weekly?date=20261340",
             "/mobile/shortline/verify?refresh=2",

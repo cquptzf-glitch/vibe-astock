@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, BookmarkPlus, ChevronRight, Database, RefreshCw, Search, Star, Trash2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ArrowLeft, BookmarkPlus, ChevronRight, RefreshCw, Search, Star, Trash2 } from "lucide-react";
 
 import { AiWorkspace } from "./AiWorkspace";
 import { BacktestPanel } from "./BacktestPanel";
@@ -28,6 +28,8 @@ import { usePresentation } from "./presentation";
 import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
 import { StockDetailPanel } from "./StockDetailPanel";
+import { StockChart } from "./KlineChart";
+import { QuoteBoard } from "./QuoteBoard";
 import { StockInsightsPanel } from "./StockInsightsPanel";
 import { useMobileNavigation } from "./useMobileNavigation";
 import type { MobilePage } from "./mobileRoutes";
@@ -102,62 +104,11 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-function evidenceNumber(env: Envelope | null, field: string): number | null {
-  const value = env?.evidence.find((item) => item.field === field)?.value;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function formatNumber(value: number | null, digits = 2): string {
-  return value === null
-    ? "—"
-    : value.toLocaleString("zh-CN", {
-        maximumFractionDigits: digits,
-        minimumFractionDigits: digits,
-      });
-}
-
-function formatMarketCap(value: number | null, source: string | null): string {
-  if (value === null) return "—";
-  const yi = source === "eastmoney" ? value / 100_000_000 : value;
-  return `${yi.toLocaleString("zh-CN", { maximumFractionDigits: 2 })} 亿`;
-}
-
 function isDirectSymbol(value: string): boolean {
   const normalized = value.trim().toUpperCase().replace(/\s+/g, "");
   return /^\d{6}$/.test(normalized)
     || /^(SH|SZ|BJ)\d{6}$/.test(normalized)
     || /^\d{6}\.(SH|SZ|BJ)$/.test(normalized);
-}
-
-function Sparkline({ rows }: { rows: unknown[][] }) {
-  const points = useMemo(() => {
-    const closes = rows.slice(-60)
-      .map((row) => Number(row[2]))
-      .filter((value) => Number.isFinite(value));
-    if (closes.length < 2) return "";
-    const min = Math.min(...closes);
-    const max = Math.max(...closes);
-    const span = max - min || 1;
-    return closes
-      .map((value, index) => {
-        const x = (index / (closes.length - 1)) * 100;
-        const y = 34 - ((value - min) / span) * 30;
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      })
-      .join(" ");
-  }, [rows]);
-
-  if (!points) return <div className="mobile-empty-chart">K 线数据不足</div>;
-  return (
-    <svg className="mobile-sparkline" viewBox="0 0 100 38" preserveAspectRatio="none" aria-label="近 60 日走势">
-      <polyline points={points} fill="none" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
 }
 
 export function MobileApp() {
@@ -180,12 +131,6 @@ export function MobileApp() {
   const [health, setHealth] = useState<{ ok: boolean; version: string } | null>(null);
 
   const currentName = String(quote?.extra?.name ?? "");
-  const price = evidenceNumber(quote, "price");
-  const changePct = evidenceNumber(quote, "change_pct");
-  const pe = evidenceNumber(quote, "pe_ttm");
-  const pb = evidenceNumber(quote, "pb");
-  const turnover = evidenceNumber(quote, "turnover_pct");
-  const marketCap = evidenceNumber(quote, "total_market_cap");
   const isWatched = Boolean(activeSymbol && watchlist.some((item) => item.symbol === activeSymbol));
   const appVersion = health?.version?.replace(/-mobile$/, "") ?? "…";
 
@@ -399,37 +344,15 @@ export function MobileApp() {
                 <strong>{currentName || activeSymbol}</strong>
                 <span>{quote.market} · {quote.symbol}</span>
               </div>
-              <div className="mobile-price-row">
-                <span className="mobile-price">{formatNumber(price)}</span>
-                <span className={changePct !== null && changePct < 0 ? "down" : "up"}>
-                  {changePct === null ? "—" : `${changePct >= 0 ? "+" : ""}${formatNumber(changePct)}%`}
-                </span>
-              </div>
             </div>
             <button className={`mobile-star ${isWatched ? "active" : ""}`} onClick={() => void toggleWatch()} aria-label="自选">
               {isWatched ? <Star size={22} fill="currentColor" /> : <BookmarkPlus size={22} />}
             </button>
           </div>
-
-          <div className="mobile-chart-wrap">
-            <div className="mobile-card-label">近 60 日 · 前复权</div>
-            <Sparkline rows={klineRows} />
-          </div>
-
-          <div className="mobile-metrics">
-            <div><span>PE(TTM)</span><strong>{formatNumber(pe)}</strong></div>
-            <div><span>PB</span><strong>{formatNumber(pb)}</strong></div>
-            <div><span>换手率</span><strong>{turnover === null ? "—" : `${formatNumber(turnover)}%`}</strong></div>
-            <div><span>总市值</span><strong>{formatMarketCap(marketCap, quote.primary_source)}</strong></div>
-          </div>
-
-          <div className="mobile-source-line">
-            <Database size={14} />
-            数据源：{quote.primary_source ?? "—"} · 状态：{quote.status}
-            {quote.extra?.quote_date ? ` · ${String(quote.extra.quote_date)}` : ""}
-          </div>
         </article>
 
+        <QuoteBoard key={"qb-" + activeSymbol} symbol={activeSymbol} />
+        <StockChart key={"kc-" + activeSymbol} symbol={activeSymbol} />
         <StockDetailPanel quote={quote} rows={klineRows} />
         <ResearchPanel symbol={activeSymbol} />
         <StockInsightsPanel key={activeSymbol} symbol={activeSymbol} onOpenBoard={(board) => navigate({ page: "board", board })} />

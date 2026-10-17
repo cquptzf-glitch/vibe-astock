@@ -45,19 +45,6 @@
 .stock-trend-pill.positive { color: var(--mobile-accent); background: rgba(244, 63, 94, 0.12); }
 .stock-trend-pill.negative { color: var(--mobile-down); background: rgba(34, 197, 94, 0.12); }
 
-.stock-candles {
-  width: 100%;
-  height: 142px;
-  margin-top: 14px;
-  overflow: visible;
-}
-
-.stock-candles line { stroke-width: 1; vector-effect: non-scaling-stroke; }
-.stock-candles rect { vector-effect: non-scaling-stroke; }
-.stock-candles .candle-up line,
-.stock-candles .candle-up rect { stroke: #fb7185; fill: rgba(244, 63, 94, 0.64); }
-.stock-candles .candle-down line,
-.stock-candles .candle-down rect { stroke: #4ade80; fill: rgba(34, 197, 94, 0.62); }
 
 .stock-detail-returns,
 .stock-detail-grid {

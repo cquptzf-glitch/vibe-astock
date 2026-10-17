@@ -1346,3 +1346,19 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 已知限制：情绪历史从东财保留期起积累，前期 60 天窗口大部分为空；节假日工作日写条件时用上证快照时间判断今天开没开市，取不到时允许新增/修改但不许删除。
 
 下一步建议：盯盘异动流与昨日梯队实时 → 竞价与盘中路径（可复用明日验证条件做盘中读数）→ 涨停样本 → 交易日志分组/风险与复查页签 → 每日复盘市场状态八格。
+
+### 个股 K 线与盘口（0.1.21）
+
+维护者要求：个股 K 线查看要丰富、接近常用证券 App。
+
+完成：
+
+- `core-rust/src/chart.rs`：`GET /mobile/stock/kline?symbol=&period=day|week|month|m60|m30|m15|m5&adjust=qfq|none&limit=30..800`（东财 kline 含成交额/换手，失败或被限流改用腾讯 fqkline / mkline；校验日期顺序与 OHLC，异常行剔除计数）、`GET /mobile/stock/intraday?symbol=&days=1|5`（腾讯 minute/query、day/query，累计量额转每分钟并算均价，15:00 后的盘后行不画；失败改用东财 trends2）、`GET /mobile/stock/snapshot?symbol=`（腾讯行情含五档、外内盘、委比、涨跌停、量比、均价、三种市盈率；失败改用东财 stock/get，无五档）。
+- 前端：`chartIndicators.ts`（MA/EMA/MACD/KDJ/RSI/BOLL，通达信口径，含单测）、`KlineChart.tsx`（周期页签、分钟子页签、复权、主图/副图指标、拖动平移、捏合/滚轮/按钮缩放、点按/长按十字线、可见区高低点标注、分时/五日双轴）、`QuoteBoard.tsx`（20 项盘口、外内盘比例、五档折叠）。前台按设置刷新频率自动更新盘口与分时；`useDiscoveryData` 改为同一路径刷新时保留旧数据，避免定时刷新闪空。个股页去掉旧的 30 根小蜡烛图与重复价格/指标。
+- 无 SQLite schema、原生插件或权限变化；不向模型发送本地数据。
+
+验证（本机）：Rust 78 项 + 1 项 parity；`chart::live::live_chart_probe` 对真实上游跑通日/周/5 分钟/北交所 K 线、分时、五日、快照，并直接验证腾讯备用路径各周期（北交所在腾讯只有 1 根，已在 note 中提示）。前端 435/436（agent_error 缺 ajv），新增 `mobile_chart.test.ts` 与真实样本 `desktop/test/fixtures/mobile-chart-600519.json`；本机 Edge 浏览器冒烟 48 张截图，含 K 线点按十字线、拖动后“回到最新”可用、MACD 切换、分时切换；已人工查看 390 深色 K 线、360 白色个股页与 K 线。
+
+环境变化：本机文件透明加密已不再生效，仓库文件对 Shell/Node/git 都是明文；维护者已移除 fileops MCP 与对应全局指令，后续直接用常规工具读写。
+
+下一步建议：盯盘异动流与昨日梯队实时 → 竞价与盘中路径 → 涨停样本 → 交易日志分组/风险与复查页签 → 每日复盘市场状态八格。K 线可继续补：叠加对比指数、画线工具、成交明细（逐笔）与资金流副图。

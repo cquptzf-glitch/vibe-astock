@@ -168,7 +168,6 @@ html[data-mobile-density="compact"] .mobile-app .stock-detail-grid { gap: 5px; m
 html[data-mobile-density="compact"] .mobile-app .stock-detail-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 html[data-mobile-density="compact"] .mobile-app .stock-detail-returns > div,
 html[data-mobile-density="compact"] .mobile-app .stock-detail-grid > div { padding: 7px 8px; border-radius: 7px; }
-html[data-mobile-density="compact"] .mobile-app .stock-candles { height: 124px; margin-top: 8px; }
 html[data-mobile-density="compact"] .mobile-app .stock-range-box { margin-top: 8px; padding: 8px; border-radius: 8px; }
 html[data-mobile-density="compact"] .mobile-app .stock-insights h2 { font-size: 16px; margin-bottom: 8px; }
 html[data-mobile-density="compact"] .mobile-app .stock-insights .discovery-results > p { margin: 8px 0; font-size: 12px; }

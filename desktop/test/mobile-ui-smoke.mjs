@@ -12,6 +12,7 @@ const fixture = JSON.parse(fs.readFileSync("core-rust/tests/fixtures/market_klin
 const klineRows = fixture.data.klines.map((row) => { const p = row.split(","); return [p[0], ...p.slice(1, 6).map(Number)]; });
 const emotionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-emotion-2026-10-16.json", "utf8"));
 const historyFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-history-2026-10-16.json", "utf8"));
+const chartFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-chart-600519.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
 const monitor = {
@@ -42,6 +43,9 @@ const responses = {
   "/mobile/shortline/history": historyFixture.history,
   "/mobile/shortline/weekly": historyFixture.weekly,
   "/mobile/shortline/verify": historyFixture.verify,
+  "/mobile/stock/kline": chartFixture.kline,
+  "/mobile/stock/intraday": chartFixture.intraday,
+  "/mobile/stock/snapshot": chartFixture.snapshot,
 };
 const quote = { symbol: "600519", market: "SH", status: "ok", primary_source: "tencent", extra: { name: "贵州茅台", quote_date: "2026-10-16" }, evidence: [["price", 1329, "元"], ["change_pct", 1.22, "%"], ["pe_ttm", 19.81, "倍"], ["pb", 7.1, "倍"], ["turnover_pct", .31, "%"], ["total_market_cap", 16692.24, "亿元"]].map(([field, value, unit]) => ({ field, value, unit })) };
 const browser = await chromium.launch({ headless: true });
@@ -121,6 +125,26 @@ try {
       assert.equal(await page.locator(".stock-detail-grid").evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length), 3);
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-stock.png"), fullPage: true });
+      // K 线:点按出十字线、拖动平移后可回到最新、切换到分时
+      await page.getByText("展开五档盘口", { exact: true }).waitFor();
+      const chart = page.locator(".kc-svg").first();
+      await chart.scrollIntoViewIfNeeded();
+      const box = await chart.boundingBox();
+      assert.ok(box && box.width <= width, "chart fits the viewport");
+      await page.mouse.click(box.x + box.width * 0.5, box.y + 60);
+      await page.locator(".kc-cross").waitFor();
+      await page.mouse.move(box.x + box.width * 0.4, box.y + 80);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.8, box.y + 80, { steps: 8 });
+      await page.mouse.up();
+      assert.equal(await page.getByRole("button", { name: "回到最新" }).isEnabled(), true, "dragging pans back in time");
+      await page.getByRole("button", { name: "MACD", exact: true }).click();
+      await page.getByText("MACD(12,26,9) DIF", { exact: false }).waitFor();
+      await assertWidth();
+      await page.locator(".kc-card").screenshot({ path: path.join(out, width + "-" + theme + "-chart.png") });
+      await page.getByRole("tab", { name: "分时", exact: true }).click();
+      await page.getByRole("img", { name: "分时图" }).waitFor();
+      await page.getByRole("tab", { name: "日K", exact: true }).click();
       // 复盘栏目:底部一级导航 → 今日情绪,栏目内子页签单行横向滚动 → 连板天梯。
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "复盘", exact: true }).click();
       await page.getByRole("heading", { name: "今日情绪", exact: true }).waitFor();
@@ -147,8 +171,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 42, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages; 42 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 48, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions; 48 screenshots.");
 } finally {
   await browser.close();
 }

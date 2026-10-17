@@ -10,7 +10,8 @@ export function useDiscoveryData<T>(path: string) {
   useEffect(() => {
     let current = true;
     const controller = new AbortController();
-    setState({ path, data: null, loading: true, error: "" });
+    // 同一路径刷新时保留旧数据,避免定时刷新时整块闪空
+    setState((previous) => ({ path, data: previous.path === path ? previous.data : null, loading: true, error: "" }));
     void fetch("/api" + path, { headers: { Accept: "application/json" }, signal: controller.signal })
       .then(async (response) => {
         const body = await response.json() as T & { message?: string };
