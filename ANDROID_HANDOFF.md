@@ -1364,3 +1364,40 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 环境变化：本机文件透明加密已不再生效，仓库文件对 Shell/Node/git 都是明文；维护者已移除 fileops MCP 与对应全局指令，后续直接用常规工具读写。
 
 下一步建议：盯盘异动流与昨日梯队实时 → 竞价与盘中路径 → 涨停样本 → 交易日志分组/风险与复查页签 → 每日复盘市场状态八格。K 线可继续补：叠加对比指数、画线工具、成交明细（逐笔）与资金流副图。
+
+### 盯盘实时动态、竞价与盘中、涨停样本、市场面板、交易日志风险与纪律（0.1.22，已提交、未 push、未发布）
+
+按 ANDROID_REMAINING.md 的主计划一次做了五块，各自独立提交（de13edd / 023fd68 / 0eec410 / 62b778f / d0cd613）。口径都移植自桌面版 orchestrator，每页的差异在 ANDROID_REMAINING.md「对照桌面版仍缺」和 PARITY_MATRIX.md 里逐条写明。
+
+新增 Core route：
+
+- `POST /mobile/watch/poll`（轮询一轮：取行情、判异动、存异动；同时每分钟顺带检查一次竞价/盘中时点）、`GET /mobile/watch/alerts?date=`
+- `GET /mobile/intraday?date=`、`POST /mobile/intraday {action:"capture"}`
+- `GET /mobile/shortline/samples?days=10..90&date=&refresh=1`
+- `GET /mobile/review/market?date=`
+- `GET /mobile/journal/risk`、`GET/POST /mobile/journal/settings`
+
+新增 SQLite schema v6（一次迁移，`migrate_5_to_6`，各旧版本升级测试覆盖 1–5）：`mobile_watch_alerts`（异动，留 30 天）、`mobile_watch_turnover`（收盘后记下的成交额前十）、`mobile_intraday_snapshots` / `mobile_intraday_status`（时点快照，留一年，只新建不覆盖）、`mobile_samples_days`（涨停样本逐日明细缓存）、`mobile_journal_settings`（费率/规矩/账户规模）。**只有 `mobile_journal_settings` 进备份**，备份格式升到 v6；v1–v5 备份仍可恢复，恢复后设置回到默认（有测试）；设置里有不合规则的值整份备份拒收。其余五张都是公开行情数据，不进备份。
+
+要点与踩过的坑：
+
+- **异动流（`watch.rs`）**：规则同桌面版（3 分钟内 ±1.5% 急拉/急跌、至少攒够 1 分钟才判；碰到/离开涨停价封板/开板；同一只同一类 5 分钟冷却；只在连续竞价、行情时间是今天时判；竞价/午休重新攒基准）。手机上没有常驻后台，所以**只在盯盘页/竞价页开着且在前台时才取行情和判断**；设置里选「仅手动刷新」时基本判不出。持仓只给现价、涨跌、浮动盈亏 % 与止损/目标状态，不给股数和成本（沿用旧版规矩）。
+- **昨日成交额前十**：桌面版用通达信盘后包，手机上不下载整包；改为「收盘后（≥15:05）到下一场开盘前」从新浪成交额榜记下一份存本机（hs_a，不含北交所）。没在这个窗口里开过盯盘的那天就没有这份名单，页面写明原因，**不拿别的日子顶替**。
+- **竞价与盘中（`intraday.rs`）**：时点窗口、8 分钟漂移上限、09:25 只到 09:29、午收/日收允许晚 8 分钟，全部同桌面版；快照拿的是此刻行情，所以只能当天当场存，历史日绝不现抓。取数可能跨过窗口，取完后再核一次时间，跨了就不存。
+- **涨停样本（`samples.rs`）**：事后名单警告永远显示；入场日情绪分按入场那天（前一交易日）算，避免前视；分环境三等分要求至少 6 天；已收盘的日子才进统计和缓存。
+- **市场面板（`market_panel.rs`）**：九块各自取数各自标缺口。沪深 300 市盈率/股息率没接（中证官网只给 xls，手机端没有 xls 解析），页面明说「暂无」。行业资金用新浪口径（东财列表接口成片取不到），和东财「主力净额」不是一个口径。涨跌分布/行业资金/成交额榜只给「当天此刻」，按交易日历判断快照属于哪天（周末取到的是周五收盘 = 复盘日），不是复盘日时标出来。
+- **交易日志风险与纪律（`journal_risk.rs` + `journal_settings.rs`）**：一笔 = 一条交易记录，移动加权平均成本，**清仓后才计入已实现**（与既有「交易统计」页一致；桌面版按卖出就算，这是已知口径差异）。没填费用的成交改按设置里的费率估（`journal.rs`/`journal_review.rs` 不再用写死常量）。每条规矩都报「已查/没查」，没查的写原因。**本页不登记任何 AI 页面上下文**，有测试守着源码里不出现 `useAiPage` 等。隐私模式在手机端整体还没做（见 ANDROID_REMAINING「全局」），所以本页金额目前没有遮罩。
+- **样式隐患（已修）**：`.emo-page` 是单列 grid 且没限制列宽，页面里放进「内容最小宽度很大」的卡片（龙虎榜上榜理由是一长串不换行文字）会把整页撑宽；同时 `.watch-name` 缺 `overflow:hidden`。已改 `.emo-page` 为 `minmax(0,1fr)`、`.emo-header` 同理，并给 `.watch-*` 加 `min-width:0`。浏览器冒烟里的 `assertWidth` 就是靠这个抓到的。
+
+验证（本机）：
+
+- Rust `cargo test --locked`：125 项 + 1 项 parity 通过；8 项 ignored 实时探测中本轮新增的 5 个（`watch::live_watch_probe`、`intraday::live_intraday_probe`、`samples::live_samples_probe`、`market_panel::live_market_panel_probe`、`journal_risk::dump_synthetic_fixture`）已对真实上游/合成数据跑通：盯盘 3.8 秒取到 36 只昨日梯队 + 356 只大票、收盘后成功记下 2026-10-16 成交额前十；涨停样本 14 个交易日 786 个样本、第二次读缓存 148 ms；市场面板九块里八块取到、估值块按设计标暂无、2.7 秒。
+- 前端：`tsc --noEmit`、`npm run build` 通过；`npm test` 457 项中 456 项通过，失败的仍是缺 ajv 的 `agent_error.test.ts`（CI 会装）。新增测试：`mobile_watch`、`mobile_intraday`、`mobile_samples`、`mobile_journal_risk`、`mobile_market_panel`，夹具是真实返回的冻结样本（盯盘/竞价/样本/市场面板），交易日志夹具是**合成数据**（`journal_risk::tests::dump_synthetic_fixture` 生成，不含任何真实成交）。
+- 浏览器：Playwright 1.56.1 + 本机 Edge 跑 `desktop/test/mobile-ui-smoke.mjs`，6 组视口/主题、78 张截图通过（新增盯盘实时动态、竞价与盘中、涨停样本、风险与纪律（含展开设置编辑器）、市场面板）；已人工查看 360 深色实时动态、390 白色涨停样本、360 深色风险与纪律、360 白色市场面板。
+- 本轮新增内容（相对 0727bb4 的 6,761 行，不含 json 夹具）针对性扫描：无密钥/令牌/私钥/邮箱/本机路径；夹具另扫无命中。
+
+**没做 / 待办**：完整发布前隐私扫描（工作树 + HEAD + 完整历史，按 AGENTS.md 6.5）、push、Android CI、APK 构建与预览发布、真机验收、版本已改为 0.1.22（`core-rust/Cargo.toml`、`src-tauri/Cargo.toml`、`core-rust/Cargo.lock`）但没有发布说明文件。**不要在没有仓库主人确认的情况下 push**：Android CI 的 publish-preview job 会在成功后自动创建不可覆盖的 `android-mvp-v0.1.22` 预览版 Release（AGENTS.md 6.4：新建 Release 需要仓库主人单独授权）。
+
+环境注意：本机 DLP 会让 shell 里读 `*.md` 得到密文（Read/Edit 工具和 Node 读到的是明文）；修改这几份文档请用 Read/Edit 工具，提交前用 `git cat-file -p :<path>` 确认 blob 是明文。
+
+下一步建议：① 补发布前隐私扫描后 push、看 CI、发 0.1.22 预览版（需主人确认）；② 交易日志剩余：模式卡（版本化）、MFE/MAE 复查与复查清单、按情绪环境/当时板位分组、「看错还是没执行好」四象限、问题记录修复；③ 情绪复盘的 AI 复盘/周报/结构变化；④ 市场面板补沪深 300 估值（需要 xls 解析）；⑤ 隐私模式（金额/股数/价位遮罩、权益曲线不画）。
