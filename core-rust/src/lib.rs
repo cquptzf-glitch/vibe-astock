@@ -31,6 +31,7 @@ mod search;
 mod shortline;
 mod storage;
 mod symbol;
+mod watch;
 
 pub use symbol::{natural_market, normalize_stock_symbol, Market, SymbolKey};
 
@@ -72,6 +73,7 @@ impl MobileApiResponse {
 pub struct AppCore {
     client: Client,
     db_path: PathBuf,
+    watch: watch::SharedWatch,
 }
 
 impl AppCore {
@@ -92,7 +94,12 @@ impl AppCore {
             .user_agent(format!("Mozilla/5.0 VibeAStock-Mobile/{APP_VERSION}"))
             .build()?;
 
-        Ok(Self { client, db_path })
+        Ok(Self { client, db_path, watch: watch::SharedWatch::default() })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn db_path(&self) -> &std::path::Path {
+        &self.db_path
     }
 
     pub fn legacy_ai_credential(&self) -> Result<Option<(String, String)>> {
@@ -305,6 +312,8 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(502, "monitor", error.to_string())),
             },
+            ("POST", "/mobile/watch/poll") => Ok(discovery_response(watch::poll(&self.client, &self.db_path, &self.watch).await)),
+            ("GET", "/mobile/watch/alerts") => Ok(discovery_response(watch::alerts(&self.db_path, &request.path))),
             ("POST", "/mobile/backtest") => match backtest::run(&self.client, &request.body).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "backtest", error.to_string())),
@@ -423,6 +432,8 @@ mod discovery_contract_tests {
             "/mobile/shortline/history?refresh=yes",
             "/mobile/shortline/weekly?date=20261340",
             "/mobile/shortline/verify?refresh=2",
+            "/mobile/watch/alerts?date=2026-02-30",
+            "/mobile/watch/alerts?date=2999-01-01",
         ] {
             let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
             assert_eq!(response.status,400,"{path}: {}",response.body);

@@ -13,6 +13,11 @@ const klineRows = fixture.data.klines.map((row) => { const p = row.split(","); r
 const emotionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-emotion-2026-10-16.json", "utf8"));
 const historyFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-history-2026-10-16.json", "utf8"));
 const chartFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-chart-600519.json", "utf8"));
+const watchFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-watch-2026-10-17.json", "utf8"));
+watchFixture.alerts = [
+  { ts: "10:11:57", code: "002343", name: "慈文传媒", kind: "封板", change_pct: null, price: 9.33, pct: 10.02, msg: "触及涨停 9.33", sources: ["昨日5板"] },
+  { ts: "10:05:12", code: "600519", name: "贵州茅台", kind: "急跌", change_pct: -1.62, price: 1308, pct: -1.6, msg: "3 分钟 -1.6%(现价 1308,今日 -1.6%)", sources: ["自选", "大票"] },
+];
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
 const monitor = {
@@ -46,6 +51,7 @@ const responses = {
   "/mobile/stock/kline": chartFixture.kline,
   "/mobile/stock/intraday": chartFixture.intraday,
   "/mobile/stock/snapshot": chartFixture.snapshot,
+  "/mobile/watch/poll": watchFixture,
 };
 const quote = { symbol: "600519", market: "SH", status: "ok", primary_source: "tencent", extra: { name: "贵州茅台", quote_date: "2026-10-16" }, evidence: [["price", 1329, "元"], ["change_pct", 1.22, "%"], ["pe_ttm", 19.81, "倍"], ["pb", 7.1, "倍"], ["turnover_pct", .31, "%"], ["total_market_cap", 16692.24, "亿元"]].map(([field, value, unit]) => ({ field, value, unit })) };
 const browser = await chromium.launch({ headless: true });
@@ -145,6 +151,16 @@ try {
       await page.getByRole("tab", { name: "分时", exact: true }).click();
       await page.getByRole("img", { name: "分时图" }).waitFor();
       await page.getByRole("tab", { name: "日K", exact: true }).click();
+      // 盯盘栏目:实时动态的异动流与名单页签,名单页签单行横向滚动
+      await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "盯盘", exact: true }).click();
+      await page.getByRole("heading", { name: "实时动态", exact: true }).waitFor();
+      await page.getByText("触及涨停 9.33", { exact: true }).waitFor();
+      await page.getByRole("tab", { name: "昨日梯队", exact: false }).click();
+      await page.getByText("慈文传媒", { exact: true }).first().waitFor();
+      const watchTabTops = await page.locator(".watch-tabs [role=tab]").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top));
+      assert.ok(watchTabTops.length === 5 && Math.max(...watchTabTops) - Math.min(...watchTabTops) < 2, "watch list tabs must stay in one row");
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-watch.png"), fullPage: true });
       // 复盘栏目:底部一级导航 → 今日情绪,栏目内子页签单行横向滚动 → 连板天梯。
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "复盘", exact: true }).click();
       await page.getByRole("heading", { name: "今日情绪", exact: true }).waitFor();
@@ -171,8 +187,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 48, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions; 48 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 54, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch; 54 screenshots.");
 } finally {
   await browser.close();
 }

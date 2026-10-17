@@ -13,7 +13,7 @@ export const WORKSPACE_GROUPS: { id: WorkspaceGroup; title: string; detail: stri
 export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "market", title: "市场总览", short: "总览", detail: "六大指数、成交额、涨跌分布与自选报价", group: "overview" },
   { page: "functions", title: "全部功能", short: "全部", detail: "按工作流程浏览或搜索所有栏目", group: "overview" },
-  { page: "monitor", title: "实时动态", short: "实时", detail: "自选/持仓报价、急拉急跌采样、涨跌停与止损目标状态", group: "watch", keywords: "盯盘 异动" },
+  { page: "monitor", title: "实时动态", short: "实时", detail: "盘中异动流、持仓自选、昨日梯队、大票与昨日成交额前十", group: "watch", keywords: "盯盘 异动 急拉 急跌 封板 开板 梯队" },
   { page: "watch", title: "我的自选", short: "自选", detail: "价格、涨跌、成交额与自选管理", group: "watch" },
   { page: "hold", title: "我的持仓", short: "持仓", detail: "成交推导的仓位、成本、浮盈亏与止损覆盖", group: "watch" },
   { page: "risk", title: "异常监控", short: "异常", detail: "异常偏离和重点监控名单、窗口与分页", group: "watch", keywords: "风险 偏离" },

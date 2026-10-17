@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 5;
+pub const CURRENT_SCHEMA_VERSION: i64 = 6;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -47,7 +47,7 @@ const REQUIRED_V4_TABLES: [&str; 9] = [
     "mobile_reminders",
 ];
 
-const REQUIRED_TABLES: [&str; 11] = [
+const REQUIRED_V5_TABLES: [&str; 11] = [
     "watchlist",
     "journal_entries",
     "journal_fills",
@@ -59,6 +59,22 @@ const REQUIRED_TABLES: [&str; 11] = [
     "mobile_reminders",
     "mobile_verifications",
     "mobile_shortline_days",
+];
+
+const REQUIRED_TABLES: [&str; 13] = [
+    "watchlist",
+    "journal_entries",
+    "journal_fills",
+    "mobile_daily_reviews",
+    "mobile_ai_config",
+    "mobile_ai_messages",
+    "mobile_documents",
+    "mobile_calendar_events",
+    "mobile_reminders",
+    "mobile_verifications",
+    "mobile_shortline_days",
+    "mobile_watch_alerts",
+    "mobile_watch_turnover",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -80,23 +96,31 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_2_to_3(&conn)?;
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
+            migrate_5_to_6(&conn)?;
         }
         1 => {
             migrate_1_to_2(&conn)?;
             migrate_2_to_3(&conn)?;
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
+            migrate_5_to_6(&conn)?;
         }
         2 => {
             migrate_2_to_3(&conn)?;
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
+            migrate_5_to_6(&conn)?;
         }
         3 => {
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
+            migrate_5_to_6(&conn)?;
         }
-        4 => migrate_4_to_5(&conn)?,
+        4 => {
+            migrate_4_to_5(&conn)?;
+            migrate_5_to_6(&conn)?;
+        }
+        5 => migrate_5_to_6(&conn)?,
         CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
         other => {
             return Err(anyhow!(
@@ -213,8 +237,36 @@ fn migrate_4_to_5(conn: &Connection) -> Result<()> {
             fetched_at TEXT NOT NULL
         );",
     )?;
-    verify_tables(conn, &REQUIRED_TABLES)?;
+    verify_tables(conn, &REQUIRED_V5_TABLES)?;
     conn.pragma_update(None, "user_version", 5)?;
+    Ok(())
+}
+
+/// 盯盘异动记录(公开行情事件,只留 30 天)与收盘后记下的成交额前十(公开行情缓存)。都不进备份。
+fn migrate_5_to_6(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mobile_watch_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            day TEXT NOT NULL,
+            ts TEXT NOT NULL,
+            code TEXT NOT NULL,
+            name TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('急拉', '急跌', '封板', '开板')),
+            change_pct REAL,
+            price REAL,
+            pct REAL,
+            msg TEXT NOT NULL,
+            sources TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS mobile_watch_alerts_day ON mobile_watch_alerts(day);
+        CREATE TABLE IF NOT EXISTS mobile_watch_turnover (
+            date TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            fetched_at TEXT NOT NULL
+        );",
+    )?;
+    verify_tables(conn, &REQUIRED_TABLES)?;
+    conn.pragma_update(None, "user_version", 6)?;
     Ok(())
 }
 
@@ -297,7 +349,7 @@ mod tests {
 
     #[test]
     fn upgrades_every_supported_schema_to_current() {
-        for version in [1_i64, 2, 3, 4] {
+        for version in [1_i64, 2, 3, 4, 5] {
             let path = temp_db(&format!("schema-{version}"));
             let conn = Connection::open(&path).unwrap();
             create_legacy_tables(&conn);
@@ -309,6 +361,9 @@ mod tests {
             }
             if version >= 4 {
                 migrate_3_to_4(&conn).unwrap();
+            }
+            if version >= 5 {
+                migrate_4_to_5(&conn).unwrap();
             }
             conn.pragma_update(None, "user_version", version).unwrap();
             drop(conn);

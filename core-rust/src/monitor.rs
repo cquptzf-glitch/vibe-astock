@@ -269,15 +269,7 @@ fn render_position_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> 
         .is_some_and(|date| date == today);
     let planned_stop = item.get("planned_stop").and_then(Value::as_f64);
     let planned_target = item.get("planned_target").and_then(Value::as_f64);
-    let risk_state = match (price, planned_stop, planned_target, quote_today) {
-        (Some(p), Some(stop), _, true) if p <= stop => "stop_reached",
-        (Some(p), _, Some(target), true) if p >= target => "target_reached",
-        (Some(p), Some(stop), _, true) if p <= stop * 1.02 => "stop_near",
-        (Some(p), _, Some(target), true) if p >= target * 0.98 => "target_near",
-        (_, _, _, false) => "stale_quote",
-        (None, _, _, _) => "unquoted",
-        _ => "normal",
-    };
+    let risk_state = risk_state(price, planned_stop, planned_target, quote_today);
     json!({
         "id": item.get("id").cloned().unwrap_or(Value::Null),
         "symbol": item.get("symbol").cloned().unwrap_or(Value::Null),
@@ -297,6 +289,19 @@ fn render_position_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> 
         "is_today": quote_today,
         "risk_state": risk_state,
     })
+}
+
+/// 止损 / 目标状态只按今天的行情判断,避免周末和旧行情误报
+pub(crate) fn risk_state(price: Option<f64>, stop: Option<f64>, target: Option<f64>, quote_today: bool) -> &'static str {
+    match (price, stop, target, quote_today) {
+        (Some(p), Some(stop), _, true) if p <= stop => "stop_reached",
+        (Some(p), _, Some(target), true) if p >= target => "target_reached",
+        (Some(p), Some(stop), _, true) if p <= stop * 1.02 => "stop_near",
+        (Some(p), _, Some(target), true) if p >= target * 0.98 => "target_near",
+        (_, _, _, false) => "stale_quote",
+        (None, _, _, _) => "unquoted",
+        _ => "normal",
+    }
 }
 
 fn number(value: Option<&&str>) -> Option<f64> {
