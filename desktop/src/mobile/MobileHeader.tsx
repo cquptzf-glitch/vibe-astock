@@ -1,19 +1,6 @@
-import { Activity, ArrowUpRight, BookOpenCheck, Flame, LayoutGrid, Layers3, ListOrdered, NotebookPen, ScanSearch, Settings2, Sun, Moon, Wifi } from "lucide-react";
+import { Activity, ArrowUpRight, BookOpenCheck, Flame, LayoutGrid, Layers3, ListOrdered, NotebookPen, ScanSearch, Wifi } from "lucide-react";
 import type { MobilePage } from "./mobileRoutes";
 
-export function MobileHeader({ version, ready, theme, onToggleTheme, onOpenSettings }: {
-  version: string; ready: boolean; theme: "light" | "dark"; onToggleTheme: () => void; onOpenSettings: () => void;
-}) {
-  return <header className="mobile-header">
-    <div className="mobile-header-brand"><div className="mobile-brand">Vibe AStock</div>
-      <div className="mobile-subtitle"><span className={ready ? "connection-dot ready" : "connection-dot"} /><span>{ready ? "本地工作台" : "连接中"} · v{version}</span></div>
-    </div>
-    <div className="mobile-header-actions">
-      <button type="button" className="mobile-header-action" aria-label={theme === "dark" ? "切换白色模式" : "切换深色模式"} title={theme === "dark" ? "切换白色模式" : "切换深色模式"} onClick={onToggleTheme}>{theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}</button>
-      <button type="button" className="mobile-header-action settings-entry" aria-label="打开设置" onClick={onOpenSettings}><Settings2 size={18} /><span>设置</span></button>
-    </div>
-  </header>;
-}
 const SHORTCUTS = [
   { page: "monitor", title: "实时动态", detail: "自选持仓", icon: Wifi },
   { page: "emotion", title: "今日情绪", detail: "晋级·赚钱效应", icon: Activity },

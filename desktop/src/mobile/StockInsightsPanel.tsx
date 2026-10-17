@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { WebSelect } from "./controls";
 import { RefreshCw } from "lucide-react";
 import { fmtNumber, fmtPercent, fmtYuan, useDiscoveryData } from "./discoveryData";
 import "./discovery-features.css";
@@ -103,8 +104,8 @@ function FlowPanel({ symbol }: { symbol: string }) {
   const [limit, setLimit] = useState(60);
   const result = useDiscoveryData<FlowData>(`/mobile/stock/fund-flow?symbol=${encodeURIComponent(symbol)}&mode=${mode}&limit=${limit}`);
   return <>
-    <div className="discovery-controls"><label>频率<select value={mode} onChange={(e) => setMode(e.target.value as "daily" | "minute")}><option value="daily">日线净额</option><option value="minute">分钟累计</option></select></label>
-      {mode === "daily" && <label>交易日数<select value={limit} onChange={(e) => setLimit(Number(e.target.value))}><option value={20}>20</option><option value={60}>60</option><option value={120}>120</option></select></label>}
+    <div className="discovery-controls"><label>频率<WebSelect value={mode} onChange={(e) => setMode(e.target.value as "daily" | "minute")}><option value="daily">日线净额</option><option value="minute">分钟累计</option></WebSelect></label>
+      {mode === "daily" && <label>交易日数<WebSelect value={limit} onChange={(e) => setLimit(Number(e.target.value))}><option value={20}>20</option><option value={60}>60</option><option value={120}>120</option></WebSelect></label>}
       <button className="discovery-action" disabled={result.loading} onClick={result.refresh}>刷新</button>
     </div>
     <RequestState {...result} />

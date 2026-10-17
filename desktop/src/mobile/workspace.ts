@@ -1,6 +1,6 @@
 import type { MobilePage } from "./mobileRoutes";
 
-// 五个一级栏目对应桌面版左侧栏:首页 / 盯盘 / 复盘(含交易日志) / 研究(产业资讯、产业研究、研究工具) / 我的(我的股票、资料库、设置)。
+// 五个一级栏目对应桌面版左侧栏:首页 / 盯盘 / 复盘(含交易日志) / 研究(产业资讯、产业研究、研究工具) / 我的(我的股票、资料库);设置是底部菜单里单独的第六项。
 export type WorkspaceGroup = "overview" | "watch" | "review" | "research" | "my";
 export interface WorkspaceEntry { page: MobilePage; title: string; short: string; detail: string; group: WorkspaceGroup; keywords?: string }
 export const WORKSPACE_GROUPS: { id: WorkspaceGroup; title: string; detail: string; home: MobilePage }[] = [
@@ -63,7 +63,7 @@ export function workspaceGroup(page: MobilePage): WorkspaceGroup {
   return workspaceEntry(page)?.group ?? "overview";
 }
 export function groupEntries(group: WorkspaceGroup): WorkspaceEntry[] {
-  return WORKSPACE_ENTRIES.filter((entry) => entry.group === group && entry.page !== "functions");
+  return WORKSPACE_ENTRIES.filter((entry) => entry.group === group && entry.page !== "functions" && entry.page !== "settings");
 }
 export function workspaceMatches(query: string, group?: WorkspaceGroup): WorkspaceEntry[] {
   const words = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);

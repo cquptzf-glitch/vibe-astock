@@ -1442,3 +1442,12 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 验证（本机）：Rust `cargo test --locked` 179 项 + 1 项 parity 通过（20 项 ignored 为实时探测/夹具生成，本轮的 `live_theme_tree_probe`、`live_valuation_probe`、`live_prev_broken_probe` 都对真实上游跑通）；前端 `tsc`、`npm run build` 通过；`npm test` 488 项中 487 项通过（agent_error 缺 ajv）；Edge 冒烟 6 组视口/主题、126 张截图通过（新增结构变化含登记编辑器、题材事件树、昨日炸板股修复），并人工查看 360 白色昨日炸板股修复。前端夹具是对 2026-10-16 真实上游的冻结返回（东财偶发取不到，市场面板夹具由多次探测按块合并）。CI 与发布结果见 ANDROID_REMAINING.md 开头。
 
 下一步（Round B 起，见 ANDROID_REMAINING.md）：我的股票（自选估值列/分组/标签、持仓已实现与分红、收益表现与体检、CSV/截图导入）→ 我的（盘前提醒/收盘摘要消息流、研报上传、研究记录归档）→ 分享与备份 → 估值与研究 → AI 能力 → 隐私模式与后台盯盘 → 工程验收。
+
+### 界面改版:去顶栏、设置入底部菜单、紧凑密度、网页自绘控件(0.1.24)
+
+用户反馈(2026-10-17):设置放底部菜单并把主题切换放进设置、去掉顶部软件信息栏;信息显示不够紧凑;很多控件是 Android 原生控件、没有用网页控件。做法:
+
+- `MobileHeader` 组件删除(`MobileHeader.tsx` 只剩 `HomeShortcuts`/`SectionLink`);`WorkspaceNav` 追加第六项「设置」(`page === "settings"` 时只有设置高亮,「我的」不高亮;设置页不再显示「返回」和栏目子页签,`groupEntries` 排除 settings);状态栏安全区由 `.mobile-app` 顶部 `env(safe-area-inset-top)` 加固定遮罩处理(`compact.css`)。**真机未验证安全区**。
+- 紧凑:`compact.css` 在紧凑密度下用 `html[data-mobile-density="compact"] body .mobile-app …` 的高优先级选择器收紧;「舒适」不动。标题块只留 h1(`h1 + p` 与 h1 前的小标题隐藏)。新增页面如果有自己的标题块/卡片,默认会被这些通用规则收紧,有特殊需要再单独覆盖。
+- 控件:`controls.tsx` 提供 `WebSelect`(`<option>` 子元素语法,onChange 给 `{target:{value}}`,原来写给原生 select 的处理函数直接可用)、`DateField`(自绘月历,周一开头,`min`/`max`/今天)、`Sheet`、`DialogHost` + `askConfirm`/`showAlert`(没挂 DialogHost 时退回 window.confirm/alert);复选框用 CSS 画。**新代码不要再直接用 `<select>`、`<input type="date">`、`window.confirm/alert`**。系统文件选择器(`type="file"`、插件的文件对话框)无法替代。
+- 测试:`mobile_controls.test.ts`(月历格、下拉/日期 SSR),`mobile_presentation.test.ts` 改成检查六项底部菜单;冒烟脚本改为点底部「设置」、操作自绘下拉与日期,并在比较舒适/紧凑高度前等数据加载完(之前的断言有时序偶发)。

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { WebSelect, DateField } from "./controls";
 import { CalendarDays, Plus, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
 import { fmtPercent } from "./discoveryData";
 import { chinaToday, clearEmotionCache, fmtRate, useCachedResource, useEmotionDate } from "./emotionData";
@@ -68,7 +69,7 @@ export function ReviewDateBar({ title, detail, loading, error, onRefresh, shownD
     <div className="emo-title"><div><h1>{title}</h1><p>{detail}</p></div>
       <button type="button" className="mobile-header-action" disabled={loading} onClick={onRefresh} aria-label="刷新"><RefreshCw size={16} className={loading ? "spin" : ""} />刷新</button></div>
     <div className="emo-date-row">
-      <label><CalendarDays size={15} /><input type="date" aria-label="复盘日" max={today} value={date || shownDate || ""} onChange={(e) => setDate(e.target.value)} /></label>
+      <label><CalendarDays size={15} /><DateField aria-label="复盘日" max={today} value={date || shownDate || ""} onChange={(e) => setDate(e.target.value)} /></label>
       <button type="button" className={!date ? "active" : ""} onClick={() => setDate("")}><RotateCcw size={14} />最近收盘</button>
       <button type="button" className={date === today ? "active" : ""} onClick={() => setDate(today)}>今日盘中</button>
     </div>
@@ -241,10 +242,10 @@ export function VerifyView({ data, onSave }: { data: VerifyData; onSave: (items:
         const m = data.metrics.find((x) => x.key === d.metric);
         const p = plan.get(d.metric);
         return <div key={i} className="verify-row">
-          <select aria-label={`第 ${i + 1} 条读数`} value={d.metric} disabled={data.plan.locked} onChange={(e) => update(i, { metric: e.target.value })}>
-            {[...(m ? [m] : []), ...free].map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select>
-          <select aria-label={`第 ${i + 1} 条方向`} value={d.direction} disabled={data.plan.locked} onChange={(e) => update(i, { direction: e.target.value as Direction })}>
-            {data.directions.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select>
+          <WebSelect aria-label={`第 ${i + 1} 条读数`} value={d.metric} disabled={data.plan.locked} onChange={(e) => update(i, { metric: e.target.value })}>
+            {[...(m ? [m] : []), ...free].map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</WebSelect>
+          <WebSelect aria-label={`第 ${i + 1} 条方向`} value={d.direction} disabled={data.plan.locked} onChange={(e) => update(i, { direction: e.target.value as Direction })}>
+            {data.directions.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</WebSelect>
           <button type="button" className="mobile-delete" aria-label={`删除第 ${i + 1} 条`} disabled={data.plan.locked} onClick={() => setDraft(draft.filter((_, j) => j !== i))}><Trash2 size={15} /></button>
           <input aria-label={`第 ${i + 1} 条理由`} maxLength={200} placeholder="理由（可选，200 字内）" value={d.reason} disabled={data.plan.locked} onChange={(e) => update(i, { reason: e.target.value })} />
           <small>{m?.hint}{p && ` · 今晚 ${fmtValue(p.base_value, p.kind, m?.unit)}`}{m && ` · 变化超过 ${m.kind === "rate" ? Math.round(m.eps * 100) + " 个点" : m.eps + (m.unit ? " " + m.unit : "")} 才算变`}{p?.baseline_note ? " · " + p.baseline_note : ""}</small>

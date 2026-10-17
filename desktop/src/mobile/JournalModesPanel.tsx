@@ -4,6 +4,7 @@
  * 卡片文字全由用户自己写,页面不预填任何规则。模式卡和成交一样只在本机、进备份、不进任何 AI,本页也不登记页面上下文。
  */
 import { BookMarked, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { WebSelect } from "./controls";
 import { useState } from "react";
 
 import { fmtPercent, useDiscoveryData } from "./discoveryData";
@@ -65,7 +66,7 @@ export function ModeEditor({ draft, data, onSaved, onCancel }: { draft: Draft; d
   };
   return <div className="jm-editor" role="group" aria-label={d.card_id == null ? "新建模式卡" : "编辑模式卡"}>
     <label><span>模式名</span><input value={d.name} maxLength={data.limits.name} placeholder="如「首板早封」" onChange={(e) => setD({ ...d, name: e.target.value })} aria-label="模式名" /></label>
-    <label><span>打法</span><select value={d.playbook} onChange={(e) => setD({ ...d, playbook: e.target.value })} aria-label="打法">{data.playbooks.map((p) => <option key={p} value={p}>{p}</option>)}</select></label>
+    <label><span>打法</span><WebSelect value={d.playbook} onChange={(e) => setD({ ...d, playbook: e.target.value })} aria-label="打法">{data.playbooks.map((p) => <option key={p} value={p}>{p}</option>)}</WebSelect></label>
     {data.text_fields.map((f) => <label key={f.key} className="wide"><span>{f.label}<small>{d.text[f.key].length}/{data.limits.text}</small></span>
       <textarea rows={2} value={d.text[f.key]} onChange={(e) => setD({ ...d, text: { ...d.text, [f.key]: e.target.value } })} aria-label={f.label} /></label>)}
     {d.card_id != null && <label className="wide"><span>这次改了什么(记进新版本)</span><input value={d.changes} onChange={(e) => setD({ ...d, changes: e.target.value })} aria-label="这次改了什么" /></label>}

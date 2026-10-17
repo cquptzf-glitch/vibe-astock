@@ -56,13 +56,16 @@ test("存储受限时仍能切换外观和手动刷新，损坏值回退到有�
   stop();
 });
 
-test("顶部持续显示设置入口和白色模式切换，快捷功能覆盖八个真实栏目", async () => {
+test("没有顶部栏:底部菜单是五个栏目加设置,设置页里有主题切换;快捷功能覆盖八个真实栏目", async () => {
   await withRenderer(async (r) => {
-    const { MobileHeader, HomeShortcuts } = await r.load("/src/mobile/MobileHeader.tsx");
-    const html = r.html(MobileHeader, { version: "0.1.17", ready: true, theme: "dark", onToggleTheme: () => undefined, onOpenSettings: () => undefined });
-    assert.match(html, /aria-label="打开设置"/);
-    assert.match(html, /aria-label="切换白色模式"/);
-    assert.match(textOf(html), /设置/);
+    const { HomeShortcuts, ...header } = await r.load("/src/mobile/MobileHeader.tsx");
+    assert.ok(!("MobileHeader" in header), "顶部软件信息栏已移除");
+    const { WorkspaceNav } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
+    const nav = r.html(WorkspaceNav, { page: "settings", onNavigate: () => undefined });
+    assert.equal((nav.match(/<button/g) ?? []).length, 6);
+    for (const label of ["首页", "盯盘", "复盘", "研究", "我的", "设置"]) assert.ok(textOf(nav).includes(label), label);
+    assert.equal((nav.match(/aria-current="page"/g) ?? []).length, 1, "在设置页时只有设置高亮");
+    assert.match(nav, /class="active" aria-current="page">.*<span>设置<\/span><\/button><\/nav>/);
     const links = textOf(r.html(HomeShortcuts, { onNavigate: () => undefined }));
     for (const label of ["实时动态", "今日情绪", "连板天梯", "涨停全表", "板块轮动", "个股深挖", "交易日志", "每日复盘", "全部功能"]) assert.ok(links.includes(label), label);
   });
@@ -72,7 +75,7 @@ test("设置无需等待核心数据即可操作主题/密度/刷新，并直接
   await withRenderer(async (r) => {
     const { SettingsPanel } = await r.load("/src/mobile/SettingsPanel.tsx");
     const text = textOf(r.html(SettingsPanel, { onOpenAi: () => undefined, onOpenReminders: () => undefined }));
-    for (const label of ["白色模式", "深色模式", "跟随系统", "紧凑", "舒适", "仅手动刷新", "模型 API 设置", "提醒规则设置"]) assert.ok(text.includes(label), label);
+    for (const label of ["白色模式", "深色模式", "跟随系统", "紧凑", "舒适", "前台行情刷新", "模型 API 设置", "提醒规则设置"]) assert.ok(text.includes(label), label);
   });
 });
 

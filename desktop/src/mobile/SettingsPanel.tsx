@@ -10,6 +10,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { askConfirm } from "./controls";
 
 import "./settings.css";
 import { AppearanceSettings } from "./AppearanceSettings";
@@ -266,7 +267,7 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
         method: "POST",
         body: JSON.stringify({ backup }),
       });
-      const confirmed = window.confirm(
+      const confirmed = await askConfirm(
         `确认恢复这份备份？\n\n` +
         `自选 ${preview.counts.watchlist} 只\n` +
         `交易日志 ${preview.counts.journal_entries} 条 / 成交 ${preview.counts.journal_fills} 笔\n` +

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { WebSelect, DateField } from "./controls";
 import { CalendarDays, ChevronRight, RefreshCw, RotateCcw } from "lucide-react";
 import { fmtPercent, fmtYuan } from "./discoveryData";
 import {
@@ -50,7 +51,7 @@ export function EmotionHeader({ title, detail, state }: {
         <RefreshCw size={16} className={state.loading ? "spin" : ""} />刷新</button></div>
     <div className="emo-date-row">
       <label><CalendarDays size={15} /><span className="sr-only">复盘日</span>
-        <input type="date" aria-label="复盘日" max={today} value={state.date || data?.date || ""} onChange={(event) => state.setDate(event.target.value)} /></label>
+        <DateField aria-label="复盘日" max={today} value={state.date || data?.date || ""} onChange={(event) => state.setDate(event.target.value)} /></label>
       <button type="button" className={!state.date ? "active" : ""} onClick={() => state.setDate("")}><RotateCcw size={14} />最近收盘</button>
       <button type="button" className={state.date === today ? "active" : ""} onClick={() => state.setDate(today)}>今日盘中</button>
     </div>
@@ -287,8 +288,8 @@ export function LimitUpTableView({ data, onOpenSymbol, initialTab = "zt" }: { da
     <div className="mobile-filter-row">
       <input type="search" aria-label="筛选代码名称行业" placeholder="代码 / 名称 / 行业" value={keyword} maxLength={40} onChange={(e) => setKeyword(e.target.value)} />
       {tab === "zt" && <>
-        <select aria-label="连板筛选" value={height} onChange={(e) => setHeight(e.target.value)}><option value="all">全部</option><option value="first">首板</option><option value="consec">连板</option><option value="high">3板以上</option></select>
-        <select aria-label="排序" value={sort} onChange={(e) => setSort(e.target.value as ZtSort)}>{Object.entries(ZT_SORTS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
+        <WebSelect aria-label="连板筛选" value={height} onChange={(e) => setHeight(e.target.value)}><option value="all">全部</option><option value="first">首板</option><option value="consec">连板</option><option value="high">3板以上</option></WebSelect>
+        <WebSelect aria-label="排序" value={sort} onChange={(e) => setSort(e.target.value as ZtSort)}>{Object.entries(ZT_SORTS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</WebSelect>
       </>}
     </div>
     {tab === "zt" ? <>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { WebSelect } from "./controls";
 import { ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 
 export interface DocumentItem {
@@ -207,9 +208,9 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
         <div className="mobile-filter-row">
           <input type="search" aria-label="检索资料" placeholder="检索标题、正文、代码；多个词用空格" value={filter.keyword} maxLength={80}
             onChange={(event) => setFilter({ ...filter, keyword: event.target.value })} />
-          {categories.length > 0 && <select aria-label="分类筛选" value={filter.category} onChange={(event) => setFilter({ ...filter, category: event.target.value })}>
+          {categories.length > 0 && <WebSelect aria-label="分类筛选" value={filter.category} onChange={(event) => setFilter({ ...filter, category: event.target.value })}>
             <option value="">全部分类</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>}
+          </WebSelect>}
           {kind === "inbox" && <label className="discovery-check"><input type="checkbox" checked={filter.unreadOnly} onChange={(event) => setFilter({ ...filter, unreadOnly: event.target.checked })} />只看未读（{unread}）</label>}
         </div>
         <p className="mobile-filter-note">共 {items.length} 条，显示 {shown.length} 条</p>

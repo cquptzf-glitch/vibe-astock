@@ -1,4 +1,5 @@
 import { Activity, RefreshCw } from "lucide-react";
+import { WebSelect } from "./controls";
 import { useState } from "react";
 import { fmtNumber, fmtPercent, formatSampleTime, useDiscoveryData, type ProviderFailure } from "./discoveryData";
 import "./discovery-features.css";
@@ -45,7 +46,7 @@ export function GpuRentPanel() {
     <section className="mobile-section discovery-section">
       <div className="mobile-section-title"><div><h1><Activity size={20} /> 产业信号 · GPU 租金</h1><p>B200、H100 SXM、A100 SXM4 的公开租金采样。</p></div>
         <button type="button" className="discovery-action" disabled={result.loading} onClick={result.refresh} aria-label="刷新 GPU 租金"><RefreshCw size={18} className={result.loading ? "spin" : ""} /></button></div>
-      <div className="discovery-controls"><label>历史范围<select aria-label="GPU 租金历史范围" value={days} onChange={(event) => setDays(Number(event.target.value))}><option value={30}>近 30 天</option><option value={90}>近 90 天</option><option value={365}>近一年</option></select></label></div>
+      <div className="discovery-controls"><label>历史范围<WebSelect aria-label="GPU 租金历史范围" value={days} onChange={(event) => setDays(Number(event.target.value))}><option value={30}>近 30 天</option><option value={90}>近 90 天</option><option value={365}>近一年</option></WebSelect></label></div>
       {result.error && <div className="mobile-error" role="alert">{result.error}<button className="discovery-action" type="button" onClick={result.refresh}>重试</button></div>}
       {result.loading && <div className="mobile-empty" role="status">正在获取 GPU 租金采样…</div>}
       {result.data && <GpuRentResults data={result.data} />}

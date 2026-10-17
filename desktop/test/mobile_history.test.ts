@@ -69,7 +69,7 @@ test("明日验证:对账标成立/不成立/判不了与事后,编辑器显示�
     const lockedHtml = r.html(VerifyView, { data: locked, onSave: async () => undefined });
     assert.ok(flat(lockedHtml).includes(sq("2026-10-19 已经开盘竞价")));
     assert.ok(!flat(lockedHtml).includes("加一条"));
-    assert.match(lockedHtml, /<select[^>]*disabled/);
+    assert.match(lockedHtml, /<button[^>]*role="combobox"[^>]*disabled/);
   });
 });
 

@@ -1,4 +1,5 @@
 import { Layers3, RefreshCw } from "lucide-react";
+import { WebSelect } from "./controls";
 import { useEffect, useState } from "react";
 import { fmtNumber, fmtPercent, fmtYuan, formatSampleTime, useDiscoveryData, type ProviderFailure } from "./discoveryData";
 import { TrendLine } from "./GpuRentPanel";
@@ -61,9 +62,9 @@ export function BoardDetailPanel({ code, onOpenSymbol }: { code: string; onOpenS
     <section className="mobile-section discovery-section">
       <div className="mobile-section-title"><div><h1><Layers3 size={20} /> 板块详情</h1><p>行情、日线与成分股，可点击个股继续查看。</p></div>
         <button className="discovery-action" type="button" disabled={result.loading} onClick={result.refresh} aria-label="刷新板块详情"><RefreshCw size={18} className={result.loading ? "spin" : ""} /></button></div>
-      <div className="discovery-controls"><label>成分股排序<select aria-label="成分股排序" value={sort} onChange={(event) => setView({ sort: event.target.value, page: 1 })}>
+      <div className="discovery-controls"><label>成分股排序<WebSelect aria-label="成分股排序" value={sort} onChange={(event) => setView({ sort: event.target.value, page: 1 })}>
         <option value="change:desc">涨幅优先</option><option value="change:asc">跌幅优先</option><option value="net:desc">主力净额优先</option><option value="turnover:desc">换手率优先</option>
-      </select></label></div>
+      </WebSelect></label></div>
       {result.error && <div className="mobile-error" role="alert">{result.error}<button type="button" className="discovery-action" onClick={result.refresh}>重试</button></div>}
       {result.loading && <div className="mobile-empty" role="status">正在获取板块详情…</div>}
       {result.data && <BoardDetailResults data={result.data} onOpenSymbol={onOpenSymbol} />}

@@ -1,0 +1,107 @@
+/* 紧凑密度的收紧层:在各页面样式之后加载,用更高的选择器盖过 */
+
+/* 基础:控件、导航、页面边距 */
+html[data-mobile-density="compact"] body .mobile-app { line-height: 1.35; }
+html[data-mobile-density="compact"] body .mobile-app :is(button, input:not([type="checkbox"]), select, summary) { min-height: 32px; }
+html[data-mobile-density="compact"] body .mobile-app .mobile-nav button { min-height: 42px; gap: 1px; font-size: 10px; }
+html[data-mobile-density="compact"] body .mobile-app .mobile-nav { padding: 2px 4px calc(2px + env(safe-area-inset-bottom)); }
+html body .mobile-app { padding-top: env(safe-area-inset-top); }
+html body .mobile-app::before { content: ""; position: fixed; z-index: 15; top: 0; right: 0; left: 0; height: env(safe-area-inset-top); background: var(--mobile-canvas); pointer-events: none; }
+html body .mobile-app .group-tabs { top: env(safe-area-inset-top); }
+html[data-mobile-density="compact"] body .mobile-app .mobile-section { padding: 6px 8px 10px; }
+html[data-mobile-density="compact"] body .mobile-app .mobile-back { min-height: 30px; margin: 4px 8px 0; padding: 3px 10px; font-size: 13px; }
+html[data-mobile-density="compact"] body .mobile-app .mobile-error { margin: 6px 8px 0; padding: 7px 9px; font-size: 12px; }
+html[data-mobile-density="compact"] body .mobile-app .mobile-empty { padding: 10px 10px; font-size: 12px; }
+/* 栏目内子页签 */
+html[data-mobile-density="compact"] body .mobile-app .group-tabs { margin: 0 0 4px; padding: 3px 8px; gap: 4px; }
+html[data-mobile-density="compact"] body .mobile-app .group-tabs [role="tab"], html[data-mobile-density="compact"] body .mobile-app .group-tabs-all { min-height: 28px; padding: 0 10px; font-size: 12px; line-height: 1; }
+html[data-mobile-density="compact"] body .mobile-app .group-tabs-all { min-width: 32px; padding: 0 6px; }
+/* 页面标题行、复盘日行 */
+html[data-mobile-density="compact"] body .mobile-app .emo-page { gap: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-header { gap: 5px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-title { gap: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-title h1 { margin: 0; font-size: 16px; line-height: 1.2; }
+html[data-mobile-density="compact"] body .mobile-app .emo-title p { display: none; }
+html[data-mobile-density="compact"] body .mobile-app .emo-title .mobile-header-action { min-width: 0; min-height: 30px; padding: 0 9px; border-radius: 8px; font-size: 12px; gap: 4px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-date-row { gap: 4px; flex-wrap: nowrap; }
+html[data-mobile-density="compact"] body .mobile-app .emo-date-row label { flex: 1 1 auto; min-height: 32px; padding: 0 6px; border-radius: 8px; gap: 4px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-date-row .wc-select { min-height: 30px; padding: 0; border: 0; background: transparent; font-size: 12.5px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-date-row .wc-select svg { display: none; }
+html[data-mobile-density="compact"] body .mobile-app .emo-date-row button { min-height: 32px; padding: 0 8px; border-radius: 8px; font-size: 12px; gap: 3px; white-space: nowrap; }
+html[data-mobile-density="compact"] body .mobile-app .emo-meta { margin: 0; font-size: 10.5px; line-height: 1.35; }
+/* 卡片与读数格 */
+html[data-mobile-density="compact"] body .mobile-app .emo-body, html[data-mobile-density="compact"] body .mobile-app .watch-live { gap: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .watch-live { margin-top: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-card, html[data-mobile-density="compact"] body .mobile-app .watch-card { padding: 7px 9px; border-radius: 10px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-card-head { margin-bottom: 5px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-card-head h2, html[data-mobile-density="compact"] body .mobile-app .watch-card-head h2 { font-size: 14px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-card-head small, html[data-mobile-density="compact"] body .mobile-app .watch-card-head small { font-size: 10.5px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+html[data-mobile-density="compact"] body .mobile-app .emo-stat { gap: 0; padding: 4px 6px; border-radius: 7px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-stat span { font-size: 10px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-stat strong { font-size: 14px; line-height: 1.25; }
+html[data-mobile-density="compact"] body .mobile-app .emo-stat small { font-size: 9.5px; line-height: 1.25; }
+html[data-mobile-density="compact"] body .mobile-app .emo-foot, html[data-mobile-density="compact"] body .mobile-app .watch-hint, html[data-mobile-density="compact"] body .mobile-app .monitor-note { margin: 4px 0 0; font-size: 10.5px; line-height: 1.4; }
+html[data-mobile-density="compact"] body .mobile-app .emo-row { gap: 3px; padding: 6px 8px; border-radius: 8px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-row dl { gap: 2px 6px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-row dl div { font-size: 10.5px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-table { gap: 4px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-matrix [role="row"] > span { padding: 4px 2px; }
+html[data-mobile-density="compact"] body .mobile-app .emo-chips button { min-height: 26px; padding: 0 8px; font-size: 12px; }
+/* 目录、盯盘与列表 */
+html[data-mobile-density="compact"] body .mobile-app .workspace-title h1 { font-size: 17px; }
+html[data-mobile-density="compact"] body .mobile-app .workspace-title p { display: none; }
+html[data-mobile-density="compact"] body .mobile-app .workspace-search input { min-height: 34px; }
+html[data-mobile-density="compact"] body .mobile-app .directory-grid { gap: 4px; }
+html[data-mobile-density="compact"] body .mobile-app .directory-grid button { padding: 6px 8px; min-height: 0; }
+html[data-mobile-density="compact"] body .mobile-app .directory-grid small { margin-top: 1px; font-size: 10px; line-height: 1.35; }
+html[data-mobile-density="compact"] body .mobile-app .directory-heading { margin: 6px 0 4px; }
+html[data-mobile-density="compact"] body .mobile-app .discovery-controls { gap: 6px; margin: 6px 0; }
+html[data-mobile-density="compact"] body .mobile-app .discovery-controls label { gap: 3px; font-size: 11px; }
+html[data-mobile-density="compact"] body .mobile-app .discovery-controls select, html[data-mobile-density="compact"] body .mobile-app .discovery-controls input, html[data-mobile-density="compact"] body .mobile-app .discovery-controls .wc-select { min-height: 32px; }
+html[data-mobile-density="compact"] body .mobile-app .home-watch-panel { margin-top: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .home-shortcuts { gap: 4px; margin-top: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .home-shortcuts button { min-height: 52px; padding: 5px 2px; gap: 2px; }
+html[data-mobile-density="compact"] body .mobile-app .settings-heading { padding: 7px 10px; }
+html[data-mobile-density="compact"] body .mobile-app .settings-list > div { padding: 6px 10px; }
+html[data-mobile-density="compact"] body .mobile-app .jr-form { gap: 5px; }
+html[data-mobile-density="compact"] body .mobile-app .jr-form input { min-height: 30px; }
+
+/* 各页标题块:只留页面名,说明文字与小标题收掉 */
+html[data-mobile-density="compact"] body .mobile-app h1 { margin: 0 0 2px; font-size: 16px; line-height: 1.2; }
+html[data-mobile-density="compact"] body .mobile-app h1 + p { display: none; }
+html[data-mobile-density="compact"] body .mobile-app span:has(+ h1), html[data-mobile-density="compact"] body .mobile-app .backtest-kicker { display: none; }
+html[data-mobile-density="compact"] body .mobile-app h2 { font-size: 14px; }
+html[data-mobile-density="compact"] body .mobile-app :is(.mobile-section-title, .mo-heading, .shortline-title-row, .monitor-title-row, .rotation-title-row, .settings-title-row, .ai-chat-title, .workspace-title) { margin-bottom: 4px; gap: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .mobile-header-action { min-width: 0; min-height: 30px; padding: 0 9px; border-radius: 8px; font-size: 12px; }
+/* 首页读数 */
+html[data-mobile-density="compact"] body .mobile-app .mo-wrap { gap: 5px; margin-bottom: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .mo-index-card { min-height: 50px; padding: 5px 7px; border-radius: 8px; }
+html[data-mobile-density="compact"] body .mobile-app .mo-index-name { font-size: 10.5px; }
+html[data-mobile-density="compact"] body .mobile-app .mo-index-price { margin-top: 0; font-size: 16px; line-height: 1.2; }
+html[data-mobile-density="compact"] body .mobile-app .mo-index-change { font-size: 10.5px; }
+html[data-mobile-density="compact"] body .mobile-app :is(.mo-breadth-card, .mo-distribution-card) { margin-top: 4px; padding: 6px 8px; }
+html[data-mobile-density="compact"] body .mobile-app .mo-sentiment-grid > div { padding: 5px 3px; }
+html[data-mobile-density="compact"] body .mobile-app .mo-sentiment-grid strong { margin-top: 0; font-size: 15px; }
+html[data-mobile-density="compact"] body .mobile-app .mo-distribution-item { padding: 3px 2px; }
+html[data-mobile-density="compact"] body .mobile-app .home-section-heading { padding: 7px 9px 0; }
+html[data-mobile-density="compact"] body .mobile-app .home-section-heading h2 { font-size: 14px; }
+html[data-mobile-density="compact"] body .mobile-app .home-section-heading span { font-size: 10.5px; }
+/* 列表行 */
+html[data-mobile-density="compact"] body .mobile-app .mobile-watch-open { min-height: 44px; }
+html[data-mobile-density="compact"] body .mobile-app :is(.mobile-watch-open, .monitor-row, .risk-row, .discovery-member) { padding: 6px 9px; }
+html[data-mobile-density="compact"] body .mobile-app .monitor-list { gap: 3px; }
+html[data-mobile-density="compact"] body .mobile-app .watch-row { padding-top: 6px; padding-bottom: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .watch-tabs [role="tab"] { min-height: 30px; padding: 0 9px; font-size: 12px; }
+/* 设置页 */
+html[data-mobile-density="compact"] body .mobile-app .settings-block, html[data-mobile-density="compact"] body .mobile-app .mobile-quote-card, html[data-mobile-density="compact"] body .mobile-app .stock-detail-card { margin-top: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .settings-heading { padding: 7px 10px; font-size: 13px; }
+html[data-mobile-density="compact"] body .mobile-app .appearance-body { padding: 8px 10px; gap: 8px; }
+html[data-mobile-density="compact"] body .mobile-app .appearance-options button { min-height: 34px; padding: 4px 8px; }
+html[data-mobile-density="compact"] body .mobile-app .appearance-options.density-options button { min-height: 40px; }
+html[data-mobile-density="compact"] body .mobile-app .settings-cards { gap: 4px; margin-top: 6px; }
+html[data-mobile-density="compact"] body .mobile-app .settings-cards > div { padding: 7px 9px; }
+html[data-mobile-density="compact"] body .mobile-app .settings-cards strong { font-size: 15px; }
+html[data-mobile-density="compact"] body .mobile-app .settings-list > div { padding: 6px 10px; font-size: 13px; }
+html[data-mobile-density="compact"] body .mobile-app .settings-block p { font-size: 11.5px; line-height: 1.45; }

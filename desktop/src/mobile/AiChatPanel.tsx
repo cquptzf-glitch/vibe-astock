@@ -1,4 +1,5 @@
 import { BrainCircuit, Eraser, RefreshCw, Send, ShieldCheck } from "lucide-react";
+import { askConfirm } from "./controls";
 import { useEffect, useRef, useState } from "react";
 
 import "./ai-chat.css";
@@ -112,7 +113,7 @@ export function AiChatPanel() {
 
   async function clearHistory() {
     if (messages.length === 0) return;
-    if (!window.confirm("清空手机本地保存的 AI 对话记录？此操作不可恢复。")) return;
+    if (!await askConfirm("清空手机本地保存的 AI 对话记录？此操作不可恢复。")) return;
     setLoading(true);
     setError("");
     setNotice("");

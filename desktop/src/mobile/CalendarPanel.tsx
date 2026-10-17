@@ -1,4 +1,5 @@
 import { CalendarDays, CheckCircle2, Circle, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { WebSelect, DateField } from "./controls";
 import { useEffect, useMemo, useState } from "react";
 
 type EventKind = "company" | "ledger" | "macro" | "reminder";
@@ -164,10 +165,10 @@ export function CalendarPanel() {
       <article className="mobile-quote-card calendar-editor">
         <div className="mobile-card-label"><CalendarDays size={13} /> 新增事件</div>
         <div className="calendar-editor-grid">
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-          <select value={kind} onChange={(event) => setKind(event.target.value as EventKind)}>
+          <DateField value={date} onChange={(event) => setDate(event.target.value)} />
+          <WebSelect value={kind} onChange={(event) => setKind(event.target.value as EventKind)}>
             {(Object.keys(KIND_LABEL) as EventKind[]).map((key) => <option key={key} value={key}>{KIND_LABEL[key]}</option>)}
-          </select>
+          </WebSelect>
           <input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="股票代码（可选）" maxLength={32} />
         </div>
         <input className="calendar-title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="事件标题" maxLength={500} />

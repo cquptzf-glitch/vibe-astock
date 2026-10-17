@@ -1,4 +1,5 @@
 import { Monitor, Moon, Sun } from "lucide-react";
+import { WebSelect } from "./controls";
 import { usePresentation, type Density, type Presentation, type RefreshSeconds, type ThemeMode } from "./presentation";
 
 export function AppearanceControls({ value, onChange }: { value: Presentation; onChange: (patch: Partial<Pick<Presentation, "theme" | "density" | "refreshSeconds">>) => void }) {
@@ -13,9 +14,9 @@ export function AppearanceControls({ value, onChange }: { value: Presentation; o
         {([["compact", "紧凑", "更多行情同屏"], ["comfortable", "舒适", "更宽松的间距"]] as const).map(([density, label, detail]) =>
           <button key={density} type="button" aria-pressed={value.density === density} onClick={() => onChange({ density: density as Density })}><strong>{label}</strong><small>{detail}</small></button>)}
       </div></fieldset>
-      <label className="appearance-refresh">前台行情刷新<select value={value.refreshSeconds} onChange={(event) => onChange({ refreshSeconds: Number(event.target.value) as RefreshSeconds })}>
+      <label className="appearance-refresh">前台行情刷新<WebSelect value={value.refreshSeconds} onChange={(event) => onChange({ refreshSeconds: Number(event.target.value) as RefreshSeconds })}>
         <option value={30}>每 30 秒</option><option value={60}>每 60 秒</option><option value={120}>每 120 秒</option><option value={0}>仅手动刷新</option>
-      </select></label>
+      </WebSelect></label>
       <p>页面切到后台时暂停刷新。主题、密度和刷新偏好保存在本机。</p>
     </div>
   </section>;

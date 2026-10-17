@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { WebSelect } from "./controls";
 import { fmtPercent, useDiscoveryData } from "./discoveryData";
 import { RequestState } from "./StockInsightsPanel";
 import "./stock-insights.css";
@@ -50,7 +51,7 @@ export function RiskPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => 
     <h1>异常波动与重点监控</h1>
     <p className="discovery-footnote">展示公开来源的异常偏离和监控窗口，不预测涨跌。</p>
     <div className="risk-toolbar discovery-controls">
-      <label>名单<select value={view.kind} onChange={(event) => { setView({ kind: event.target.value as RiskView["kind"], page: 1 }); setKeyword(""); }}><option value="anomaly">异常波动</option><option value="monitor">重点监控</option></select></label>
+      <label>名单<WebSelect value={view.kind} onChange={(event) => { setView({ kind: event.target.value as RiskView["kind"], page: 1 }); setKeyword(""); }}><option value="anomaly">异常波动</option><option value="monitor">重点监控</option></WebSelect></label>
       <label>筛选当前页<input type="search" value={keyword} maxLength={80} onChange={(event) => setKeyword(event.target.value)} placeholder="代码或名称" /></label>
       <button className="discovery-action" disabled={result.loading} onClick={result.refresh}>刷新</button>
     </div>

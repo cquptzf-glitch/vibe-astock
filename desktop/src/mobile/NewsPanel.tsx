@@ -1,4 +1,5 @@
 import { ExternalLink, Newspaper, RefreshCw } from "lucide-react";
+import { WebSelect } from "./controls";
 import { useState } from "react";
 import { useDiscoveryData, type ProviderFailure } from "./discoveryData";
 import { openPublicUrl } from "./externalLinks";
@@ -47,15 +48,15 @@ export function NewsPanel() {
       <div className="mobile-section-title"><div><h1><Newspaper size={20} /> 产业资讯</h1><p>公开 RSS 资讯，保留来源与发布时间。</p></div>
         <button className="discovery-action" type="button" disabled={result.loading} onClick={result.refresh} aria-label="刷新产业资讯"><RefreshCw size={18} className={result.loading ? "spin" : ""} /></button></div>
       <div className="discovery-controls">
-        <label>行业<select aria-label="资讯行业" value={industry} disabled={!catalog.data} onChange={(event) => { setIndustry(event.target.value); setSource(""); }}>
+        <label>行业<WebSelect aria-label="资讯行业" value={industry} disabled={!catalog.data} onChange={(event) => { setIndustry(event.target.value); setSource(""); }}>
           {!catalog.data && <option value="ai">加载行业…</option>}
           {catalog.data?.industries.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
-        </select></label>
-        <label>来源<select aria-label="资讯来源" value={source} onChange={(event) => setSource(event.target.value)}>
+        </WebSelect></label>
+        <label>来源<WebSelect aria-label="资讯来源" value={source} onChange={(event) => setSource(event.target.value)}>
           <option value="">综合 · 前 4 个来源</option>
           {catalog.data?.sources.filter((item) => item.industry === industry).map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
-        </select></label>
-        <label>时间<select value={days} aria-label="资讯时间范围" onChange={(event) => setDays(Number(event.target.value))}><option value={3}>近 3 天</option><option value={7}>近 7 天</option><option value={30}>近 30 天</option></select></label>
+        </WebSelect></label>
+        <label>时间<WebSelect value={days} aria-label="资讯时间范围" onChange={(event) => setDays(Number(event.target.value))}><option value={3}>近 3 天</option><option value={7}>近 7 天</option><option value={30}>近 30 天</option></WebSelect></label>
         <label>关键词<input type="search" aria-label="筛选资讯关键词" placeholder="筛选已获取的资讯" value={keyword} onChange={(event) => setKeyword(event.target.value)} /></label>
       </div>
       <label className="discovery-check"><input type="checkbox" checked={redlineOnly} onChange={(event) => setRedlineOnly(event.target.checked)} /> 仅显示含关注词的资讯</label>

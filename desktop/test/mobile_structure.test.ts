@@ -57,7 +57,8 @@ test("制度事件:列出已登记的(未来日期标「还没施行」),每条�
     assert.ok(html.includes('aria-label="修改 主板 ST 涨跌幅放宽到 10%"') && html.includes('aria-label="修改 未来规则"'), "每条事件有带标题的修改入口");
     assert.ok(!text.includes("还没登记制度事件(比如"), "有登记时不再显示空状态");
     const editor = r.html(EventEditor, { event: data.regime_events[0], onDone: noop, onCancel: noop });
-    assert.match(editor, /aria-label="施行日期"[^>]*value="2026-07-06"|value="2026-07-06"[^>]*aria-label="施行日期"/);
+    assert.match(editor, /aria-label="施行日期"[^>]*data-value="2026-07-06"/);
+    assert.ok(flat(editor).includes("2026-07-06"), "日期按网页控件显示");
     assert.match(editor, /value="主板 ST 涨跌幅放宽到 10%"/);
     const text2 = flat(editor);
     for (const part of ["施行日期(可以是未来)", "标题(最多 60 字)", "说明(选填,最多 300 字)", "保存", "删除", "取消"]) assert.ok(text2.includes(sq(part)), part);

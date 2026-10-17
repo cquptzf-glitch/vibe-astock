@@ -14,7 +14,8 @@ import { JournalPanelV2 } from "./JournalPanelV2";
 import { JournalReviewPanel } from "./JournalReviewPanel";
 import { LibraryPanel } from "./LibraryPanel";
 import { MarketOverview } from "./MarketOverview";
-import { MobileHeader, HomeShortcuts } from "./MobileHeader";
+import { HomeShortcuts } from "./MobileHeader";
+import { DialogHost } from "./controls";
 import { IntradayPanel } from "./IntradayPanel";
 import { MarketPanel } from "./MarketPanel";
 import { StructurePanel } from "./StructurePanel";
@@ -34,7 +35,6 @@ import { SectorPanel } from "./SectorPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { WatchQuotesPanel } from "./WatchQuotesPanel";
 import { FunctionDirectory, GroupTabs, WorkspaceNav } from "./WorkspaceNavigation";
-import { usePresentation } from "./presentation";
 import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
 import { StockDetailPanel } from "./StockDetailPanel";
@@ -45,6 +45,7 @@ import { useMobileNavigation } from "./useMobileNavigation";
 import type { MobilePage } from "./mobileRoutes";
 import "./mobile.css";
 import "./mobile-presentation.css";
+import "./compact.css";
 import "./discovery.css";
 import "./journal-workspace.css";
 import "./library.css";
@@ -123,7 +124,6 @@ function isDirectSymbol(value: string): boolean {
 
 export function MobileApp() {
   const { route, navigate, back } = useMobileNavigation();
-  const presentation = usePresentation();
   const page = route.page;
   const isStock = page === "stock";
   const go = (next: MobilePage) => navigate({ page: next });
@@ -138,11 +138,10 @@ export function MobileApp() {
   const [quoteRevision, setQuoteRevision] = useState(0);
   const [loadedSymbol, setLoadedSymbol] = useState("");
   const [error, setError] = useState("");
-  const [health, setHealth] = useState<{ ok: boolean; version: string } | null>(null);
+  const [, setHealth] = useState<{ ok: boolean; version: string } | null>(null);
 
   const currentName = String(quote?.extra?.name ?? "");
   const isWatched = Boolean(activeSymbol && watchlist.some((item) => item.symbol === activeSymbol));
-  const appVersion = health?.version?.replace(/-mobile$/, "") ?? "…";
 
   async function loadWatchlist() {
     const result = await api<WatchListResult>("/mobile/watchlist");
@@ -459,13 +458,9 @@ export function MobileApp() {
     }
   }
 
-  const showBack = isStock || page === "board" || page === "settings" || page === "functions";
+  const showBack = isStock || page === "board" || page === "functions";
   return (
     <div className="mobile-app">
-      <MobileHeader version={appVersion} ready={Boolean(health?.ok)} theme={presentation.resolvedTheme}
-        onToggleTheme={() => presentation.update({ theme: presentation.resolvedTheme === "dark" ? "light" : "dark" })}
-        onOpenSettings={() => go("settings")} />
-
       <main className="mobile-main" data-page={page}>
         <GroupTabs page={page} onNavigate={go} />
         {showBack && (
@@ -478,6 +473,7 @@ export function MobileApp() {
       </main>
 
       <WorkspaceNav page={page} onNavigate={go} />
+      <DialogHost />
     </div>
   );
 }

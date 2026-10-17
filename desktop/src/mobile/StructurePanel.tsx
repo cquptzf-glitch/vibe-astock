@@ -4,6 +4,7 @@
  * ③ 制度 —— 只收人工登记的,系统不从数据反推「这天大概改了规则」。只报「这里不连续」,不报「所以该怎么改打法」。
  */
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { DateField } from "./controls";
 import { useState } from "react";
 
 import { fmtNumber, fmtPercent } from "./discoveryData";
@@ -53,7 +54,7 @@ export function EventEditor({ event, onDone, onCancel }: { event: RegimeEvent | 
     }
   };
   return <div className="jr-form" aria-label="制度事件编辑">
-    <label><span>施行日期(可以是未来)</span><input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="施行日期" /></label>
+    <label><span>施行日期(可以是未来)</span><DateField value={date} onChange={(e) => setDate(e.target.value)} aria-label="施行日期" /></label>
     <label><span>标题(最多 60 字)</span><input value={title} onChange={(e) => setTitle(e.target.value)} aria-label="事件标题" /></label>
     <label><span>说明(选填,最多 300 字)</span><input value={note} onChange={(e) => setNote(e.target.value)} aria-label="事件说明" /></label>
     <div className="jr-actions">

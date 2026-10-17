@@ -1,0 +1,60 @@
+/* 网页自绘控件(controls.tsx):下拉、日期、底部面板、确认对话框,以及不依赖系统样式的复选框 */
+.mobile-app .wc-select {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; max-width: 100%; min-height: 34px;
+  padding: 0 8px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text);
+  font-size: 13px; line-height: 1.2; text-align: left;
+}
+.mobile-app .wc-select .wc-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mobile-app .wc-select svg { flex: 0 0 auto; color: var(--mobile-muted); }
+.mobile-app .wc-select:disabled { opacity: .55; }
+
+.mobile-app .wc-layer { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; justify-content: flex-end; }
+.mobile-app .wc-layer.wc-center { justify-content: center; align-items: center; padding: 24px; }
+.mobile-app .wc-backdrop { position: absolute; inset: 0; z-index: 0; width: 100%; min-height: 0 !important; padding: 0; border: 0; background: rgba(5, 10, 16, .55); }
+.mobile-app .wc-sheet {
+  position: relative; z-index: 1; width: min(100%, 560px); max-height: 72dvh; margin: 0 auto; overflow-y: auto; overscroll-behavior: contain;
+  padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); border: 1px solid var(--mobile-border); border-bottom: 0; border-radius: 14px 14px 0 0;
+  background: var(--mobile-card); color: var(--mobile-text); box-shadow: 0 -8px 28px rgba(0, 0, 0, .3);
+}
+.mobile-app .wc-sheet-head { display: flex; justify-content: center; padding: 2px 0 8px; font-size: 13px; color: var(--mobile-muted); }
+.mobile-app .wc-options { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.mobile-app .wc-options button {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 40px; padding: 0 10px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--mobile-text); font-size: 14px; text-align: left;
+}
+.mobile-app .wc-options button.on { background: var(--mobile-soft); color: var(--mobile-accent); font-weight: 650; }
+.mobile-app .wc-options button:disabled { opacity: .45; }
+
+.mobile-app .wc-cal { display: grid; gap: 6px; }
+.mobile-app .wc-cal-nav { display: grid; grid-template-columns: 34px 34px 1fr 34px 34px; align-items: center; gap: 2px; text-align: center; font-size: 14px; }
+.mobile-app .wc-cal-nav button, .mobile-app .wc-cal-foot button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 34px; border: 1px solid var(--mobile-border); border-radius: 8px;
+  background: var(--mobile-soft); color: var(--mobile-text); font-size: 13px;
+}
+.mobile-app .wc-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.mobile-app .wc-cal-week { padding: 2px 0; text-align: center; font-size: 11px; color: var(--mobile-muted); }
+.mobile-app .wc-cal-grid button { min-height: 36px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--mobile-text); font-size: 13px; }
+.mobile-app .wc-cal-grid button.today { border-color: var(--mobile-accent); }
+.mobile-app .wc-cal-grid button.on { background: var(--mobile-primary-fill); color: var(--mobile-on-accent); font-weight: 650; }
+.mobile-app .wc-cal-grid button:disabled { color: var(--mobile-muted); opacity: .35; }
+.mobile-app .wc-cal-foot { display: flex; justify-content: flex-end; gap: 8px; }
+.mobile-app .wc-cal-foot button { padding: 0 14px; }
+
+.mobile-app .wc-dialog {
+  position: relative; z-index: 1; width: min(100%, 360px); padding: 16px 16px 12px; border: 1px solid var(--mobile-border); border-radius: 14px;
+  background: var(--mobile-card); color: var(--mobile-text); box-shadow: 0 12px 36px rgba(0, 0, 0, .4);
+}
+.mobile-app .wc-dialog p { margin: 0 0 14px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mobile-app .wc-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.mobile-app .wc-dialog-actions button { min-height: 38px; padding: 0 16px; border: 1px solid var(--mobile-border); border-radius: 9px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 14px; }
+.mobile-app .wc-dialog-actions button.primary { border-color: transparent; background: var(--mobile-primary-fill); color: var(--mobile-on-accent); }
+
+/* 复选框:用 CSS 画,不用系统样式 */
+.mobile-app input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; flex: 0 0 auto; display: inline-grid; place-content: center; width: 20px; height: 20px; min-height: 0; margin: 0 6px 0 0;
+  border: 1.5px solid var(--mobile-muted); border-radius: 5px; background: var(--mobile-card); vertical-align: middle;
+}
+.mobile-app input[type="checkbox"]::after { content: ""; width: 10px; height: 6px; margin-top: -2px; border-left: 2px solid var(--mobile-on-accent); border-bottom: 2px solid var(--mobile-on-accent); transform: rotate(-45deg) scale(0); transition: transform .08s; }
+.mobile-app input[type="checkbox"]:checked { border-color: var(--mobile-primary-fill); background: var(--mobile-primary-fill); }
+.mobile-app input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
+.mobile-app input[type="checkbox"]:disabled { opacity: .5; }

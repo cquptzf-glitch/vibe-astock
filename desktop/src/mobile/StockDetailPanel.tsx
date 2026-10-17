@@ -1,4 +1,5 @@
 import { Activity, BarChart3, Gauge, Share2, TrendingDown, TrendingUp } from "lucide-react";
+import { showAlert } from "./controls";
 import { useMemo } from "react";
 
 import { shareText } from "./nativeShare";
@@ -150,7 +151,7 @@ export function StockDetailPanel({ quote, rows }: { quote: QuoteLike; rows: unkn
         chooserTitle: "分享个股行情",
       });
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : String(error));
+      await showAlert(error instanceof Error ? error.message : String(error));
     }
   }
 

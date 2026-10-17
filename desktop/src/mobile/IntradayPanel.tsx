@@ -5,6 +5,7 @@
  * 路径柱按红涨绿跌上色;盘中读数只是临时对照,成不成立以收盘为准。
  */
 import { Camera, CalendarDays, ClipboardCheck, Gavel, RefreshCw, Route } from "lucide-react";
+import { DateField } from "./controls";
 import { useState } from "react";
 
 import { fmtNumber, fmtPercent, useDiscoveryData } from "./discoveryData";
@@ -195,7 +196,7 @@ export function IntradayPanel() {
     </div>
     <div className="emo-date-row">
       <label><CalendarDays size={15} /><span className="sr-only">日期</span>
-        <input type="date" aria-label="快照日期" max={today} value={date || today} onChange={(event) => setDate(event.target.value === today ? "" : event.target.value)} /></label>
+        <DateField aria-label="快照日期" max={today} value={date || today} onChange={(event) => setDate(event.target.value === today ? "" : event.target.value)} /></label>
       <button type="button" className={!date ? "active" : ""} onClick={() => setDate("")}>今天</button>
     </div>
     {error && <div className="monitor-error" role="alert">竞价与盘中这次没取到:{error}。<button type="button" className="discovery-action" onClick={refresh}>重试</button></div>}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, ChevronRight, Eye, Home, LayoutGrid, Search, UserRound } from "lucide-react";
+import { Activity, ChevronRight, Eye, Home, LayoutGrid, Search, Settings2, UserRound } from "lucide-react";
 import type { MobilePage } from "./mobileRoutes";
 import { WORKSPACE_GROUPS, groupEntries, workspaceGroup, workspaceMatches, type WorkspaceGroup } from "./workspace";
 import "./workspace.css";
@@ -29,7 +29,7 @@ export function GroupTabs({ page, onNavigate }: { page: MobilePage; onNavigate: 
   const entries = groupEntries(group);
   const active = useRef<HTMLButtonElement>(null);
   useEffect(() => { active.current?.scrollIntoView?.({ block: "nearest", inline: "center" }); }, [page]);
-  if (group === "overview" || page === "my" || page === "functions" || !entries.some((entry) => entry.page === page)) return null;
+  if (group === "overview" || page === "my" || page === "settings" || page === "functions" || !entries.some((entry) => entry.page === page)) return null;
   const section = WORKSPACE_GROUPS.find((item) => item.id === group)!;
   return <nav className="group-tabs" aria-label={section.title + "栏目"}>
     <div role="tablist" aria-label={section.title}>{entries.map((entry) =>
@@ -42,9 +42,12 @@ export function GroupTabs({ page, onNavigate }: { page: MobilePage; onNavigate: 
 
 const GROUP_ICONS = { overview: Home, watch: Eye, review: Activity, research: Search, my: UserRound };
 export function WorkspaceNav({ page, onNavigate }: { page: MobilePage; onNavigate: (page: MobilePage) => void }) {
-  const active = page === "functions" ? null : workspaceGroup(page);
+  const inSettings = page === "settings";
+  const active = page === "functions" || inSettings ? null : workspaceGroup(page);
   return <nav className="mobile-nav" aria-label="主导航">{WORKSPACE_GROUPS.map((section) => {
     const Icon = GROUP_ICONS[section.id];
-    return <button key={section.id} type="button" className={active === section.id ? "active" : ""} aria-current={active === section.id ? "page" : undefined} onClick={() => onNavigate(section.home)}><Icon size={20} /><span>{section.title}</span></button>;
-  })}</nav>;
+    return <button key={section.id} type="button" className={active === section.id ? "active" : ""} aria-current={active === section.id ? "page" : undefined} onClick={() => onNavigate(section.home)}><Icon size={19} /><span>{section.title}</span></button>;
+  })}
+    <button type="button" className={inSettings ? "active" : ""} aria-current={inSettings ? "page" : undefined} onClick={() => onNavigate("settings")}><Settings2 size={19} /><span>设置</span></button>
+  </nav>;
 }
