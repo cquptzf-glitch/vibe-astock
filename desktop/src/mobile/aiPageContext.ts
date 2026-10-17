@@ -183,3 +183,38 @@ export function historyContext(d: HistoryData): string | null {
   lines.push("口径:只描述已经发生的盘面现象。");
   return lines.join("\n");
 }
+
+/** 盘面事实页:强势股反馈矩阵、亏钱效应、封板质量、分制度。取不到的块写原因 */
+export function marketFactsContext(d: EmotionData): string {
+  const lines = [`复盘日 ${d.date}${d.settled ? "" : "(盘中未收盘)"}。`];
+  const fb = d.feedback;
+  if (fb.available) {
+    lines.push(`强势股反馈(昨日各档涨停股今日结果,样本 ${fb.sample} 只):`);
+    for (const row of fb.rows) lines.push(`${row.tier}:合计 ${row.合计},晋级率 ${rate(row.晋级率 as number | null)}${fb.result_order.length ? `;` + fb.result_order.map((k) => `${k} ${row[k] ?? 0}`).join("、") : ""}`);
+  } else lines.push(`强势股反馈:暂不可用(${fb.reason})。`);
+  const loss = d.loss_effect;
+  lines.push(loss.available ? `亏钱效应:跌幅超 5% ${loss.deep_loss_5_count} 只(${rate(loss.deep_loss_5_rate)}),超 7% ${loss.deep_loss_7_count} 只,跌停 ${loss.limit_down_count} 只,最差 ${pct(loss.worst)}。` : `亏钱效应:暂不可用(${loss.reason})。`);
+  const sq = d.seal_quality;
+  lines.push(sq.available ? `封板质量:涨停 ${sq.total} 只,没炸过 ${sq.never_broken}(${rate(sq.never_broken_rate)}),炸后回封 ${sq.reopened},开盘秒板 ${sq.opening_seconds},14:30 后封 ${sq.late_seal},平均炸板 ${sq.avg_broken_times.toFixed(1)} 次。` : `封板质量:暂不可用(${sq.reason})。`);
+  const bb = d.by_board;
+  if (bb.available) {
+    lines.push("分制度(板块):");
+    for (const b of bb.boards) lines.push(`${b.board}:涨停 ${b.limit_up},最高 ${b.highest} 板,炸板 ${b.broken ?? "—"},跌停 ${b.limit_down ?? "—"},晋级 ${b.promoted ?? "—"}/${b.prev_base ?? "—"}(${rate(b.promotion_rate)})`);
+  } else lines.push(`分制度:暂不可用(${bb.reason})。`);
+  lines.push("口径:只描述已经发生的盘面现象。");
+  return lines.join("\n");
+}
+
+/** 涨停全表页:三个池的数量 + 涨停池前 30 只(连板高的在前,同高按首封早的在前) */
+export function limitUpTableContext(d: EmotionData): string | null {
+  const zt = d.limit_up_rows;
+  if (!zt.length && !d.broken_rows.available && !d.limit_down_rows.available) return null;
+  const sorted = [...zt].sort((a, b) => b.boards - a.boards || (a.first_seal ?? "99").localeCompare(b.first_seal ?? "99"));
+  const lines = [
+    `复盘日 ${d.date}。涨停池 ${zt.length} 只,炸板池 ${d.broken_rows.available ? d.broken_rows.rows.length + " 只" : `暂不可用(${d.broken_rows.reason ?? "原因未知"})`},跌停池 ${d.limit_down_rows.available ? d.limit_down_rows.rows.length + " 只" : `暂不可用(${d.limit_down_rows.reason ?? "原因未知"})`}。`,
+    "涨停池(连板高的在前):",
+    ...sorted.slice(0, 30).map((s) => `${s.name} ${s.code} | ${s.boards}板 | ${s.sector || "—"} | 首封 ${s.first_seal ? s.first_seal.slice(0, 5) : "—"} | 炸板 ${s.broken_times} | 成交 ${yi(s.amount)}`),
+  ];
+  if (sorted.length > 30) lines.push(`…另有 ${sorted.length - 30} 只未列出。`);
+  return lines.join("\n");
+}

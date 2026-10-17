@@ -1532,3 +1532,9 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - **问 AI 扩展**:`aiPageContext.ts` 新增 `ladderContext` / `themesContext` / `weeklyContext` / `historyContext`(类型从 `HistoryPanels` 做 type-only 导入,避免循环依赖)。周报上下文只取 `/mobile/shortline/weekly` 的公开读数;测试里断言文字不含「我的交易」「持仓」。
 - **分享卡**:`ShareCard.tsx` 抽出 `drawRowsCard(title, subtitle, rows, dark)`(值太长时 36px 逐步缩到 20px),`renderCard`(情绪)、`renderLadderCard` 是它的包装;`ShareCardBox` 是通用的预览/分享区块,`EmotionShareCard` / `LadderShareCard` 只是传不同参数。冒烟依赖的「生成 … 的分享图」按钮名和预览 alt 格式没变。
 - **关于用 Haiku 子代理做迁移**:试过一次,`Agent` 工具传 `model: "haiku"` 在本环境被映射到不存在的模型(`step-5-preview`,HTTP 404 model_not_found),任务启动即失败、没有改动任何文件,所以**没有创建项目子代理**,这轮和之前一样由主会话直接实现。以后换了可用的小模型再评估;当时的评估:机械的、规格明确且有测试把关的页面迁移可以下放,数据口径、红线(个人数据不进 AI)、跨层设计和排查不要下放。
+
+### 回测分析加深、盘面事实/涨停全表问 AI、回测分享图(0.1.34)
+
+- **回测**(`core-rust/src/backtest.rs`):`Costs` 多了 `position_pct`(10–100,每次进场预算 = 空仓现金 × 比例)。`Sim` 多了 `bench`(同本金、从第一根交易日收盘买入持有的逐日权益,组合 = 各只相加),`monthly_table` 逐月链式计算(月初基准 = 上月最后一天权益,首月用本金;基准列同法),`drawdown_episodes` 取最深的 3 段(前高 / 谷底 / 恢复下标;起点前高是本金,日期写「期初」;没恢复 `recover_date` 为 null)。`optimize_value`:所有参数共用一个切分点(最长预热 + 剩余的 70%),样本内 = `data[..split]`,样本外 = 从 `split - 该参数预热` 起的切片(这样样本外第一个交易日正好是切分点,指标有足够历史);`best_in_sample` 取样本内收益最高的一格(并列取靠前),`oos_rank` = 它的样本外收益在全部参数里的名次。`optimize` 与 `experiment` 一样只支持单只,多只在联网前就拒绝(有测试)。
+- **前端**:`BacktestPanel` 新增仓位比例输入、样本外勾选、回撤 / 月度 / 样本内外三块结果表;`backtestCardRows` + `ShareCard.tsx` 新的通用 `RowsShareCard` 做回测分享图(标题固定「回测结果(历史假设)」)。`aiPageContext.ts` 新增 `marketFactsContext` / `limitUpTableContext`。
+- 真实行情没跑通的限制同 0.1.31(本机连东财日线被关闭 TLS):算法靠手算对账、合成数据和结构断言保证,**没有对真实行情核对过结果**。

@@ -408,9 +408,9 @@ export function MobileApp() {
       case "hold": return <section className="mobile-section"><PortfolioPanel onOpenSymbol={openFromList} /></section>;
       case "emotion": return <EmotionTodayPanel onNavigate={go} onAskAi={askAi} />;
       case "ladder": return <LadderPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
-      case "limitUp": return <LimitUpTablePanel onOpenSymbol={openFromList} />;
+      case "limitUp": return <LimitUpTablePanel onOpenSymbol={openFromList} onAskAi={askAi} />;
       case "firstBoard": return <FirstBoardPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
-      case "seal": return <MarketFactsPanel onOpenSymbol={openFromList} />;
+      case "seal": return <MarketFactsPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
       case "themes": return <ThemesPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
       case "marketReview": return <MarketPanel onOpenSymbol={openFromList} />;
       case "structure": return <StructurePanel />;

@@ -74,6 +74,23 @@ test("近 5 天与情绪历史页文字:逐日一行、取不到写 —、缺口
   });
 });
 
+test("盘面事实与涨停全表页文字:不可用的块写原因,涨停池超过 30 只写明", async () => {
+  await withRenderer(async (r) => {
+    const { marketFactsContext, limitUpTableContext } = await r.load("/src/mobile/aiPageContext.ts");
+    const facts = marketFactsContext(emotion);
+    assert.ok(facts.includes(`复盘日 ${emotion.date}`) && facts.includes("封板质量") && facts.includes("只描述已经发生的盘面现象"), facts);
+    const broken = marketFactsContext({ ...emotion, feedback: { available: false, reason: "样本不足" }, loss_effect: { available: false, reason: "没取到" }, by_board: { available: false, reason: "x" } });
+    assert.ok(broken.includes("强势股反馈:暂不可用(样本不足)") && broken.includes("亏钱效应:暂不可用(没取到)") && broken.includes("分制度:暂不可用(x)"), broken);
+    const table = limitUpTableContext(emotion);
+    assert.ok(table.includes(`复盘日 ${emotion.date}`) && table.includes("涨停池") && table.includes("炸板池"), table);
+    const mk = (i: number) => ({ code: String(600000 + i), name: "股" + i, board: "10cm", boards: i % 5 + 1, label: "", rebound: false, ret: 10, close: 10, amount: 1e8, float_cap: 1, turnover: 1, seal_fund: 1, first_seal: "09:3" + (i % 10) + ":00", last_seal: null, broken_times: 0, sector: "机器人" });
+    const many = limitUpTableContext({ ...emotion, limit_up_rows: Array.from({ length: 40 }, (_, i) => mk(i)), broken_rows: { available: false, reason: "东财取不到" } });
+    assert.ok(many.includes("另有 10 只未列出") && many.includes("炸板池 暂不可用(东财取不到)"), many);
+    assert.ok(many.indexOf("| 5板") < many.indexOf("| 2板") && !many.includes("| 1板"), "连板高的在前");
+    assert.equal(limitUpTableContext({ ...emotion, limit_up_rows: [], broken_rows: { available: false, reason: "x" }, limit_down_rows: { available: false, reason: "x" } }), null);
+  });
+});
+
 test("登记表:同样内容不重复通知、超长截断、进入个人页面会清掉", async () => {
   await withRenderer(async (r) => {
     const m = await r.load("/src/mobile/aiPageContext.ts");

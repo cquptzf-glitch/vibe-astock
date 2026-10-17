@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { WebSelect, DateField } from "./controls";
 import { CalendarDays, ChevronRight, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
-import { emotionContext, firstBoardContext, ladderContext, themesContext, useRegisterAiPage } from "./aiPageContext";
+import { emotionContext, firstBoardContext, ladderContext, limitUpTableContext, marketFactsContext, themesContext, useRegisterAiPage } from "./aiPageContext";
 import { fmtPercent, fmtYuan } from "./discoveryData";
 import {
   chinaToday, emotionPath, fmtRate, useCachedResource, useEmotion,
@@ -327,10 +327,13 @@ export function LimitUpTableView({ data, onOpenSymbol, initialTab = "zt" }: { da
   </div>;
 }
 
-export function LimitUpTablePanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
+export function LimitUpTablePanel({ onOpenSymbol, onAskAi }: { onOpenSymbol: Open; onAskAi?: (question: string) => void }) {
   const state = useEmotionPage();
+  const aiText = useMemo(() => (state.data ? limitUpTableContext(state.data) : null), [state.data]);
+  useRegisterAiPage("涨停全表", aiText);
   return <section className="mobile-section emo-page">
     <EmotionHeader title="涨停全表" detail="涨停、炸板、跌停三池完整字段，可筛选排序" state={state} />
+    {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页的涨停池,把高度板和主要题材梳理一下,再说说炸板池和跌停池的规模;只描述已发生的现象,不要给买卖建议。")}><Sparkles size={13} />问 AI:梳理今天的涨停池</button>}
     {state.data && <LimitUpTableView data={state.data} onOpenSymbol={onOpenSymbol} />}
   </section>;
 }
@@ -419,10 +422,13 @@ export function MarketFactsView({ data, onOpenSymbol }: { data: EmotionData; onO
   </div>;
 }
 
-export function MarketFactsPanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
+export function MarketFactsPanel({ onOpenSymbol, onAskAi }: { onOpenSymbol: Open; onAskAi?: (question: string) => void }) {
   const state = useEmotionPage();
+  const aiText = useMemo(() => (state.data ? marketFactsContext(state.data) : null), [state.data]);
+  useRegisterAiPage("盘面事实", aiText);
   return <section className="mobile-section emo-page">
     <EmotionHeader title="盘面事实" detail="强势股反馈、亏钱效应、封板质量与分制度" state={state} />
+    {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页的读数,说说强势股今天的反馈、亏钱效应和封板质量各说明了什么;取不到或样本偏少的要指出来。只描述已发生的现象,不要给买卖建议。")}><Sparkles size={13} />问 AI:解读盘面事实</button>}
     {state.data && <MarketFactsView data={state.data} onOpenSymbol={onOpenSymbol} />}
     {state.data && <PrevBrokenCard date={state.date} onOpenSymbol={onOpenSymbol} />}
   </section>;

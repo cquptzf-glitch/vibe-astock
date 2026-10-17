@@ -49,10 +49,47 @@ test("回测结果:多只时多一张分标的表;没有的指标写 —,不写 
 test("回测请求:按策略取参数、多只用 symbols、空止损不传、多只时不带参数实验", async () => {
   await withRenderer(async (r) => {
     const { buildRequest } = await r.load("/src/mobile/BacktestPanel.tsx");
-    const base = { symbols: "600519", strategy: "sma_cross", params: { fast: "5", slow: "20" }, bars: "300", fees: "default", slippage: "", stopLoss: "", experiment: true, limitCheck: true };
-    assert.deepEqual(buildRequest(base), { strategy: "sma_cross", bars: 300, fees: "default", slippage_bps: 0, limit_check: true, symbol: "600519", fast: 5, slow: 20, experiment: true });
-    const multi = buildRequest({ ...base, symbols: "600519, 000001、300750", strategy: "rsi", params: { period: "14", buy: "25", sell: "75" }, fees: "none", slippage: "3", stopLoss: "8", limitCheck: false });
-    assert.deepEqual(multi, { strategy: "rsi", bars: 300, fees: "none", slippage_bps: 3, limit_check: false, symbols: ["600519", "000001", "300750"], period: 14, buy: 25, sell: 75, stop_loss_pct: 8 });
+    const base = { symbols: "600519", strategy: "sma_cross", params: { fast: "5", slow: "20" }, bars: "300", fees: "default", slippage: "", stopLoss: "", experiment: true, limitCheck: true, positionPct: "100", optimize: false };
+    assert.deepEqual(buildRequest(base), { strategy: "sma_cross", bars: 300, fees: "default", slippage_bps: 0, limit_check: true, position_pct: 100, symbol: "600519", fast: 5, slow: 20, experiment: true });
+    const multi = buildRequest({ ...base, symbols: "600519, 000001、300750", strategy: "rsi", params: { period: "14", buy: "25", sell: "75" }, fees: "none", slippage: "3", stopLoss: "8", limitCheck: false, positionPct: "50", optimize: true });
+    assert.deepEqual(multi, { strategy: "rsi", bars: 300, fees: "none", slippage_bps: 3, limit_check: false, position_pct: 50, symbols: ["600519", "000001", "300750"], period: 14, buy: 25, sell: 75, stop_loss_pct: 8 });
     assert.equal("symbol" in multi, false);
+  });
+});
+
+test("回测结果:回撤区间、月度收益、样本内外对照都在;样本外不可用时写原因", async () => {
+  await withRenderer(async (r) => {
+    const { ResultView, buildRequest } = await r.load("/src/mobile/BacktestPanel.tsx");
+    const full = result({
+      drawdowns: [{ peak_date: "2026-03-04", trough_date: "2026-04-20", recover_date: null, depth_pct: -12.5, bars_to_trough: 30, bars_total: 45 }],
+      monthly: [{ month: "2026-02", return_pct: 3.2, bench_pct: 1.1 }, { month: "2026-03", return_pct: -1.5, bench_pct: null }],
+      optimize: { available: true, in_sample: { start: "2025-01-02", end: "2026-02-27", bars: 280 }, out_of_sample: { start: "2026-03-02", end: "2026-06-30", bars: 120 },
+        rows: [{ label: "MA10 / MA30", is_return_pct: 20, oos_return_pct: -4, is_trades: 6, oos_trades: 2, best_in_sample: true }, { label: "MA5 / MA60", is_return_pct: 8, oos_return_pct: 3, is_trades: 4, oos_trades: 1, best_in_sample: false }],
+        best_in_sample: { label: "MA10 / MA30", is_return_pct: 20, oos_return_pct: -4, oos_rank: 2, of: 2 }, median_oos_return_pct: -0.5, oos_positive_share: 0.5, note: "样本内选出的最好一格,到样本外还站得住才有参考意义" },
+    });
+    const html = flat(r.html(ResultView, { result: full }));
+    for (const part of ["最深的 1 段回撤", "到最后还没恢复", "-12.50%", "月度收益(策略 vs 买入持有)", "2026-02", "+3.20%", "样本内 / 样本外对照", "样本内最好:MA10 / MA30", "样本外排第 2/2", "50% 为正", "(样本内最好)"]) {
+      assert.ok(html.includes(sq(part)), part);
+    }
+    const unavailable = flat(r.html(ResultView, { result: result({ optimize: { available: false, reason: "K 线太短,不够切成样本内/外" } }) }));
+    assert.ok(unavailable.includes(sq("暂不可用:K 线太短,不够切成样本内/外")));
+    const body = buildRequest({ symbols: "600519 000001", strategy: "sma_cross", params: { fast: "5", slow: "20" }, bars: "300", fees: "default", slippage: "0", stopLoss: "", experiment: true, limitCheck: true, positionPct: "", optimize: true });
+    assert.equal("optimize" in body || "experiment" in body, false, "多只股票不带实验和样本外");
+    assert.equal(body.position_pct, 100, "仓位留空按 100");
+  });
+});
+
+test("回测分享卡:标明历史假设,只放这次回测的读数;没有成交时胜率写 —", async () => {
+  await withRenderer(async (r) => {
+    const { backtestCardRows, ResultView } = await r.load("/src/mobile/BacktestPanel.tsx");
+    const rows = backtestCardRows(result()) as { label: string; value: string }[];
+    assert.deepEqual(rows.map((x) => x.label), ["标的", "策略", "区间", "策略收益", "买入持有", "最大回撤", "已平仓 / 胜率", "手续费 / 滑点"]);
+    assert.equal(rows[3].value, "+8.00%");
+    assert.equal(rows[6].value, "2 笔 / +50.00%");
+    const none = backtestCardRows(result({ metrics: { ...result().metrics, closed_trades: 0, win_rate_pct: null } })) as { label: string; value: string }[];
+    assert.equal(none[6].value, "0 笔 / —");
+    const text = flat(r.html(ResultView, { result: result() }));
+    assert.ok(text.includes(sq("图片分享卡")) && text.includes(sq("生成回测结果(历史假设)分享图")) && text.includes(sq("不含自选与持仓")));
+    assert.ok(!JSON.stringify(rows).includes("持仓") && !JSON.stringify(rows).includes("成交明细"));
   });
 });

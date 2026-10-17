@@ -132,3 +132,29 @@ function ShareCardBox({ data, kind, slug, render }: { data: EmotionData; kind: s
     {message && <p className="emo-foot" role="status">{message}</p>}
   </section>;
 }
+
+/** 通用「读数卡」分享区块:按给定的标题 / 副标题 / 行画一张图,预览后再分享(不含个人数据由调用方保证) */
+export function RowsShareCard({ title, subtitle, rows, slug, hint }: { title: string; subtitle: string; rows: CardRow[]; slug: string; hint: string }) {
+  const [png, setPng] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const make = () => {
+    const dark = typeof document !== "undefined" && document.documentElement.dataset.theme === "dark";
+    const out = drawRowsCard(title, subtitle, rows, dark);
+    setPng(out);
+    setMessage(out ? "" : "当前环境画不出图片。");
+  };
+  const share = async () => {
+    if (!png) return;
+    try {
+      const how = await shareFile({ name: `vibe-astock-${slug}.png`, mime: "image/png", base64: png, title, chooserTitle: `分享${title}` });
+      setMessage(how === "download" ? "已下载图片。" : "");
+    } catch (e) { setMessage(e instanceof Error ? e.message : String(e)); }
+  };
+  return <section className="emo-card" aria-label="图片分享卡">
+    <div className="emo-card-head"><h2><ImageIcon size={14} /> 图片分享卡</h2><small>{hint}</small></div>
+    {!png ? <button type="button" className="emo-link" onClick={make}>生成{title}分享图</button>
+      : <><img className="share-preview" alt={`${title}分享图预览`} src={`data:image/png;base64,${png}`} />
+        <div className="share-actions"><button type="button" onClick={() => void share()}><Share2 size={14} /> 分享这张图</button><button type="button" onClick={() => setPng(null)}>重画</button></div></>}
+    {message && <p className="emo-foot" role="status">{message}</p>}
+  </section>;
+}
