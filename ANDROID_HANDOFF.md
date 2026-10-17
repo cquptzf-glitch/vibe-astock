@@ -1490,3 +1490,4 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - **研报导入**(`ReportImport.tsx`):`draftOf` 校验扩展名(.txt/.md/.markdown/.csv/.tsv/.json)、空文件、二进制(含 NUL)、超 25 万字符;`decodeFile`(从 TradeImport 复用)先 UTF-8 严格解码再 GBK;保存走 `POST /mobile/documents`(kind report,source file_import)。
 - **AI 复盘归档**(`AiReviewPanel.tsx`):`reviewNote` 把回答 + 来源说明存成 kind note、category「AI 复盘」、source ai_review 的笔记;偏好存 localStorage `vibe.ai.review.archive`(默认开);归档失败只在提示里写,不影响复盘结果。
 - 0.1.26 已发布(4f0fd7e,APK 25,652,877 字节)。0.1.26 的第一次推送(fe08dbb)APK 构建失败,原因与办法见上一节。
+- 0.1.27 已发布(9a45a75,APK 25,669,211 字节)。第一次推送(97773aa)APK 构建失败:推断是 `androidx.core.content.FileProvider` 与 Tauri 生成清单里的同名 provider 合并冲突;现在用子类 `com.vibeastock.share.VibeFileProvider`(authority `${applicationId}.vibe.fileprovider`)。原因只是推断。以后给插件加 manifest 元素,先想想会不会和 Tauri 模板里已有的同名元素冲突。
