@@ -103,6 +103,7 @@ const REQUIRED_TABLES: &[&str] = &[
     "mobile_journal_modes",
     "mobile_journal_bars",
     "mobile_journal_env_days",
+    "mobile_ths_reasons",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -363,6 +364,12 @@ fn migrate_6_to_7(conn: &Connection) -> Result<()> {
         CREATE TABLE IF NOT EXISTS mobile_journal_env_days (
             date TEXT PRIMARY KEY,
             payload TEXT NOT NULL,
+            fetched_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS mobile_ths_reasons (
+            date TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            note TEXT NOT NULL,
             fetched_at TEXT NOT NULL
         );",
     )?;

@@ -42,6 +42,7 @@ mod search;
 mod shortline;
 mod storage;
 mod symbol;
+mod theme_tree;
 mod watch;
 
 pub use symbol::{natural_market, normalize_stock_symbol, Market, SymbolKey};
@@ -393,6 +394,7 @@ impl AppCore {
             ("GET", "/mobile/shortline/history") => Ok(discovery_response(emotion_history::history(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/shortline/weekly") => Ok(discovery_response(emotion_history::weekly(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/review/market") => Ok(discovery_response(market_panel::fetch(&self.client, &request.path).await)),
+            ("GET", "/mobile/shortline/theme-tree") => Ok(discovery_response(theme_tree::fetch(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/shortline/samples") => Ok(discovery_response(samples::fetch(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::verify(&self.client, &self.db_path, &request.path).await)),
             ("POST", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::save_verify(&self.client, &self.db_path, &request.body).await)),
@@ -502,6 +504,8 @@ mod discovery_contract_tests {
             "/mobile/shortline/samples?days=91",
             "/mobile/shortline/samples?date=2026-02-30",
             "/mobile/shortline/samples?refresh=2",
+            "/mobile/shortline/theme-tree?top=2",
+            "/mobile/shortline/theme-tree?date=2026-02-30",
             "/mobile/review/market?date=2026-02-30",
             "/mobile/review/market?date=2999-01-01",
             "/mobile/journal/excursion?mode=live",

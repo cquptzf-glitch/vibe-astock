@@ -158,3 +158,19 @@ em.hit { color: #fff; background: var(--mobile-up); } em.miss { color: #fff; bac
   .emo-board-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .hist-lineage { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* 题材事件树 */
+.emo-tree { display: grid; gap: 8px; }
+.emo-tree-node { display: grid; gap: 4px; padding: 8px 0; border-bottom: 1px dashed var(--mobile-border); min-width: 0; }
+.emo-tree-node:last-of-type { border-bottom: 0; }
+.emo-tree-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; }
+.emo-tree-head strong { font-size: 14px; overflow-wrap: anywhere; } .emo-tree-head b { font-variant-numeric: tabular-nums; }
+.emo-tree-head small { font-size: 11px; } .emo-tree-head small.warn { color: var(--mobile-warning); } .emo-tree-head small.down { color: var(--mobile-down); }
+.emo-tree-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; color: var(--mobile-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.emo-tree-meta b.up { color: var(--mobile-up); } .emo-tree-meta b.down { color: var(--mobile-down); }
+.emo-state { padding: 0 6px; border-radius: 5px; font-style: normal; font-size: 10px; font-weight: 700; background: var(--mobile-soft); color: var(--mobile-muted); }
+.emo-state.strong { background: color-mix(in srgb, var(--mobile-up) 14%, transparent); color: var(--mobile-up); }
+.emo-state.weak { background: color-mix(in srgb, var(--mobile-down) 14%, transparent); color: var(--mobile-down); }
+.emo-state.split { background: color-mix(in srgb, var(--mobile-warning) 16%, transparent); color: var(--mobile-warning); }
+.emo-state.new { background: color-mix(in srgb, var(--mobile-accent) 14%, transparent); color: var(--mobile-accent); }
+.emo-reason { margin: 0; color: var(--mobile-accent); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }

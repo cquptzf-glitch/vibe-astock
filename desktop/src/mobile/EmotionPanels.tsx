@@ -6,6 +6,7 @@ import {
   type CycleData, type EmotionData, type EmotionStock, type LadderLevel, type LedgerEvent, type PoolRow,
 } from "./emotionData";
 import type { MobilePage } from "./mobileRoutes";
+import { ThemeTreeCard, useThemeTree } from "./ThemeTree";
 import "./emotion.css";
 
 type Open = (symbol: string) => void;
@@ -325,7 +326,7 @@ export function LimitUpTablePanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
 
 // ------------------------------------------------------------ 首板名单
 
-export function FirstBoardView({ data, onOpenSymbol }: { data: EmotionData; onOpenSymbol: Open }) {
+export function FirstBoardView({ data, onOpenSymbol, reasons }: { data: EmotionData; onOpenSymbol: Open; reasons?: Record<string, string> }) {
   const [onlyRebound, setOnlyRebound] = useState(false);
   const fb = data.first_board;
   if (!fb.available) return <Reason reason={fb.reason} />;
@@ -339,6 +340,7 @@ export function FirstBoardView({ data, onOpenSymbol }: { data: EmotionData; onOp
     <div className="emo-table">{stocks.map((s) => <button type="button" className="emo-row" key={s.code} onClick={() => onOpenSymbol(s.code)}>
       <div className="emo-row-main"><strong>{s.name}</strong><span>{s.code} · {s.sector || "—"}</span></div>
       <div className="emo-row-tags">{s.rebound && <em>{s.label}</em>}{s.board !== "10cm" && <em className="emo-board">{s.board}</em>}</div>
+      {reasons?.[s.code] && <p className="emo-reason">{reasons[s.code]}</p>}
       <dl><div><dt>首封</dt><dd>{hm(s.first_seal)}</dd></div><div><dt>炸板</dt><dd>{s.broken_times}</dd></div><div><dt>收盘</dt><dd>{s.close?.toFixed(2) ?? "—"}</dd></div>
         <div><dt>涨幅</dt><dd className={retClass(s.ret)}>{fmtPercent(s.ret)}</dd></div><div><dt>成交</dt><dd>{fmtYuan(s.amount)}</dd></div><div><dt>流通</dt><dd>{fmtYuan(s.float_cap)}</dd></div></dl>
     </button>)}</div>
@@ -348,9 +350,12 @@ export function FirstBoardView({ data, onOpenSymbol }: { data: EmotionData; onOp
 
 export function FirstBoardPanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
   const state = useEmotionPage();
+  const tree = useThemeTree(state.date);
   return <section className="mobile-section emo-page">
-    <EmotionHeader title="首板名单" detail="按首封时间排列，标出反包与制度" state={state} />
-    {state.data && <FirstBoardView data={state.data} onOpenSymbol={onOpenSymbol} />}
+    <EmotionHeader title="首板名单" detail="按首封时间排列，标出反包、制度与涨停原因" state={state} />
+    {state.data && <FirstBoardView data={state.data} onOpenSymbol={onOpenSymbol} reasons={tree.data?.reasons} />}
+    {state.data && !tree.data && <p className="emo-foot">{tree.error ? `涨停原因这次没取到:${tree.error}` : "涨停原因加载中…"}</p>}
+    {tree.data && Object.keys(tree.data.reasons).length === 0 && <p className="emo-foot">涨停原因没取到:{tree.data.tree.available ? "没有原因覆盖" : tree.data.tree.reason}。</p>}
   </section>;
 }
 
@@ -447,14 +452,15 @@ export function ThemesView({ data, onOpenSymbol }: { data: EmotionData; onOpenSy
         {!events.prev_available && <p className="emo-foot">前一交易日涨停池未取得，断板类标签无法判断。</p>}
       </> : <Reason reason={events.reason} />}
     </Card>
-    <p className="emo-foot">行业按东财所属行业归类，与桌面版同花顺涨停原因题材树口径不同。</p>
+    <p className="emo-foot">下面的行业按东财所属行业归类;题材看上面的事件树(同花顺涨停原因)。</p>
   </div>;
 }
 
 export function ThemesPanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
   const state = useEmotionPage();
   return <section className="mobile-section emo-page">
-    <EmotionHeader title="行业题材" detail="行业梯队、跨日延续、发酵节奏与关键事件" state={state} />
+    <EmotionHeader title="行业题材" detail="题材事件树、行业梯队、跨日延续、发酵节奏与关键事件" state={state} />
+    {state.data && <ThemeTreeCard date={state.data.date} onOpenSymbol={onOpenSymbol} />}
     {state.data && <ThemesView data={state.data} onOpenSymbol={onOpenSymbol} />}
   </section>;
 }
