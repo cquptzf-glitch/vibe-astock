@@ -1,6 +1,8 @@
 import {
   BriefcaseBusiness,
   ChevronRight,
+  Eye,
+  EyeOff,
   RefreshCw,
   Share2,
   ShieldAlert,
@@ -10,6 +12,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { shareText } from "./nativeShare";
+import { priv, usePrivacyMode } from "./privacy";
 import { PortfolioAnalysis } from "./PortfolioAnalysis";
 import { ScreenshotImport } from "./ScreenshotImport";
 import { PortfolioIncome } from "./PortfolioIncome";
@@ -83,6 +86,9 @@ function money(value: number | null): string {
   return value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
 }
 
+/** 个人金额:隐私模式下遮成 ••••(最新价是公开行情,仍用 money) */
+const pm = (value: number | null) => priv(money(value));
+
 function pct(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
@@ -93,6 +99,7 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
   const [positions, setPositions] = useState<PositionView[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const privacy = usePrivacyMode();
 
   async function refresh() {
     setLoading(true);
@@ -163,13 +170,13 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
     if (!review || positions.length === 0) return;
     const rows = positions.map((position) => {
       const label = position.name || position.symbol;
-      return `${label} ${position.symbol} · ${position.open_shares.toLocaleString("zh-CN")}股 · 成本 ${money(position.avg_cost)} · 最新 ${money(position.price)} · 浮盈亏 ${position.unrealized_pnl !== null && position.unrealized_pnl > 0 ? "+" : ""}${money(position.unrealized_pnl)}元 (${pct(position.unrealized_pct)})`;
+      return `${label} ${position.symbol} · ${priv(position.open_shares.toLocaleString("zh-CN"))}股 · 成本 ${pm(position.avg_cost)} · 最新 ${money(position.price)} · 浮盈亏 ${position.unrealized_pnl !== null && position.unrealized_pnl > 0 ? "+" : ""}${pm(position.unrealized_pnl)}元 (${pct(position.unrealized_pct)})`;
     });
     const text = [
       "【Vibe AStock · 本地持仓快照】",
-      `持仓 ${positions.length} 只 · 成本 ${money(review.risk.open_cost_total)} 元 · 最新市值 ${money(summary.marketValue)} 元`,
-      `浮动盈亏 ${summary.unrealized !== null && summary.unrealized > 0 ? "+" : ""}${money(summary.unrealized)} 元`,
-      `止损覆盖 ${review.risk.stop_covered}/${review.risk.open_positions} · 计划风险 ${money(review.risk.planned_risk_total)} 元`,
+      `持仓 ${positions.length} 只 · 成本 ${pm(review.risk.open_cost_total)} 元 · 最新市值 ${pm(summary.marketValue)} 元`,
+      `浮动盈亏 ${summary.unrealized !== null && summary.unrealized > 0 ? "+" : ""}${pm(summary.unrealized)} 元`,
+      `止损覆盖 ${review.risk.stop_covered}/${review.risk.open_positions} · 计划风险 ${pm(review.risk.planned_risk_total)} 元`,
       "",
       ...rows,
       "",
@@ -191,7 +198,10 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
           <p>由交易日志成交自动汇总，不维护第二套持仓数据。</p>
         </div>
         <div className="portfolio-title-actions">
-          <button onClick={() => void sharePortfolio()} disabled={loading || positions.length === 0} aria-label="分享持仓快照">
+          <button onClick={privacy.toggle} aria-pressed={privacy.on} aria-label={privacy.on ? "关闭隐私模式" : "开启隐私模式(遮住金额和股数)"} title={privacy.on ? "隐私模式已开" : "隐私模式"}>
+            {privacy.on ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
+          <button onClick={() => void sharePortfolio()} disabled={loading || positions.length === 0 || privacy.on} aria-label="分享持仓快照" title={privacy.on ? "隐私模式下不能分享持仓快照" : undefined}>
             <Share2 size={17} />
           </button>
           <button onClick={() => void refresh()} disabled={loading} aria-label="刷新持仓">
@@ -211,12 +221,12 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
         <>
           <div className="portfolio-summary">
             <div><span>持仓</span><strong>{positions.length}</strong><small>只</small></div>
-            <div><span>持仓成本</span><strong>{money(review.risk.open_cost_total)}</strong><small>元</small></div>
-            <div><span>最新市值</span><strong>{money(summary.marketValue)}</strong><small>{summary.quoted}/{positions.length} 已报价</small></div>
+            <div><span>持仓成本</span><strong>{pm(review.risk.open_cost_total)}</strong><small>元</small></div>
+            <div><span>最新市值</span><strong>{pm(summary.marketValue)}</strong><small>{summary.quoted}/{positions.length} 已报价</small></div>
             <div>
               <span>浮动盈亏</span>
               <strong className={(summary.unrealized ?? 0) >= 0 ? "up" : "down"}>
-                {summary.unrealized !== null && summary.unrealized > 0 ? "+" : ""}{money(summary.unrealized)}
+                {summary.unrealized !== null && summary.unrealized > 0 ? "+" : ""}{pm(summary.unrealized)}
               </strong>
               <small>元</small>
             </div>
@@ -225,7 +235,7 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
           <div className="portfolio-risk">
             <ShieldAlert size={16} />
             <span>止损覆盖 {review.risk.stop_covered}/{review.risk.open_positions}</span>
-            <span>计划风险 {money(review.risk.planned_risk_total)} 元</span>
+            <span>计划风险 {pm(review.risk.planned_risk_total)} 元</span>
             {review.risk.without_stop > 0 && <b>{review.risk.without_stop} 笔未写止损</b>}
           </div>
 
@@ -237,7 +247,7 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
                   <div className="portfolio-main">
                     <div className="portfolio-name">
                       <strong>{position.name || position.symbol}</strong>
-                      <span>{position.symbol} · {position.open_shares.toLocaleString("zh-CN")} 股</span>
+                      <span>{position.symbol} · {priv(position.open_shares.toLocaleString("zh-CN"))} 股</span>
                     </div>
                     <div className="portfolio-price">
                       <strong>{money(position.price)}</strong>
@@ -246,16 +256,16 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
                   </div>
 
                   <div className="portfolio-metrics">
-                    <span>成本 <b>{money(position.avg_cost)}</b></span>
-                    <span>市值 <b>{money(position.market_value)}</b></span>
-                    <span>止损 <b>{position.planned_stop ?? "未写"}</b></span>
-                    <span>目标 <b>{position.planned_target ?? "未写"}</b></span>
+                    <span>成本 <b>{pm(position.avg_cost)}</b></span>
+                    <span>市值 <b>{pm(position.market_value)}</b></span>
+                    <span>止损 <b>{position.planned_stop == null ? "未写" : priv(String(position.planned_stop))}</b></span>
+                    <span>目标 <b>{position.planned_target == null ? "未写" : priv(String(position.planned_target))}</b></span>
                   </div>
 
                   <div className="portfolio-pnl">
                     <span className={pnlUp ? "up" : "down"}>
                       {pnlUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                      {position.unrealized_pnl === null ? "行情不可用" : `${position.unrealized_pnl > 0 ? "+" : ""}${money(position.unrealized_pnl)} 元`}
+                      {position.unrealized_pnl === null ? "行情不可用" : `${position.unrealized_pnl > 0 ? "+" : ""}${pm(position.unrealized_pnl)} 元`}
                     </span>
                     <b className={pnlUp ? "up" : "down"}>{pct(position.unrealized_pct)}</b>
                     <ChevronRight size={16} />

@@ -1,6 +1,7 @@
 import { BarChart3, RefreshCw, ShieldAlert, Target, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { priv } from "./privacy";
 import "./journal-review.css";
 
 type Stats = {
@@ -76,7 +77,7 @@ function pct(value: number | null, ratio = false): string {
 
 function amount(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  return priv(value.toLocaleString("zh-CN", { maximumFractionDigits: 2 }));
 }
 
 function ratio(value: number | null): string {
@@ -162,8 +163,8 @@ export function JournalReviewPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: st
               <div className="journal-review-positions">
                 {data.positions.map((position) => (
                   <button key={position.id} onClick={() => onOpenSymbol(position.symbol)}>
-                    <div><strong>{position.name || position.symbol}</strong><span>{position.symbol} · {position.open_shares.toLocaleString("zh-CN")} 股</span></div>
-                    <div><span>均价 {amount(position.avg_cost)}</span><span>止损 {position.planned_stop ?? "未写"}</span></div>
+                    <div><strong>{position.name || position.symbol}</strong><span>{position.symbol} · {priv(position.open_shares.toLocaleString("zh-CN"))} 股</span></div>
+                    <div><span>均价 {amount(position.avg_cost)}</span><span>止损 {position.planned_stop == null ? "未写" : priv(String(position.planned_stop))}</span></div>
                     <div className={position.risk_amount === null ? "unknown" : ""}>
                       <b>{position.risk_amount === null ? "风险未界定" : `${amount(position.risk_amount)} 元`}</b>
                       <small>{position.risk_pct === null ? "" : pct(position.risk_pct)}</small>

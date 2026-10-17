@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { askConfirm, DateField } from "./controls";
 import { fmtNumber } from "./discoveryData";
+import { priv, usePrivacyMode } from "./privacy";
 import "./portfolio-income.css";
 
 export interface IncomeHolding { symbol: string; name: string; open_shares: number; avg_cost: number; open_cost: number; realized_pnl: number; closed_trades: number; dividends: number }
@@ -18,7 +19,7 @@ export interface IncomeData {
 }
 
 const tone = (v: number) => (v > 0 ? "up" : v < 0 ? "down" : "");
-const signed = (v: number) => (v > 0 ? "+" : "") + fmtNumber(v);
+const signed = (v: number) => priv((v > 0 ? "+" : "") + fmtNumber(v));
 const label = (x: { name: string; symbol: string }) => x.name || x.symbol;
 
 export function DividendEditor({ item, today, busy, message, onSave, onDelete, onCancel }: {
@@ -29,10 +30,11 @@ export function DividendEditor({ item, today, busy, message, onSave, onDelete, o
   const [date, setDate] = useState(item?.date ?? today);
   const [amount, setAmount] = useState(item ? String(item.amount) : "");
   const [note, setNote] = useState(item?.note ?? "");
+  const privacy = usePrivacyMode();
   return <div className="pi-editor" aria-label="分红编辑">
     <label><span>代码</span><input value={symbol} onChange={(e) => setSymbol(e.target.value)} aria-label="分红代码" inputMode="numeric" placeholder="如 600519" /></label>
     <label><span>到账日期(不能是未来)</span><DateField aria-label="分红日期" max={today} value={date} onChange={(e) => setDate(e.target.value)} /></label>
-    <label><span>到手现金(元)</span><input value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="分红金额" inputMode="decimal" /></label>
+    <label><span>到手现金(元)</span><input type={privacy.on ? "password" : "text"} value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="分红金额" inputMode="decimal" autoComplete="off" /></label>
     <label><span>备注(选填,最多 100 字)</span><input value={note} onChange={(e) => setNote(e.target.value)} aria-label="分红备注" /></label>
     <div className="pi-actions">
       <button type="button" className="primary" disabled={busy} onClick={() => onSave({ symbol, date, amount, note })}>保存</button>
@@ -54,7 +56,7 @@ export function IncomeView({ data, onEdit, onAdd }: { data: IncomeData; onEdit: 
     {data.holdings.length > 0 && <>
       <h3>在手</h3>
       <ul className="pi-list" aria-label="在手持仓的已实现与分红">{data.holdings.map((h) => <li key={h.symbol}>
-        <b>{label(h)}</b><small>{h.symbol} · {fmtNumber(h.open_shares, 0)} 股 · 成本 {fmtNumber(h.avg_cost)}</small>
+        <b>{label(h)}</b><small>{h.symbol} · {priv(fmtNumber(h.open_shares, 0))} 股 · 成本 {priv(fmtNumber(h.avg_cost))}</small>
         <span>已实现 <i className={tone(h.realized_pnl)}>{signed(h.realized_pnl)}</i>({h.closed_trades} 笔)</span><span>分红 <i className={tone(h.dividends)}>{signed(h.dividends)}</i></span></li>)}</ul>
     </>}
     {data.closed.length > 0 && <>

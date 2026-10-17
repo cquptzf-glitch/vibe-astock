@@ -8,6 +8,7 @@ import { CloudSun, RefreshCw } from "lucide-react";
 
 import { fmtNumber, fmtPercent, useDiscoveryData } from "./discoveryData";
 import { fmtRate } from "./emotionData";
+import { priv } from "./privacy";
 import "./emotion.css";
 import "./monitor.css";
 import "./journal-analysis.css";
@@ -23,7 +24,7 @@ export interface JournalEnvData {
 }
 
 const tone = (v: number | null | undefined) => (v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "");
-const money = (v: number | null | undefined) => (v == null ? "—" : (v > 0 ? "+" : "") + fmtNumber(v, 2));
+const money = (v: number | null | undefined) => (v == null ? "—" : priv((v > 0 ? "+" : "") + fmtNumber(v, 2)));
 
 function GroupTable({ title, rows }: { title: string; rows: EnvGroup[] }) {
   return <>

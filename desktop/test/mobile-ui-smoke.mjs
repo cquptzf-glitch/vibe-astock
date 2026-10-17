@@ -287,6 +287,12 @@ try {
       await page.getByLabel("分红日期", { exact: false }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-portfolio-income.png"), fullPage: true });
+      // 隐私模式:开 → 金额和股数遮成 ••••;关 → 恢复
+      await page.getByRole("button", { name: /^开启隐私模式/ }).click();
+      await page.waitForFunction(() => document.querySelector(".portfolio-income")?.textContent?.includes("••••"));
+      assert.ok(!(await page.locator(".portfolio-income").innerText()).includes("1,560.5"), "已实现金额被遮住");
+      await page.getByRole("button", { name: "关闭隐私模式", exact: true }).click();
+      await page.waitForFunction(() => !document.querySelector(".portfolio-income")?.textContent?.includes("••••"));
       await page.getByRole("button", { name: "开始计算", exact: true }).click();
       await page.getByRole("img", { name: "时间加权收益走势" }).waitFor();
       await page.getByRole("button", { name: "开始体检", exact: true }).click();

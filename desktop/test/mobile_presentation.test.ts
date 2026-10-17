@@ -75,7 +75,7 @@ test("设置无需等待核心数据即可操作主题/密度/刷新，并直接
   await withRenderer(async (r) => {
     const { SettingsPanel } = await r.load("/src/mobile/SettingsPanel.tsx");
     const text = textOf(r.html(SettingsPanel, { onOpenAi: () => undefined, onOpenReminders: () => undefined }));
-    for (const label of ["白色模式", "深色模式", "跟随系统", "紧凑", "舒适", "前台行情刷新", "模型 API 设置", "提醒规则设置"]) assert.ok(text.includes(label), label);
+    for (const label of ["白色模式", "深色模式", "跟随系统", "紧凑", "舒适", "前台行情刷新", "隐私模式", "模型 API 设置", "提醒规则设置"]) assert.ok(text.includes(label), label);
   });
 });
 

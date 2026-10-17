@@ -1491,3 +1491,9 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - **AI 复盘归档**(`AiReviewPanel.tsx`):`reviewNote` 把回答 + 来源说明存成 kind note、category「AI 复盘」、source ai_review 的笔记;偏好存 localStorage `vibe.ai.review.archive`(默认开);归档失败只在提示里写,不影响复盘结果。
 - 0.1.26 已发布(4f0fd7e,APK 25,652,877 字节)。0.1.26 的第一次推送(fe08dbb)APK 构建失败,原因与办法见上一节。
 - 0.1.27 已发布(9a45a75,APK 25,669,211 字节)。第一次推送(97773aa)APK 构建失败:推断是 `androidx.core.content.FileProvider` 与 Tauri 生成清单里的同名 provider 合并冲突;现在用子类 `com.vibeastock.share.VibeFileProvider`(authority `${applicationId}.vibe.fileprovider`)。原因只是推断。以后给插件加 manifest 元素,先想想会不会和 Tauri 模板里已有的同名元素冲突。
+
+### 隐私模式(0.1.28)
+
+- `privacy.ts`:模块级状态 + localStorage `vibe.privacy`;`priv(text)` 开着返回 ••••;`usePrivacyMode()`(useSyncExternalStore)给需要重绘的组件(持仓页、交易日志页标题栏的眼睛按钮、设置页开关、密码样式输入框);其余页面是「进页面时读一次」(开关在设置页或页内按钮,切换时这些页面不在屏幕上或本身订阅了)。**新增显示个人金额 / 股数 / 价位的地方都要过 `priv()`,输入框用 `type={on ? "password" : "text"}`,画权益曲线这类能反推盈亏大小的图要判断 `isPrivate()`**。市场行情(最新价)、涨跌幅与收益率百分比、权重百分比不遮。
+- 已覆盖:PortfolioPanel / PortfolioIncome / PortfolioAnalysis / JournalPanelV2 / JournalRiskPanel(含权益曲线)/ JournalReviewPanel / JournalEnvPanel / JournalAttributionPanel / JournalProblemsPanel。测试 `mobile_privacy.test.ts` 用 `setPrivate(true)` + 渲染各视图验证遮罩,冒烟里在持仓页点眼睛开关再关。
+- 0.1.27 已发布(9a45a75,APK 25,669,211 字节)。

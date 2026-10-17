@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { WebSelect, DateField } from "./controls";
+import { priv, usePrivacyMode } from "./privacy";
 import { TradeImportCard } from "./TradeImport";
 import {
   ChevronDown,
@@ -7,6 +8,8 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   Edit3,
+  Eye,
+  EyeOff,
   NotebookPen,
   Plus,
   RefreshCw,
@@ -118,6 +121,9 @@ function money(value: number | null): string {
     : value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
 }
 
+/** 个人金额:隐私模式下遮成 ••••(盈亏百分比不遮) */
+const pm = (value: number | null) => priv(money(value));
+
 function pct(value: number | null, ratio = false): string {
   if (value === null || !Number.isFinite(value)) return "—";
   const actual = ratio ? value * 100 : value;
@@ -145,6 +151,7 @@ function fillPayload(fills: FillDraft[]): { payload?: Record<string, unknown>[];
 }
 
 function FillEditor({ fills, onChange }: { fills: FillDraft[]; onChange: (fills: FillDraft[]) => void }) {
+  const pwType = usePrivacyMode().on ? "password" : "text";
   const update = (index: number, patch: Partial<FillDraft>) => onChange(fills.map((fill, i) => i === index ? { ...fill, ...patch } : fill));
   return (
     <div className="journal-v2-fill-editor">
@@ -154,9 +161,9 @@ function FillEditor({ fills, onChange }: { fills: FillDraft[]; onChange: (fills:
             {fill.type === "buy" ? "买" : "卖"}
           </button>
           <DateField value={fill.date} onChange={(event) => update(index, { date: event.target.value })} />
-          <input inputMode="decimal" placeholder="成交价" value={fill.price} onChange={(event) => update(index, { price: event.target.value })} />
-          <input inputMode="numeric" placeholder="股数" value={fill.shares} onChange={(event) => update(index, { shares: event.target.value })} />
-          <input inputMode="decimal" placeholder="费用(可空)" value={fill.fee} onChange={(event) => update(index, { fee: event.target.value })} />
+          <input type={pwType} autoComplete="off" inputMode="decimal" placeholder="成交价" value={fill.price} onChange={(event) => update(index, { price: event.target.value })} />
+          <input type={pwType} autoComplete="off" inputMode="numeric" placeholder="股数" value={fill.shares} onChange={(event) => update(index, { shares: event.target.value })} />
+          <input type={pwType} autoComplete="off" inputMode="decimal" placeholder="费用(可空)" value={fill.fee} onChange={(event) => update(index, { fee: event.target.value })} />
           <button type="button" className="remove" onClick={() => onChange(fills.filter((_, i) => i !== index))}><X size={14} /></button>
         </div>
       ))}
@@ -172,6 +179,7 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
   const [data, setData] = useState<JournalView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const privacy = usePrivacyMode();
   const [message, setMessage] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [mode, setMode] = useState<Mode>("record");
@@ -317,7 +325,10 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
     <section className="journal-v2">
       <div className="journal-v2-title">
         <div><span><NotebookPen size={15} /> 本地交易日志</span><h1>记录 · 编辑 · 追加成交</h1><p>交易数据只保存在手机 SQLite；默认不发送给 AI。</p></div>
-        <button onClick={() => void load()} disabled={loading}><RefreshCw size={17} className={loading ? "spin" : ""} /></button>
+        <span className="journal-v2-title-tools">
+          <button onClick={privacy.toggle} aria-pressed={privacy.on} aria-label={privacy.on ? "关闭隐私模式" : "开启隐私模式(遮住金额和股数)"}>{privacy.on ? <EyeOff size={17} /> : <Eye size={17} />}</button>
+          <button onClick={() => void load()} disabled={loading} aria-label="刷新交易日志"><RefreshCw size={17} className={loading ? "spin" : ""} /></button>
+        </span>
       </div>
 
       {error && <div className="journal-v2-error">{error}</div>}
@@ -332,7 +343,7 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
 
       <div className="journal-v2-money">
         <CircleDollarSign size={15} /><span>净盈亏</span>
-        <strong className={(data?.summary.net_pnl ?? 0) >= 0 ? "up" : "down"}>{money(data?.summary.net_pnl ?? null)} 元</strong>
+        <strong className={(data?.summary.net_pnl ?? 0) >= 0 ? "up" : "down"}>{pm(data?.summary.net_pnl ?? null)} 元</strong>
         <small>未平仓 {openCount} 笔</small>
       </div>
 
@@ -352,7 +363,7 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
             <WebSelect value={playbook} onChange={(event) => setPlaybook(event.target.value)}><option value="">打法(不填)</option>{playbooks.map((item) => <option key={item}>{item}</option>)}</WebSelect>
             <WebSelect value={planned} onChange={(event) => setPlanned(event.target.value as Planned)}><option value="">是否按计划</option><option value="true">按计划</option><option value="false">计划外</option></WebSelect>
             {mode === "manual" && <input inputMode="decimal" placeholder="盈亏% 如 -3.2" value={manualPnl} onChange={(event) => setManualPnl(event.target.value)} />}
-            {mode === "record" && <><input inputMode="decimal" placeholder="计划止损价" value={stop} onChange={(event) => setStop(event.target.value)} /><input inputMode="decimal" placeholder="计划目标价" value={target} onChange={(event) => setTarget(event.target.value)} /></>}
+            {mode === "record" && <><input type={privacy.on ? "password" : "text"} autoComplete="off" inputMode="decimal" placeholder="计划止损价" value={stop} onChange={(event) => setStop(event.target.value)} /><input type={privacy.on ? "password" : "text"} autoComplete="off" inputMode="decimal" placeholder="计划目标价" value={target} onChange={(event) => setTarget(event.target.value)} /></>}
           </div>
           <textarea placeholder="当时为什么做这笔，复盘时最有价值" value={note} onChange={(event) => setNote(event.target.value)} />
           {mode === "record" && <FillEditor fills={fills} onChange={setFills} />}
@@ -365,16 +376,16 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
           <article className="journal-v2-row" key={row.id}>
             <div className="journal-v2-row-head">
               <button className="symbol" onClick={() => onOpenSymbol(row.symbol)}><strong>{row.name || row.symbol}</strong><span>{row.symbol} · {row.date}</span></button>
-              <div className="result"><strong className={(row.pnl_pct ?? 0) > 0 ? "up" : (row.pnl_pct ?? 0) < 0 ? "down" : ""}>{pct(row.pnl_pct)}</strong><span>{row.kind === "manual" ? "盈亏补记" : row.closed ? `${money(row.realized_pnl)} 元` : `持有 ${row.open_shares.toLocaleString("zh-CN")} 股`}</span></div>
+              <div className="result"><strong className={(row.pnl_pct ?? 0) > 0 ? "up" : (row.pnl_pct ?? 0) < 0 ? "down" : ""}>{pct(row.pnl_pct)}</strong><span>{row.kind === "manual" ? "盈亏补记" : row.closed ? `${pm(row.realized_pnl)} 元` : `持有 ${priv(row.open_shares.toLocaleString("zh-CN"))} 股`}</span></div>
             </div>
             <div className="journal-v2-tags">
               {row.playbook && <span>{row.playbook}</span>}
               {row.as_planned === true && <span className="planned"><ClipboardCheck size={10} />按计划</span>}
               {row.as_planned === false && <span className="unplanned">计划外</span>}
-              {row.planned_stop !== null && <span>止损 {row.planned_stop}</span>}
-              {row.planned_target !== null && <span>目标 {row.planned_target}</span>}
+              {row.planned_stop !== null && <span>止损 {priv(String(row.planned_stop))}</span>}
+              {row.planned_target !== null && <span>目标 {priv(String(row.planned_target))}</span>}
             </div>
-            {row.fills.length > 0 && <div className="journal-v2-fills">{row.fills.map((fill) => <div key={fill.id}><b className={fill.type === "buy" ? "buy" : "sell"}>{fill.type === "buy" ? "买" : "卖"}</b><span>{fill.date}</span><strong>{fill.price.toLocaleString("zh-CN", { maximumFractionDigits: 3 })} × {fill.shares.toLocaleString("zh-CN")}</strong><small>费 {money(fill.fee)}{fill.fee_estimated ? " 估" : ""}</small></div>)}</div>}
+            {row.fills.length > 0 && <div className="journal-v2-fills">{row.fills.map((fill) => <div key={fill.id}><b className={fill.type === "buy" ? "buy" : "sell"}>{fill.type === "buy" ? "买" : "卖"}</b><span>{fill.date}</span><strong>{priv(`${fill.price.toLocaleString("zh-CN", { maximumFractionDigits: 3 })} × ${fill.shares.toLocaleString("zh-CN")}`)}</strong><small>费 {pm(fill.fee)}{fill.fee_estimated ? " 估" : ""}</small></div>)}</div>}
             {row.note && <p>{row.note}</p>}
             <div className="journal-v2-actions">
               <button onClick={() => startEdit(row)}><Edit3 size={14} />编辑</button>
@@ -390,7 +401,7 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
                   <WebSelect value={editPlaybook} onChange={(event) => setEditPlaybook(event.target.value)}><option value="">打法(不填)</option>{playbooks.map((item) => <option key={item}>{item}</option>)}</WebSelect>
                   <WebSelect value={editPlanned} onChange={(event) => setEditPlanned(event.target.value as Planned)}><option value="">是否按计划</option><option value="true">按计划</option><option value="false">计划外</option></WebSelect>
                   {row.kind === "manual" && <input inputMode="decimal" placeholder="盈亏%" value={editPnl} onChange={(event) => setEditPnl(event.target.value)} />}
-                  {row.kind === "episode" && <><input inputMode="decimal" placeholder="计划止损价" value={editStop} onChange={(event) => setEditStop(event.target.value)} /><input inputMode="decimal" placeholder="计划目标价" value={editTarget} onChange={(event) => setEditTarget(event.target.value)} /></>}
+                  {row.kind === "episode" && <><input type={privacy.on ? "password" : "text"} autoComplete="off" inputMode="decimal" placeholder="计划止损价" value={editStop} onChange={(event) => setEditStop(event.target.value)} /><input type={privacy.on ? "password" : "text"} autoComplete="off" inputMode="decimal" placeholder="计划目标价" value={editTarget} onChange={(event) => setEditTarget(event.target.value)} /></>}
                 </div>
                 <textarea placeholder="复盘备注" value={editNote} onChange={(event) => setEditNote(event.target.value)} />
                 <div className="journal-v2-inline-actions"><button className="journal-v2-primary" onClick={() => void saveEdit()}><Save size={14} />保存修改</button><button onClick={() => setEditing(null)}><X size={14} />取消</button></div>

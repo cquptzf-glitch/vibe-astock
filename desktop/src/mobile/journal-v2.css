@@ -76,3 +76,4 @@
   .journal-v2-fills > div { grid-template-columns:26px 72px 1fr; }
   .journal-v2-fills small { grid-column:3; }
 }
+.journal-v2-title-tools { display: inline-flex; gap: 6px; }

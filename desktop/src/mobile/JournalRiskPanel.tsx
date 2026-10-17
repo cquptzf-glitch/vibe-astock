@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { fmtNumber, fmtPercent, useDiscoveryData } from "./discoveryData";
 import { fmtRate } from "./emotionData";
+import { isPrivate, priv, usePrivacyMode } from "./privacy";
 import "./emotion.css";
 import "./monitor.css";
 
@@ -48,8 +49,8 @@ export interface JournalRiskData {
 }
 
 const tone = (v: number | null | undefined) => (v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "");
-const money = (v: number | null | undefined) => (v == null ? "—" : (v > 0 ? "+" : "") + fmtNumber(v, 2));
-const plain = (v: number | null | undefined) => (v == null ? "—" : fmtNumber(v, 2));
+const money = (v: number | null | undefined) => (v == null ? "—" : priv((v > 0 ? "+" : "") + fmtNumber(v, 2)));
+const plain = (v: number | null | undefined) => (v == null ? "—" : priv(fmtNumber(v, 2)));
 
 function Card({ title, icon, children, aria }: { title: string; icon?: React.ReactNode; children: React.ReactNode; aria?: string }) {
   return <section className="watch-card" aria-label={aria ?? title}><div className="watch-card-head"><h2>{icon}{title}</h2></div>{children}</section>;
@@ -65,6 +66,8 @@ function Unavailable({ reason }: { reason: string }) {
 
 export function EquityChart({ points }: { points: EquityPoint[] }) {
   if (points.length < 2) return null;
+  // 隐私模式不画权益曲线:曲线的高低、起伏就是盈亏的大小
+  if (isPrivate()) return <p className="watch-hint" role="status">隐私模式下不画权益曲线(曲线高低就是盈亏大小)。</p>;
   const w = 300, h = 110, pad = 6;
   const cum = points.map((p) => p.cum_pnl);
   const peaks: number[] = [];
@@ -159,7 +162,7 @@ function ViolationsCard({ v, labels }: { v: Maybe<Violations>; labels: Record<st
       return <li key={k} className={unchecked ? "no" : "yes"}><b>{labels[k] ?? k}</b><span>{v.rules[k]}</span><em>{unchecked ? `没查:${status.slice("unavailable:".length)}` : "已查"}</em></li>;
     })}</ul>
     {v.violations.length === 0 ? <p className="watch-empty">{v.unchecked.length ? "已查的规矩里没有违反(没查的见上面)。" : "所有规矩都查了,没有违反。"}</p>
-      : <ul className="jr-violations" aria-label="违反记录">{v.violations.map((x, i) => <li key={`${x.date}-${x.rule}-${i}`}><time>{x.date}</time><b>{x.label}</b><span>{x.detail}</span><small>规矩 {x.limit} · 实际 {x.actual}</small></li>)}</ul>}
+      : <ul className="jr-violations" aria-label="违反记录">{v.violations.map((x, i) => <li key={`${x.date}-${x.rule}-${i}`}><time>{x.date}</time><b>{x.label}</b><span>{priv(x.detail)}</span><small>规矩 {priv(String(x.limit))} · 实际 {priv(String(x.actual))}</small></li>)}</ul>}
     <p className="smp-line"><span>连亏 {a.threshold} 笔之后又做的 <b>{a.trades}</b> 笔</span><span>平均 <b className={tone(a.avg_pct)}>{fmtPercent(a.avg_pct)}</b></span><span>胜率 <b>{fmtRate(a.win_rate)}</b></span></p>
   </Card>;
 }
@@ -212,6 +215,7 @@ const toDraft = (s: SettingsView): Draft => ({
 });
 
 export function SettingsCard({ s, onSaved }: { s: SettingsView; onSaved: () => void }) {
+  const pwType = usePrivacyMode().on ? "password" : "text";
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => toDraft(s));
   const [msg, setMsg] = useState("");
@@ -242,11 +246,11 @@ export function SettingsCard({ s, onSaved }: { s: SettingsView; onSaved: () => v
     <p className="watch-hint">费率{s.fees_default ? "用默认值" : "是你填的"}、规矩{s.rules_default ? "用默认值" : "是你填的"}、账户规模{s.equity_base == null ? "没填(单日亏损占比算不了)" : `${plain(s.equity_base)} 元`}。{s.note}</p>
     {open && <div className="jr-form">
       <h3 className="watch-sub">费率(没填实际费用的成交按这个估)</h3>
-      {Object.entries(s.labels.fees).map(([k, label]) => <label key={k}><span>{label}</span><input inputMode="decimal" value={draft.fees[k] ?? ""} onChange={(e) => setDraft({ ...draft, fees: { ...draft.fees, [k]: e.target.value } })} aria-label={label} /></label>)}
+      {Object.entries(s.labels.fees).map(([k, label]) => <label key={k}><span>{label}</span><input type={pwType} autoComplete="off" inputMode="decimal" value={draft.fees[k] ?? ""} onChange={(e) => setDraft({ ...draft, fees: { ...draft.fees, [k]: e.target.value } })} aria-label={label} /></label>)}
       <h3 className="watch-sub">风险规矩(你自己的,不是推荐值)</h3>
       {Object.entries(s.labels.rules).map(([k, label]) => <label key={k}><span>{label}{s.fraction_rules.includes(k) ? (k.endsWith("_pct") ? "(%)" : "(0–1)") : ""}</span><input inputMode="decimal" value={draft.rules[k] ?? ""} onChange={(e) => setDraft({ ...draft, rules: { ...draft.rules, [k]: e.target.value } })} aria-label={label} /></label>)}
       <h3 className="watch-sub">账户规模</h3>
-      <label><span>账户规模(元,选填)</span><input inputMode="decimal" value={draft.equity} placeholder="不填 = 不查占比" onChange={(e) => setDraft({ ...draft, equity: e.target.value })} aria-label="账户规模" /></label>
+      <label><span>账户规模(元,选填)</span><input type={pwType} autoComplete="off" inputMode="decimal" value={draft.equity} placeholder="不填 = 不查占比" onChange={(e) => setDraft({ ...draft, equity: e.target.value })} aria-label="账户规模" /></label>
       <div className="jr-actions">
         <button type="button" className="discovery-action" disabled={saving} onClick={save}>保存</button>
         <button type="button" disabled={saving} onClick={() => void post({ fees: null, rules: Object.fromEntries(Object.keys(s.labels.rules).map((k) => [k, null])), equity_base: null }, "已恢复默认")}>全部恢复默认</button>

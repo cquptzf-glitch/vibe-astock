@@ -8,6 +8,7 @@
 import { Scale, RefreshCw } from "lucide-react";
 
 import { fmtNumber, useDiscoveryData } from "./discoveryData";
+import { priv } from "./privacy";
 import "./emotion.css";
 import "./monitor.css";
 import "./journal-analysis.css";
@@ -26,7 +27,7 @@ const CELLS: { key: QuadKey; tag?: string; luck?: boolean }[] = [
   { key: "right_win" }, { key: "right_lose", tag: "执行问题" }, { key: "wrong_win", tag: "运气", luck: true }, { key: "wrong_lose", tag: "判断问题" },
 ];
 const tone = (v: number) => (v > 0 ? "up" : v < 0 ? "down" : "");
-const money = (v: number) => (v > 0 ? "+" : "") + fmtNumber(v, 2);
+const money = (v: number) => priv((v > 0 ? "+" : "") + fmtNumber(v, 2));
 
 export function AttributionView({ data }: { data: AttributionData }) {
   const skips = [

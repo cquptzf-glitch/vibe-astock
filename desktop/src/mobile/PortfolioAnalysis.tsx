@@ -8,6 +8,7 @@ import { Activity, Gauge, History, Play, RefreshCw } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { fmtNumber, fmtPercent } from "./discoveryData";
+import { priv } from "./privacy";
 import "./portfolio-analysis.css";
 
 // ---------------------------------------------------------------- 类型
@@ -35,7 +36,7 @@ export type ReplayData = { ok: false; reason: string; gaps: Gap[] } | { ok: true
 export interface Thresholds { top1: number | null; industry: number | null; vol: number | null; drawdown: number | null }
 
 const tone = (v: number | null | undefined) => (v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "");
-const signed = (v: number) => (v > 0 ? "+" : "") + fmtNumber(v);
+const signed = (v: number) => priv((v > 0 ? "+" : "") + fmtNumber(v));
 const label = (x: { name: string; symbol: string }) => x.name || x.symbol;
 
 // ---------------------------------------------------------------- 提醒线(用户自己设,存本机浏览器)
@@ -90,11 +91,11 @@ export function PerfView({ data }: { data: PerfData }) {
       <div><span>累计盈亏</span><strong className={tone(data.pnl)}>{signed(data.pnl)}</strong><small>元(含分红)</small></div>
     </div>
     <Spark ariaLabel="时间加权收益走势" points={data.series.map((s) => ({ date: s.date, v: s.twr_pct }))} />
-    <p className="pa-line">{data.from} ~ {data.to} · {data.trading_days} 个交易日 · 总投入 {fmtNumber(data.invested)} · 总取出 {fmtNumber(data.withdrawn)} · 期末市值 {fmtNumber(data.final_value)}</p>
+    <p className="pa-line">{data.from} ~ {data.to} · {data.trading_days} 个交易日 · 总投入 {priv(fmtNumber(data.invested))} · 总取出 {priv(fmtNumber(data.withdrawn))} · 期末市值 {priv(fmtNumber(data.final_value))}</p>
     {data.xirr_note && <p className="pa-note">{data.xirr_note}</p>}
     <div className="intra-table-wrap"><table className="intra-table" aria-label="逐只盈亏">
       <thead><tr><th>股票</th><th>投入</th><th>取出</th><th>市值</th><th>盈亏</th></tr></thead>
-      <tbody>{data.symbols.map((s) => <tr key={s.symbol}><td><b>{label(s)}</b></td><td>{fmtNumber(s.invested, 0)}</td><td>{fmtNumber(s.withdrawn, 0)}</td><td>{fmtNumber(s.value, 0)}</td><td className={tone(s.pnl)}>{signed(Math.round(s.pnl))}</td></tr>)}</tbody></table></div>
+      <tbody>{data.symbols.map((s) => <tr key={s.symbol}><td><b>{label(s)}</b></td><td>{priv(fmtNumber(s.invested, 0))}</td><td>{priv(fmtNumber(s.withdrawn, 0))}</td><td>{priv(fmtNumber(s.value, 0))}</td><td className={tone(s.pnl)}>{signed(Math.round(s.pnl))}</td></tr>)}</tbody></table></div>
     {data.warnings.length > 0 && <ul className="pa-warn" aria-label="提醒">{data.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
     <Gaps gaps={data.gaps} />
     <p className="pa-note">{data.note}</p>
@@ -111,7 +112,7 @@ export function XrayView({ data, thresholds }: { data: XrayData; thresholds: Thr
       <div><span>单只最大</span><strong>{fmtNumber(c.top1_pct)}%</strong><small>前三合计 {fmtNumber(c.top3_pct)}%</small></div>
       <div><span>等效只数</span><strong>{fmtNumber(c.effective_n)}</strong><small>实际 {c.positions} 只</small></div>
       <div><span>最大行业</span><strong>{c.top_industry_pct == null ? "—" : fmtNumber(c.top_industry_pct) + "%"}</strong><small>东财所属行业</small></div>
-      <div><span>持仓市值</span><strong>{fmtNumber(c.total_value, 0)}</strong><small>元</small></div>
+      <div><span>持仓市值</span><strong>{priv(fmtNumber(c.total_value, 0))}</strong><small>元</small></div>
     </div>
     {hits.length > 0 ? <ul className="pa-hit" aria-label="超过你设的提醒线">{hits.map((h) => <li key={h}>{h}</li>)}</ul>
       : <p className="pa-note">{Object.values(thresholds).every((v) => v == null) ? "还没设提醒线;设了之后,超线的项会列在这里。" : "没有超过你设的提醒线。"}</p>}

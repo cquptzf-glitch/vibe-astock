@@ -8,6 +8,7 @@ import { RefreshCw, Wrench } from "lucide-react";
 import { useState } from "react";
 
 import { fmtNumber, useDiscoveryData } from "./discoveryData";
+import { priv, usePrivacyMode } from "./privacy";
 import "./emotion.css";
 import "./monitor.css";
 import "./journal-analysis.css";
@@ -35,11 +36,12 @@ type Act = (body: unknown, done: string) => Promise<boolean>;
 export function FillRow({ fill, flagged, act }: { fill: ProblemFill; flagged: Problem | undefined; act: Act }) {
   const [editing, setEditing] = useState(false);
   const [asking, setAsking] = useState(false);
+  const pwType = usePrivacyMode().on ? "password" : "text";
   const [d, setD] = useState({ date: fill.date, price: String(fill.price), shares: String(fill.shares), fee: fill.fee == null ? "" : String(fill.fee) });
   const label = `${fill.type === "buy" ? "买入" : "卖出"} ${fill.date}`;
   return <li className={flagged ? "flagged" : ""}>
-    <b>{fill.type === "buy" ? "买" : "卖"} {fmtNumber(fill.shares, 2)} 股 @ {fmtNumber(fill.price, 3)}</b><time>{fill.date}</time>
-    <span className="meta">费用 {fill.fee == null ? "没填(按费率估)" : fmtNumber(fill.fee, 2)}</span>
+    <b>{fill.type === "buy" ? "买" : "卖"} {priv(fmtNumber(fill.shares, 2))} 股 @ {priv(fmtNumber(fill.price, 3))}</b><time>{fill.date}</time>
+    <span className="meta">费用 {fill.fee == null ? "没填(按费率估)" : priv(fmtNumber(fill.fee, 2))}</span>
     <span className="jx-actions">
       <button type="button" aria-label={`改 ${label}`} onClick={() => setEditing(!editing)}>{editing ? "收起" : "改"}</button>
       {asking ? <><button type="button" className="discovery-action" aria-label={`确认删除 ${label}`} onClick={() => void act({ action: "delete_fill", fill_id: fill.id }, "已删除这笔成交。").then((ok) => { if (!ok) setAsking(false); })}>确认删除</button><button type="button" onClick={() => setAsking(false)}>不删了</button></>
@@ -48,9 +50,9 @@ export function FillRow({ fill, flagged, act }: { fill: ProblemFill; flagged: Pr
     {flagged && <span className="why warn">{flagged.why}</span>}
     {editing && <div className="jr-form jx-edit">
       <label><span>日期</span><input value={d.date} onChange={(e) => setD({ ...d, date: e.target.value })} aria-label="成交日期" /></label>
-      <label><span>成交价</span><input inputMode="decimal" value={d.price} onChange={(e) => setD({ ...d, price: e.target.value })} aria-label="成交价" /></label>
-      <label><span>股数</span><input inputMode="decimal" value={d.shares} onChange={(e) => setD({ ...d, shares: e.target.value })} aria-label="股数" /></label>
-      <label><span>费用(空 = 按费率估)</span><input inputMode="decimal" value={d.fee} onChange={(e) => setD({ ...d, fee: e.target.value })} aria-label="费用" /></label>
+      <label><span>成交价</span><input type={pwType} autoComplete="off" inputMode="decimal" value={d.price} onChange={(e) => setD({ ...d, price: e.target.value })} aria-label="成交价" /></label>
+      <label><span>股数</span><input type={pwType} autoComplete="off" inputMode="decimal" value={d.shares} onChange={(e) => setD({ ...d, shares: e.target.value })} aria-label="股数" /></label>
+      <label><span>费用(空 = 按费率估)</span><input type={pwType} autoComplete="off" inputMode="decimal" value={d.fee} onChange={(e) => setD({ ...d, fee: e.target.value })} aria-label="费用" /></label>
       <div className="jr-actions"><button type="button" className="discovery-action" onClick={() => void act({ action: "update_fill", fill_id: fill.id, date: d.date, price: d.price, shares: d.shares, fee: d.fee === "" ? null : d.fee }, "已改正这笔成交。").then((ok) => { if (ok) setEditing(false); })}>保存这笔</button></div>
     </div>}
   </li>;
