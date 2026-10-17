@@ -1,6 +1,7 @@
-.emo-page { display: grid; gap: 10px; }
-.emo-header { display: grid; gap: 8px; }
+.emo-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.emo-header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .emo-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.emo-title > div:first-child { min-width: 0; }
 .emo-title h1 { margin: 0; font-size: 20px; }
 .emo-title p { margin: 3px 0 0; font-size: 12px; color: var(--mobile-muted); }
 .emo-date-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: stretch; }

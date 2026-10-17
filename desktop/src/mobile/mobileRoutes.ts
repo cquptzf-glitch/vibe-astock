@@ -8,6 +8,7 @@ export const MOBILE_PATHS = {
   seal: "/mobile/review/seal",
   themes: "/mobile/review/themes",
   samples: "/mobile/review/samples",
+  marketReview: "/mobile/review/market",
   weekly: "/mobile/review/weekly",
   history: "/mobile/review/history",
   verify: "/mobile/review/verify",

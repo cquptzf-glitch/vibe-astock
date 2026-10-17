@@ -68,10 +68,10 @@
 .watch-tabs button { flex:0 0 auto; display:inline-flex; align-items:center; gap:4px; min-height:32px; padding:5px 11px; border:1px solid var(--mobile-border); border-radius:999px; background:transparent; color: var(--mobile-muted); font-size:12px; white-space:nowrap; }
 .watch-tabs button small { font-size:10px; opacity:.8; font-variant-numeric:tabular-nums; }
 .watch-tabs button.active { border-color: color-mix(in srgb, var(--mobile-accent) 45%, transparent); background: color-mix(in srgb, var(--mobile-accent) 10%, transparent); color: var(--mobile-accent); }
-.watch-list { display:flex; flex-direction:column; gap:5px; margin-top:6px; }
-.watch-row { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; padding:7px 9px; border:1px solid var(--mobile-border); border-radius:9px; background: var(--mobile-soft); color: var(--mobile-text); text-align:left; }
+.watch-list { display:flex; flex-direction:column; gap:5px; margin-top:6px; min-width:0; }
+.watch-row { min-width:0; display:flex; align-items:center; gap:8px; width:100%; min-height:44px; padding:7px 9px; border:1px solid var(--mobile-border); border-radius:9px; background: var(--mobile-soft); color: var(--mobile-text); text-align:left; }
 .watch-lead { flex:0 0 auto; }
-.watch-name { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.watch-name { flex:1 1 auto; min-width:0; overflow:hidden; display:flex; flex-direction:column; gap:2px; }
 .watch-name b { font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .watch-name small { color: var(--mobile-muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .watch-name small b { font-size:10px; font-weight:600; }
@@ -195,3 +195,9 @@
 .jr-form input { min-height:34px; padding:5px 8px; border:1px solid var(--mobile-border); border-radius:8px; background: var(--mobile-soft); color: var(--mobile-text); font-size:14px; font-variant-numeric:tabular-nums; text-align:right; min-width:0; }
 .jr-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
 .jr-actions button:not(.discovery-action) { min-height:34px; padding:5px 12px; border:1px solid var(--mobile-border); border-radius:8px; background:transparent; color: var(--mobile-muted); font-size:12px; }
+
+/* 每日复盘 · 市场面板 */
+.mp-stale { margin-left:6px; padding:0 6px; border:1px solid color-mix(in srgb, var(--mobile-warning) 50%, transparent); border-radius:5px; color: var(--mobile-warning); font-style:normal; font-size:10px; font-weight:400; }
+.mp-bars { display:flex; align-items:flex-end; gap:1px; height:56px; margin:6px 0 4px; }
+.mp-bars i { flex:1 1 0; min-width:1px; border-radius:1px 1px 0 0; background: color-mix(in srgb, var(--mobile-accent) 55%, transparent); }
+.mp-static { cursor:default; }

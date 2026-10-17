@@ -28,6 +28,7 @@ export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "weekly", title: "近 5 天", short: "5天", detail: "热度走势、行业轮动矩阵与龙头谱系", group: "review", keywords: "轮动 龙头 最高标" },
   { page: "history", title: "情绪历史", short: "历史", detail: "六项读数的历史分位、偏热偏冷与逐日读数", group: "review", keywords: "分位 转热 转冷" },
   { page: "verify", title: "明日验证", short: "验证", detail: "晚上写下读数判断、下一场对账与累计战绩", group: "review", keywords: "条件 对账 命中率" },
+  { page: "marketReview", title: "市场面板", short: "市场", detail: "每日复盘:市场状态八格、主要指数中长线、成交额与两融、全球市场、行业资金与龙虎榜", group: "review", keywords: "每日复盘 指数 成交额 两融 国债 全球 行业资金 龙虎榜 均线" },
   { page: "daily", title: "每日复盘", short: "日复", detail: "市场观察、题材轮动记录与明日验证", group: "review" },
   { page: "records", title: "交易日志", short: "日志", detail: "记一笔、成交明细、补成交与标注", group: "review", keywords: "成交 流水" },
   { page: "review", title: "交易统计", short: "统计", detail: "收益、胜率、盈亏比、纪律与在险资金", group: "review" },

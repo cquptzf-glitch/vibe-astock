@@ -20,6 +20,7 @@ watchFixture.alerts = [
 ];
 const samplesFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-samples-2026-10-16.json", "utf8"));
 const journalRiskFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-risk-synthetic.json", "utf8"));
+const marketPanelFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-market-panel-2026-10-16.json", "utf8"));
 const intradayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-intraday-2026-10-17.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
@@ -56,6 +57,7 @@ const responses = {
   "/mobile/stock/snapshot": chartFixture.snapshot,
   "/mobile/watch/poll": watchFixture,
   "/mobile/intraday": intradayFixture,
+  "/mobile/review/market": marketPanelFixture,
   "/mobile/journal/risk": journalRiskFixture,
   "/mobile/shortline/samples": samplesFixture,
 };
@@ -188,6 +190,12 @@ try {
       await page.getByText("历史统计位置", { exact: true }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-history.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "市场面板", exact: true }).click();
+      await page.getByRole("heading", { name: "市场面板", exact: true }).waitFor();
+      await page.getByText("主要指数", { exact: true }).first().waitFor();
+      await page.getByRole("table", { name: "主要指数中长线" }).waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-market-panel.png"), fullPage: true });
       await page.locator(".group-tabs").getByRole("tab", { name: "涨停样本", exact: true }).click();
       await page.getByText("首板 · 最后封板时间曲线", { exact: false }).waitFor();
       await page.getByText("事后名单", { exact: false }).first().waitFor();
@@ -212,8 +220,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 72, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk; 72 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 78, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, market panel; 78 screenshots.");
 } finally {
   await browser.close();
 }
