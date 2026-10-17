@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 9;
+const SCHEMA_VERSION: u32 = 10;
 const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
@@ -812,7 +812,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "legacy_missing_regime_events_are_empty": backup.schema_version <= 6,
             "legacy_missing_watchlist_groups_are_empty": backup.schema_version <= 7,
             "legacy_missing_dividends_are_empty": backup.schema_version <= 7,
-            "legacy_missing_ai_threads_are_default": backup.schema_version <= 8
+            "legacy_missing_ai_threads_are_default": backup.schema_version <= 8,
+            "legacy_missing_cost_method_is_average": backup.schema_version <= 9
         },
         "security": {
             "credentials_included": false,
@@ -1096,7 +1097,7 @@ mod tests {
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
-        assert_eq!(backup["schema_version"], 9);
+        assert_eq!(backup["schema_version"], 10);
         assert_eq!(backup["data"]["journal_settings"], Value::Null);
         assert_eq!(backup["data"]["verifications"], json!([]));
         assert_eq!(backup["data"]["journal_modes"], json!([]));
@@ -1274,7 +1275,7 @@ mod tests {
         )
         .unwrap();
         let backup = export(&source).unwrap();
-        assert_eq!(backup["schema_version"], 9);
+        assert_eq!(backup["schema_version"], 10);
         assert_eq!(backup["data"]["journal_settings"]["equity_base"], 150000.0);
         assert_eq!(validate(&backup).unwrap()["counts"]["journal_settings"], 1);
 
@@ -1313,7 +1314,7 @@ mod tests {
         crate::journal_modes::act(&source, &json!({"action": "save", "card_id": card_id, "name": "首板早封", "playbook": "打板", "setup": "9:45 前封", "entry": "排板", "changes": "收紧"})).unwrap();
         crate::journal_modes::act(&source, &made("另一张", "x")).unwrap();
         let backup = export(&source).unwrap();
-        assert_eq!(backup["schema_version"], 9);
+        assert_eq!(backup["schema_version"], 10);
         assert_eq!(backup["data"]["journal_modes"].as_array().unwrap().len(), 2);
         assert_eq!(backup["data"]["journal_modes"][0]["versions"].as_array().unwrap().len(), 2);
         let preview = validate(&backup).unwrap();

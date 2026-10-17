@@ -426,7 +426,7 @@ mod tests {
     use crate::journal_risk::{Entry, Fill};
     use crate::journal_settings::Fees;
 
-    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0 };
+    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
 
     fn db(label: &str) -> (crate::AppCore, std::path::PathBuf) {
         let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();

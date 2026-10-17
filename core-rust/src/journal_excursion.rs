@@ -481,7 +481,7 @@ mod tests {
     use crate::journal_settings::Fees;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0 };
+    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
 
     fn input(buy: &str, sell: &str, realized: f64) -> Input {
         Input { key: "mobile:1".into(), symbol: "600001".into(), name: "样本".into(), cost: 10.0, buy: buy.into(), sell: sell.into(), realized_pct: realized }

@@ -98,7 +98,15 @@ fn days_between(a: &str, b: &str) -> Option<i64> {
     Some((b - a).num_days())
 }
 
-/// 按移动加权平均成本结算一条交易记录。卖出按卖出那一刻的均价结转,买入费用按卖出比例结转
+/// 一笔买入还没卖掉的部分(先进先出用):剩余股数、买入价、还没结转的买入费用
+struct Lot {
+    shares: f64,
+    price: f64,
+    fee: f64,
+}
+
+/// 结算一条交易记录。成本法默认移动加权平均:卖出按卖出那一刻的均价结转,买入费用按卖出比例结转;
+/// 设置里选了先进先出(`fees.fifo`)时,卖出从最早的买入开始结转,各笔买入费用跟着自己的股数走
 pub(crate) fn settle(e: Entry, fees: &Fees, index: usize) -> Row {
     if e.kind == "manual" {
         return Row { pnl_pct: e.pnl_pct_manual, closed: e.pnl_pct_manual.is_some(), e, index, ..Row::default() };
@@ -111,6 +119,7 @@ pub(crate) fn settle(e: Entry, fees: &Fees, index: usize) -> Row {
     let (mut first_buy, mut last_sell): (Option<String>, Option<String>) = (None, None);
     let mut buy_amount = 0.0;
     let mut peak_cost = 0.0_f64;
+    let mut lots: std::collections::VecDeque<Lot> = std::collections::VecDeque::new();
     for f in &fills {
         if f.side == "buy" {
             let fee = f.fee.unwrap_or_else(|| fees.estimate("buy", f.price, f.shares));
@@ -120,18 +129,40 @@ pub(crate) fn settle(e: Entry, fees: &Fees, index: usize) -> Row {
             pending_fee += fee;
             buy_amount += f.price * f.shares;
             first_buy.get_or_insert_with(|| f.date.clone());
+            if fees.fifo {
+                lots.push_back(Lot { shares: f.shares, price: f.price, fee });
+            }
         } else if pos > EPS {
             let n = f.shares.min(pos);
-            let unit = cost / pos;
-            let ratio = n / pos;
             let sell_fee = f.fee.unwrap_or_else(|| fees.estimate("sell", f.price, f.shares));
-            let leg_fee = pending_fee * ratio + sell_fee;
-            gross += (f.price - unit) * n;
-            r_cost += unit * n;
+            // 这一次卖出结转的成本、买入费用、价差
+            let (leg_cost, leg_buy_fee, leg_gain) = if fees.fifo {
+                let (mut left, mut c, mut bf) = (n, 0.0, 0.0);
+                while left > EPS {
+                    let Some(lot) = lots.front_mut() else { break };
+                    let take = left.min(lot.shares);
+                    let fee_part = lot.fee * (take / lot.shares);
+                    c += lot.price * take;
+                    bf += fee_part;
+                    lot.fee -= fee_part;
+                    lot.shares -= take;
+                    left -= take;
+                    if lot.shares <= EPS {
+                        lots.pop_front();
+                    }
+                }
+                (c, bf, f.price * n - c)
+            } else {
+                let unit = cost / pos;
+                (unit * n, pending_fee * (n / pos), (f.price - unit) * n)
+            };
+            let leg_fee = leg_buy_fee + sell_fee;
+            gross += leg_gain;
+            r_cost += leg_cost;
             r_fee += leg_fee;
-            *by_date.entry(f.date.clone()).or_default() += (f.price - unit) * n - leg_fee;
-            pending_fee -= pending_fee * ratio;
-            cost -= unit * n;
+            *by_date.entry(f.date.clone()).or_default() += leg_gain - leg_fee;
+            pending_fee -= leg_buy_fee;
+            cost -= leg_cost;
             pos -= n;
             last_sell = Some(f.date.clone());
         }
@@ -683,7 +714,7 @@ mod tests {
         Entry { id, kind: "episode".into(), symbol: symbol.into(), name: format!("N{symbol}"), date: date.into(), created_at: format!("2026-10-{:02}T09:00:00Z", id), fills, ..Entry::default() }
     }
 
-    const ZERO_FEES: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0 };
+    const ZERO_FEES: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
 
     fn row(e: Entry) -> Row {
         let index = e.id as usize;
@@ -698,6 +729,34 @@ mod tests {
         for no in ["510300", "159915", "113050", "127045", "010107", "020001", "204001", "12345", "6005190", "60051a", ""] {
             assert!(!is_journal_symbol(no), "{no}");
         }
+    }
+
+    #[test]
+    fn fifo_consumes_oldest_lots_and_moves_their_buy_fee() {
+        const FIFO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: true };
+        let fills = vec![
+            fill("buy", "2026-10-12", 10.0, 100.0, Some(2.0)), fill("buy", "2026-10-13", 12.0, 100.0, Some(2.0)),
+            fill("sell", "2026-10-14", 13.0, 100.0, Some(1.0)), fill("sell", "2026-10-15", 9.0, 100.0, Some(1.0)),
+        ];
+        let r = settle(episode(1, "600001", "2026-10-12", fills.clone()), &FIFO, 0);
+        assert!(r.closed);
+        assert_eq!(r.realized_pnl, Some(-6.0), "总盈亏两种成本法一样:买 2200 + 费 4,卖 2200 + 费 2,差 -6");
+        let by: Vec<(String, f64)> = r.realized_by_date.clone().into_iter().collect();
+        assert_eq!(by, vec![("2026-10-14".to_string(), 297.0), ("2026-10-15".to_string(), -303.0)], "先卖掉的是 10 元那一笔,费用跟着自己的股数走");
+        let avg = settle(episode(1, "600001", "2026-10-12", fills), &ZERO_FEES, 0);
+        let by_avg: Vec<(String, f64)> = avg.realized_by_date.into_iter().collect();
+        assert_eq!(by_avg, vec![("2026-10-14".to_string(), 197.0), ("2026-10-15".to_string(), -203.0)], "移动加权平均按均价 11 结转");
+    }
+
+    #[test]
+    fn fifo_open_position_keeps_the_newest_lot_cost() {
+        const FIFO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: true };
+        let fills = vec![fill("buy", "2026-10-12", 10.0, 100.0, Some(0.0)), fill("buy", "2026-10-13", 12.0, 100.0, Some(0.0)), fill("sell", "2026-10-14", 13.0, 150.0, Some(0.0))];
+        let r = settle(episode(1, "600001", "2026-10-12", fills.clone()), &FIFO, 0);
+        assert!(!r.closed && r.realized_pnl.is_none());
+        assert_eq!((r.open_shares, r.avg_cost), (50.0, 12.0), "先进先出:剩下的 50 股都是 12 元买的");
+        let avg = settle(episode(1, "600001", "2026-10-12", fills), &ZERO_FEES, 0);
+        assert_eq!((avg.open_shares, avg.avg_cost), (50.0, 11.0), "移动加权平均:剩下的按均价 11");
     }
 
     #[test]

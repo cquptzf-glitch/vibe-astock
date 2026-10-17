@@ -200,7 +200,7 @@ mod tests {
     use crate::journal_risk::{Entry, Fill};
     use crate::journal_settings::Fees;
 
-    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0 };
+    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
 
     /// 买入 100 股 @ 10,卖出 @ 10 + pnl/100(盈亏 = pnl 元)
     fn trade(id: i64, day: &str, pnl: f64, planned: Option<bool>) -> Row {

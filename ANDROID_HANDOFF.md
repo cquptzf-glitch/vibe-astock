@@ -1505,3 +1505,9 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - **停止**:`AppCore.ai_cancel`(请求号 → `AbortHandle`),`Abortable` 包住整个流式 future,`POST /mobile/ai/chat/cancel {request_id}` 中止;被中止的 future 不会走到 `save`,所以这一轮(含用户那句)不入库;前端识别「已取消」把问题留在输入框。
 - 测试里的本地 SSE 模拟服务:注意响应头用 `\r\n`、读请求头用 `b"\r\n\r\n"`——用 Python 脚本往 Rust 文件里写这些转义很容易被吃掉(写成真换行),这次就是因此卡住了测试,直接用 Edit 工具写。
 - 0.1.28 已发布(45418ee,APK 25,665,915 字节);同一提交的跨平台验证里 ubuntu / Node 22 一组「Orchestrator full suite and typecheck」失败,与本次改动无关,疑似偶发。
+
+### 先进先出成本法与批量按名称添加(0.1.30)
+
+- **成本法**:`mobile_journal_settings.cost_method`(NULL / 'average' = 移动加权平均,'fifo' = 先进先出),`migrate_11_to_12` 幂等(先查列再补);备份 v10 在设置行里带 `cost_method`(`#[serde(default)]`,旧备份恢复为移动加权平均)。结算函数 `journal_risk::settle` 本来就拿着 `Fees`,所以把 `fifo: bool` 放进 `Fees`(`settings_of` 从行里填),不用改十几处 `rows_of(.., &settings.fees)` 的调用;各测试里的零费率常量补了 `fifo: false`。FIFO 分支:买入入 `VecDeque<Lot>`(剩余股数、买入价、未结转的买入费),卖出从队首扣,`leg_cost` / `leg_buy_fee` / `leg_gain` 三个量两种方法共用后面的累计;移动加权平均分支的算式保持原样(`(price - unit) * n`),避免浮点差异。设置接口 `POST /mobile/journal/settings {cost_method: "average"|"fifo"|null}`,视图里有 `cost_method` 与 `cost_methods`。
+- **迁移派发改成循环**:`schema::migrate` 以前每个旧版本一条分支、每加一版要改十几处,现在是 `MIGRATIONS` 数组 + 从 `version.max(1) - 1` 起依次执行;新增一版只需写 `migrate_N_to_N+1` 并追加到数组、把数组长度加一。
+- **批量添加**:`watchlistView.ts` 的 `splitAddTokens`(分隔符、去重保序)与 `pickByName`(名称完全一致优先 → 只搜到一只 → 否则列候选,不猜);`WatchlistPanel.addCodes` 六位数字当代码,其余走 `/mobile/symbol-search`(只含沪深北 A 股),逐个串行查,查到的批量加入,没加成的原样留在输入框并写明原因。

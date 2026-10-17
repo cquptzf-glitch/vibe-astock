@@ -71,6 +71,19 @@ test("设置:默认值标「默认」,修改入口展开后有费率、规矩、
   });
 });
 
+test("设置:成本法默认移动加权平均,选了先进先出就写先进先出", async () => {
+  await withRenderer(async (r) => {
+    const { SettingsCard } = await r.load("/src/mobile/JournalRiskPanel.tsx");
+    const methods = [{ value: "average", label: "移动加权平均" }, { value: "fifo", label: "先进先出" }];
+    const avg = flat(r.html(SettingsCard, { s: { ...fixture.settings, cost_method: "average", cost_methods: methods }, onSaved: () => undefined }));
+    assert.ok(avg.includes(sq("成本法移动加权平均")));
+    const legacy = flat(r.html(SettingsCard, { s: fixture.settings, onSaved: () => undefined }));
+    assert.ok(legacy.includes(sq("成本法移动加权平均")), "没有这个字段(旧数据)按移动加权平均");
+    const fifo = flat(r.html(SettingsCard, { s: { ...fixture.settings, cost_method: "fifo", cost_methods: methods }, onSaved: () => undefined }));
+    assert.ok(fifo.includes(sq("成本法先进先出")));
+  });
+});
+
 test("页面不登记 AI 页面上下文:源码里没有 useAiPage / pageContext", () => {
   const source = readFileSync(new URL("../src/mobile/JournalRiskPanel.tsx", import.meta.url), "utf8");
   assert.ok(!/useAiPage|pageContext|registerPage/.test(source), "交易日志各页不登记上下文(个人交易数据不进 AI)");

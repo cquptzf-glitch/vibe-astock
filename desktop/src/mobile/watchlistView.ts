@@ -78,3 +78,30 @@ export function parseTags(text: string): string[] {
   for (const part of text.split(/[,，、\s]+/)) if (part && !out.includes(part)) out.push(part);
   return out;
 }
+
+// ------------------------------------------------------------ 批量添加(代码或名称混着输)
+
+/** 把输入拆成一个个代码或名称(空格、逗号、顿号、分号、换行都算分隔),去重保序 */
+export function splitAddTokens(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const token of text.split(/[\s,，、;；]+/)) {
+    const t = token.trim();
+    if (t && !seen.has(t)) { seen.add(t); out.push(t); }
+  }
+  return out;
+}
+
+export interface NameCandidate { symbol: string; name: string }
+export type NamePick = { kind: "hit"; symbol: string; name: string } | { kind: "ambiguous"; candidates: NameCandidate[] } | { kind: "none" };
+
+const squash = (value: string) => value.replace(/\s+/g, "").replace(/[*＊]?ST/i, (m) => m.toUpperCase());
+
+/** 按名称搜出来的结果里挑一只:名称完全一致优先;只搜到一只也算;多只都不完全一致就列候选,绝不替用户猜 */
+export function pickByName(name: string, items: NameCandidate[]): NamePick {
+  if (items.length === 0) return { kind: "none" };
+  const exact = items.filter((item) => squash(item.name) === squash(name));
+  const only = exact.length === 1 ? exact[0] : exact.length === 0 && items.length === 1 ? items[0] : undefined;
+  if (only) return { kind: "hit", symbol: only.symbol, name: only.name };
+  return { kind: "ambiguous", candidates: (exact.length > 1 ? exact : items).slice(0, 5) };
+}

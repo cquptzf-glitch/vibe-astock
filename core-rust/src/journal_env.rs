@@ -317,7 +317,7 @@ mod tests {
     use crate::journal_settings::Fees;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0 };
+    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
 
     fn p(code: &str, boards: i64) -> Pooled {
         Pooled { code: code.into(), boards, first_seal: "093001".into(), broken_times: 1, industry: Some("半导体".into()) }

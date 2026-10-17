@@ -83,3 +83,19 @@ test("编辑器:分组与标签输入、已有分组快捷选、保存/取消/�
     assert.match(html, /class="on"[^>]*>白酒/, "当前分组高亮");
   });
 });
+
+test("批量添加:代码和名称混着输,按空格/逗号/顿号/换行拆开去重;名称完全一致优先,多只就列候选不替用户猜", async () => {
+  await withRenderer(async (r) => {
+    const view = await r.load("/src/mobile/watchlistView.ts");
+    assert.deepEqual(view.splitAddTokens("600519，平安银行、600519 贵州茅台;  000001"), ["600519", "平安银行", "贵州茅台", "000001"]);
+    assert.deepEqual(view.splitAddTokens("  ,, "), []);
+    const pingan = [{ symbol: "000001", name: "平安银行" }, { symbol: "601318", name: "中国平安" }];
+    assert.deepEqual(view.pickByName("平安银行", pingan), { kind: "hit", symbol: "000001", name: "平安银行" });
+    assert.deepEqual(view.pickByName("茅台", [{ symbol: "600519", name: "贵州茅台" }]), { kind: "hit", symbol: "600519", name: "贵州茅台" }, "只搜到一只就用它");
+    const amb = view.pickByName("平安", pingan);
+    assert.equal(amb.kind, "ambiguous");
+    assert.deepEqual(amb.candidates.map((c: { symbol: string }) => c.symbol), ["000001", "601318"], "名称不完全一致又有多只:全列出来让用户改用代码");
+    assert.deepEqual(view.pickByName("不存在", []), { kind: "none" });
+    assert.equal(view.pickByName("ST 国华", [{ symbol: "000001", name: "ST国华" }]).kind, "hit", "名称里的空格不影响比对");
+  });
+});

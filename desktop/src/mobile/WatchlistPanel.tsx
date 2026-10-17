@@ -12,8 +12,8 @@ import { usePresentation } from "./presentation";
 import { ScreenshotImport } from "./ScreenshotImport";
 import { useForegroundRefresh } from "./useForegroundRefresh";
 import {
-  filterByGroup, groupsOf, moveVisible, NO_GROUP, parseTags, pbText, peText, SORT_LABELS, sortRows,
-  type BoardRow, type SortDir, type SortKey,
+  filterByGroup, groupsOf, moveVisible, NO_GROUP, parseTags, pbText, peText, pickByName, SORT_LABELS, sortRows, splitAddTokens,
+  type BoardRow, type NameCandidate, type SortDir, type SortKey,
 } from "./watchlistView";
 import "./watchlist.css";
 
@@ -136,10 +136,34 @@ export function WatchlistBoard({ onOpenSymbol, onChanged }: { onOpenSymbol: (sym
     symbols: moveVisible(rows.map((r) => r.symbol), visible.map((r) => r.symbol), symbol, delta),
   }));
   const addCodes = async () => {
-    const codes = adding.split(/[\s,，、]+/).filter(Boolean);
-    if (!codes.length) return;
-    const ok = await mutate(async () => { for (const symbol of codes) await call("POST", "/mobile/watchlist", { symbol }); });
-    if (ok) setAdding("");
+    const tokens = splitAddTokens(adding);
+    if (!tokens.length) return;
+    setBusy(true);
+    setMessage("");
+    const codes: string[] = [];
+    const named: string[] = [];
+    const problems: string[] = [];
+    // 六位数字当代码;其余当名称,去股票搜索里按名称找(逐个串行,别一下子压满搜索接口)
+    for (const token of tokens) {
+      if (/^\d{6}$/.test(token)) { codes.push(token); continue; }
+      try {
+        const result = await call("POST", "/mobile/symbol-search", { query: token, limit: 8 }) as { items?: NameCandidate[] };
+        const pick = pickByName(token, (result.items ?? []).map((i) => ({ symbol: i.symbol, name: i.name })));
+        if (pick.kind === "hit") { codes.push(pick.symbol); named.push(`${token}→${pick.name} ${pick.symbol}`); }
+        else if (pick.kind === "none") problems.push(`「${token}」没搜到(只支持沪深北 A 股)`);
+        else problems.push(`「${token}」有多只:${pick.candidates.map((c) => `${c.name} ${c.symbol}`).join("、")},请改用代码`);
+      } catch (e) {
+        problems.push(`「${token}」没查成:${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    setBusy(false);
+    const unique = [...new Set(codes)];
+    let ok = true;
+    if (unique.length) ok = await mutate(async () => { for (const symbol of unique) await call("POST", "/mobile/watchlist", { symbol }); });
+    if (!ok) return;
+    const notes = [...(named.length ? [`已按名称加入:${named.join(";")}`] : []), ...problems];
+    if (notes.length) setMessage(notes.join("。"));
+    setAdding(problems.length ? tokens.filter((t) => problems.some((p) => p.startsWith(`「${t}」`))).join(" ") : "");
   };
   const editingRow = rows.find((row) => row.symbol === editing);
 
@@ -173,7 +197,7 @@ export function WatchlistBoard({ onOpenSymbol, onChanged }: { onOpenSymbol: (sym
     </div>)}</div>
     {canMove && group !== "" && visible.length > 1 && <p className="wl-note">在分组「{group}」内调整先后,不影响其它分组里的相对顺序。</p>}
     <div className="wl-add">
-      <input value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="输入代码添加,如 600519 000001" aria-label="添加自选代码" onKeyDown={(e) => { if (e.key === "Enter") void addCodes(); }} />
+      <input value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="输入代码或名称添加,如 600519 平安银行" aria-label="添加自选(代码或名称)" onKeyDown={(e) => { if (e.key === "Enter") void addCodes(); }} />
       <button type="button" disabled={busy || !adding.trim()} onClick={() => void addCodes()}><Plus size={14} /> 添加</button>
     </div>
     <ScreenshotImport target="watch" existing={rows.map((r) => r.symbol)} onSaved={() => { void refresh(); onChanged(); }} />

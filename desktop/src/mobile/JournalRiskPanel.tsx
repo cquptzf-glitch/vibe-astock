@@ -7,6 +7,7 @@ import { AlertTriangle, RefreshCw, Settings2, ShieldCheck, TrendingDown } from "
 import { useState } from "react";
 
 import { fmtNumber, fmtPercent, useDiscoveryData } from "./discoveryData";
+import { WebSelect } from "./controls";
 import { fmtRate } from "./emotionData";
 import { isPrivate, priv, usePrivacyMode } from "./privacy";
 import "./emotion.css";
@@ -40,7 +41,7 @@ export interface AtRisk {
   over_per_trade_limit: { name: string; code: string; pct_of_equity: number }[] | null; over_position_limit: { actual: number; limit: number } | null; unbounded_note: string | null;
 }
 export interface SettingsView {
-  fees: Record<string, number>; fees_default: boolean; rules: Record<string, number>; rules_default: boolean; equity_base: number | null;
+  fees: Record<string, number>; fees_default: boolean; rules: Record<string, number>; rules_default: boolean; equity_base: number | null; cost_method?: string; cost_methods?: { value: string; label: string }[];
   labels: { fees: Record<string, string>; rules: Record<string, string> }; defaults: { fees: Record<string, number>; rules: Record<string, number> }; fraction_rules: string[]; note: string;
 }
 export interface JournalRiskData {
@@ -207,11 +208,12 @@ function GroupsCard({ stats }: { stats: JournalRiskData["stats"] }) {
 
 // ------------------------------------------------------------ 设置
 
-type Draft = { fees: Record<string, string>; rules: Record<string, string>; equity: string };
+type Draft = { fees: Record<string, string>; rules: Record<string, string>; equity: string; costMethod: string };
 const toDraft = (s: SettingsView): Draft => ({
   fees: Object.fromEntries(Object.entries(s.fees).map(([k, v]) => [k, String(v)])),
   rules: Object.fromEntries(Object.entries(s.rules).map(([k, v]) => [k, String(v)])),
   equity: s.equity_base == null ? "" : String(s.equity_base),
+  costMethod: s.cost_method ?? "average",
 });
 
 export function SettingsCard({ s, onSaved }: { s: SettingsView; onSaved: () => void }) {
@@ -239,21 +241,25 @@ export function SettingsCard({ s, onSaved }: { s: SettingsView; onSaved: () => v
     fees: Object.fromEntries(Object.keys(s.labels.fees).map((k) => [k, num(draft.fees[k] ?? "")])),
     rules: Object.fromEntries(Object.keys(s.labels.rules).map((k) => [k, num(draft.rules[k] ?? "")])),
     equity_base: num(draft.equity),
+    cost_method: draft.costMethod,
   }, "已保存");
   return <section className="watch-card" aria-label="设置">
     <div className="watch-card-head"><h2><Settings2 size={15} />费率、规矩与账户规模</h2>
       <button type="button" className="jr-toggle" aria-expanded={open} onClick={() => { setOpen(!open); setDraft(toDraft(s)); setMsg(""); }}>{open ? "收起" : "修改"}</button></div>
-    <p className="watch-hint">费率{s.fees_default ? "用默认值" : "是你填的"}、规矩{s.rules_default ? "用默认值" : "是你填的"}、账户规模{s.equity_base == null ? "没填(单日亏损占比算不了)" : `${plain(s.equity_base)} 元`}。{s.note}</p>
+    <p className="watch-hint">费率{s.fees_default ? "用默认值" : "是你填的"}、规矩{s.rules_default ? "用默认值" : "是你填的"}、账户规模{s.equity_base == null ? "没填(单日亏损占比算不了)" : `${plain(s.equity_base)} 元`}、成本法{(s.cost_methods ?? []).find((m) => m.value === (s.cost_method ?? "average"))?.label ?? "移动加权平均"}。{s.note}</p>
     {open && <div className="jr-form">
       <h3 className="watch-sub">费率(没填实际费用的成交按这个估)</h3>
       {Object.entries(s.labels.fees).map(([k, label]) => <label key={k}><span>{label}</span><input type={pwType} autoComplete="off" inputMode="decimal" value={draft.fees[k] ?? ""} onChange={(e) => setDraft({ ...draft, fees: { ...draft.fees, [k]: e.target.value } })} aria-label={label} /></label>)}
       <h3 className="watch-sub">风险规矩(你自己的,不是推荐值)</h3>
       {Object.entries(s.labels.rules).map(([k, label]) => <label key={k}><span>{label}{s.fraction_rules.includes(k) ? (k.endsWith("_pct") ? "(%)" : "(0–1)") : ""}</span><input inputMode="decimal" value={draft.rules[k] ?? ""} onChange={(e) => setDraft({ ...draft, rules: { ...draft.rules, [k]: e.target.value } })} aria-label={label} /></label>)}
+      <h3 className="watch-sub">成本法</h3>
+      <label><span>卖出怎么结转成本</span><WebSelect value={draft.costMethod} onChange={(e) => setDraft({ ...draft, costMethod: e.target.value })} aria-label="成本法">{(s.cost_methods ?? [{ value: "average", label: "移动加权平均" }, { value: "fifo", label: "先进先出" }]).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</WebSelect></label>
+      <p className="watch-hint">只改已实现盈亏和剩余成本的算法,不改你记的成交。先进先出:卖出从最早买入的那笔开始扣,买入费用跟着那笔走;移动加权平均:按卖出那一刻的均价扣。总盈亏清仓后两种一样,差别在分批卖出的逐日盈亏和没清仓时的剩余成本。</p>
       <h3 className="watch-sub">账户规模</h3>
       <label><span>账户规模(元,选填)</span><input type={pwType} autoComplete="off" inputMode="decimal" value={draft.equity} placeholder="不填 = 不查占比" onChange={(e) => setDraft({ ...draft, equity: e.target.value })} aria-label="账户规模" /></label>
       <div className="jr-actions">
         <button type="button" className="discovery-action" disabled={saving} onClick={save}>保存</button>
-        <button type="button" disabled={saving} onClick={() => void post({ fees: null, rules: Object.fromEntries(Object.keys(s.labels.rules).map((k) => [k, null])), equity_base: null }, "已恢复默认")}>全部恢复默认</button>
+        <button type="button" disabled={saving} onClick={() => void post({ fees: null, rules: Object.fromEntries(Object.keys(s.labels.rules).map((k) => [k, null])), equity_base: null, cost_method: null }, "已恢复默认")}>全部恢复默认</button>
       </div>
       <p className="watch-hint">费率四项要么全填要么全清空;填错会被拒绝并说明原因,不会改动已有设置。设置会进备份。</p>
     </div>}

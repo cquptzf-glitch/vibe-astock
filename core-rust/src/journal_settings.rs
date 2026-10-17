@@ -19,15 +19,19 @@ pub(crate) struct Fees {
     pub commission_min: f64,
     pub stamp_tax_rate: f64,
     pub transfer_fee_rate: f64,
+    /// 成本法:true = 先进先出,false = 移动加权平均(默认)。放在这里是因为结算函数本来就拿着 Fees
+    pub fifo: bool,
 }
 
-pub(crate) const DEFAULT_FEES: Fees = Fees { commission_rate: 0.00025, commission_min: 5.0, stamp_tax_rate: 0.0005, transfer_fee_rate: 0.00001 };
+pub(crate) const DEFAULT_FEES: Fees = Fees { commission_rate: 0.00025, commission_min: 5.0, stamp_tax_rate: 0.0005, transfer_fee_rate: 0.00001, fifo: false };
 const FEE_KEYS: [(&str, &str); 4] = [
     ("commission_rate", "佣金费率(双向)"),
     ("commission_min", "单笔佣金最低(元)"),
     ("stamp_tax_rate", "印花税(仅卖出)"),
     ("transfer_fee_rate", "过户费(双向)"),
 ];
+/// 成本法的两个取值:移动加权平均(默认)和先进先出
+pub(crate) const COST_METHODS: [&str; 2] = ["average", "fifo"];
 /// 费率上限:万 2.5 应填 0.00025,填成 2.5 这种一看就不是费率
 const MAX_RATE: f64 = 0.01;
 
@@ -151,6 +155,12 @@ pub(crate) struct Settings {
     pub updated_at: Option<String>,
 }
 
+impl Settings {
+    pub(crate) fn cost_method(&self) -> &'static str {
+        if self.fees.fifo { "fifo" } else { "average" }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self { fees: DEFAULT_FEES, fees_default: true, rules: Rules::from_saved(&Map::new()), rules_default: true, equity_base: None, updated_at: None }
@@ -163,6 +173,9 @@ pub(crate) struct Row {
     pub fees: Option<Map<String, Value>>,
     pub rules: Option<Map<String, Value>>,
     pub equity_base: Option<f64>,
+    /// 成本法 'average' / 'fifo';旧备份和没设过的是 None = 移动加权平均
+    #[serde(default)]
+    pub cost_method: Option<String>,
     pub updated_at: String,
 }
 
@@ -171,22 +184,24 @@ fn open(db: &Path) -> Result<Connection> {
 }
 
 pub(crate) fn read_row(conn: &Connection) -> Result<Option<Row>> {
-    let raw: Option<(Option<String>, Option<String>, Option<f64>, String)> = conn
-        .query_row("SELECT fees, rules, equity_base, updated_at FROM mobile_journal_settings WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+    type Raw = (Option<String>, Option<String>, Option<f64>, Option<String>, String);
+    let raw: Option<Raw> = conn
+        .query_row("SELECT fees, rules, equity_base, cost_method, updated_at FROM mobile_journal_settings WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
         .optional()?;
-    let Some((fees, rules, equity_base, updated_at)) = raw else { return Ok(None) };
+    let Some((fees, rules, equity_base, cost_method, updated_at)) = raw else { return Ok(None) };
     let parse = |text: Option<String>| text.and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok());
-    Ok(Some(Row { fees: parse(fees), rules: parse(rules), equity_base, updated_at }))
+    Ok(Some(Row { fees: parse(fees), rules: parse(rules), equity_base, cost_method, updated_at }))
 }
 
 pub(crate) fn write_row(conn: &Connection, row: &Row) -> Result<()> {
     conn.execute(
-        "INSERT INTO mobile_journal_settings(id, fees, rules, equity_base, updated_at) VALUES (1, ?1, ?2, ?3, ?4)
-         ON CONFLICT(id) DO UPDATE SET fees = excluded.fees, rules = excluded.rules, equity_base = excluded.equity_base, updated_at = excluded.updated_at",
+        "INSERT INTO mobile_journal_settings(id, fees, rules, equity_base, cost_method, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(id) DO UPDATE SET fees = excluded.fees, rules = excluded.rules, equity_base = excluded.equity_base, cost_method = excluded.cost_method, updated_at = excluded.updated_at",
         params![
             row.fees.as_ref().map(|m| Value::Object(m.clone()).to_string()),
             row.rules.as_ref().map(|m| Value::Object(m.clone()).to_string()),
             row.equity_base,
+            row.cost_method,
             row.updated_at
         ],
     )?;
@@ -213,21 +228,28 @@ pub(crate) fn row_problem(row: &Row) -> Option<String> {
     if row.equity_base.is_some_and(|v| !v.is_finite() || v <= 0.0) {
         return Some("账户规模要是大于 0 的数字(元)".into());
     }
+    if let Some(method) = &row.cost_method {
+        if !COST_METHODS.contains(&method.as_str()) {
+            return Some(format!("不认识的成本法 {method:?}(只有 average / fifo)"));
+        }
+    }
     None
 }
 
 pub(crate) fn settings_of(row: Option<&Row>) -> Settings {
     let Some(row) = row else { return Settings::default() };
+    let fifo = row.cost_method.as_deref() == Some("fifo");
     let fees = row.fees.as_ref().filter(|m| fee_problem(m).is_none()).map(|m| Fees {
         commission_rate: m["commission_rate"].as_f64().unwrap_or(0.0),
         commission_min: m["commission_min"].as_f64().unwrap_or(0.0),
         stamp_tax_rate: m["stamp_tax_rate"].as_f64().unwrap_or(0.0),
         transfer_fee_rate: m["transfer_fee_rate"].as_f64().unwrap_or(0.0),
+        fifo: false,
     });
     let saved_rules: Map<String, Value> = row.rules.clone().unwrap_or_default();
     Settings {
         fees_default: fees.is_none(),
-        fees: fees.unwrap_or(DEFAULT_FEES),
+        fees: Fees { fifo, ..fees.unwrap_or(DEFAULT_FEES) },
         rules_default: saved_rules.is_empty(),
         rules: Rules::from_saved(&saved_rules),
         equity_base: row.equity_base.filter(|v| *v > 0.0),
@@ -249,6 +271,8 @@ pub(crate) fn settings_value(s: &Settings) -> Value {
         "fees": s.fees.to_value(), "fees_default": s.fees_default,
         "rules": s.rules.to_value(), "rules_default": s.rules_default,
         "equity_base": s.equity_base, "updated_at": s.updated_at,
+        "cost_method": s.cost_method(),
+        "cost_methods": [{"value": "average", "label": "移动加权平均"}, {"value": "fifo", "label": "先进先出"}],
         "labels": {
             "fees": FEE_KEYS.iter().map(|(k, l)| (k.to_string(), json!(l))).collect::<Map<_, _>>(),
             "rules": RULE_KEYS.iter().map(|(k, l, _)| (k.to_string(), json!(l))).collect::<Map<_, _>>(),
@@ -263,7 +287,7 @@ pub(crate) fn settings_value(s: &Settings) -> Value {
 pub fn save(db: &Path, body: &Value) -> Result<Value> {
     let conn = open(db)?;
     let current = read_row(&conn)?;
-    let mut row = current.unwrap_or(Row { fees: None, rules: None, equity_base: None, updated_at: String::new() });
+    let mut row = current.unwrap_or(Row { fees: None, rules: None, equity_base: None, cost_method: None, updated_at: String::new() });
     if let Some(fees) = body.get("fees") {
         row.fees = match fees {
             Value::Null => None,
@@ -307,6 +331,14 @@ pub fn save(db: &Path, body: &Value) -> Result<Value> {
             _ => return Err(anyhow!("账户规模要是大于 0 的数字(元)")),
         };
     }
+    if let Some(method) = body.get("cost_method") {
+        row.cost_method = match method {
+            Value::Null => None,
+            Value::String(m) if m == "average" => None,
+            Value::String(m) if COST_METHODS.contains(&m.as_str()) => Some(m.clone()),
+            _ => return Err(anyhow!("成本法只能是 average(移动加权平均)或 fifo(先进先出)")),
+        };
+    }
     row.updated_at = Utc::now().to_rfc3339();
     write_row(&conn, &row)?;
     view(db)
@@ -318,6 +350,16 @@ mod tests {
 
     fn map(v: Value) -> Map<String, Value> {
         v.as_object().unwrap().clone()
+    }
+
+    #[test]
+    fn cost_method_defaults_to_average_and_round_trips() {
+        assert!(!Settings::default().fees.fifo && Settings::default().cost_method() == "average");
+        let row = Row { fees: None, rules: None, equity_base: None, cost_method: Some("fifo".into()), updated_at: "t".into() };
+        assert!(settings_of(Some(&row)).fees.fifo, "没改过费率也能单独选成本法");
+        assert_eq!(settings_value(&settings_of(Some(&row)))["cost_method"], "fifo");
+        assert!(row_problem(&Row { cost_method: Some("lifo".into()), ..row.clone() }).unwrap().contains("成本法"));
+        assert_eq!(row_problem(&row), None);
     }
 
     #[test]
@@ -365,7 +407,7 @@ mod tests {
 
     #[test]
     fn broken_saved_fees_fall_back_visibly() {
-        let row = Row { fees: Some(map(json!({"commission_rate": 0.0003}))), rules: None, equity_base: Some(-1.0), updated_at: "t".into() };
+        let row = Row { fees: Some(map(json!({"commission_rate": 0.0003}))), rules: None, equity_base: Some(-1.0), cost_method: None, updated_at: "t".into() };
         assert!(row_problem(&row).is_some());
         let s = settings_of(Some(&row));
         assert!(s.fees_default, "损坏的费率标成默认,页面据此提示");

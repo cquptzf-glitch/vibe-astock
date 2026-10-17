@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 11;
+pub const CURRENT_SCHEMA_VERSION: i64 = 12;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -123,99 +123,34 @@ pub fn migrate(db_path: &Path) -> Result<()> {
         ));
     }
 
-    match version {
-        0 => {
-            verify_tables(&conn, &LEGACY_REQUIRED_TABLES)?;
-            migrate_1_to_2(&conn)?;
-            migrate_2_to_3(&conn)?;
-            migrate_3_to_4(&conn)?;
-            migrate_4_to_5(&conn)?;
-            migrate_5_to_6(&conn)?;
-            migrate_6_to_7(&conn)?;
-            migrate_7_to_8(&conn)?;
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        1 => {
-            migrate_1_to_2(&conn)?;
-            migrate_2_to_3(&conn)?;
-            migrate_3_to_4(&conn)?;
-            migrate_4_to_5(&conn)?;
-            migrate_5_to_6(&conn)?;
-            migrate_6_to_7(&conn)?;
-            migrate_7_to_8(&conn)?;
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        2 => {
-            migrate_2_to_3(&conn)?;
-            migrate_3_to_4(&conn)?;
-            migrate_4_to_5(&conn)?;
-            migrate_5_to_6(&conn)?;
-            migrate_6_to_7(&conn)?;
-            migrate_7_to_8(&conn)?;
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        3 => {
-            migrate_3_to_4(&conn)?;
-            migrate_4_to_5(&conn)?;
-            migrate_5_to_6(&conn)?;
-            migrate_6_to_7(&conn)?;
-            migrate_7_to_8(&conn)?;
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        4 => {
-            migrate_4_to_5(&conn)?;
-            migrate_5_to_6(&conn)?;
-            migrate_6_to_7(&conn)?;
-            migrate_7_to_8(&conn)?;
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        5 => {
-            migrate_5_to_6(&conn)?;
-            migrate_6_to_7(&conn)?;
-            migrate_7_to_8(&conn)?;
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        6 => {
-            migrate_6_to_7(&conn)?;
-            migrate_7_to_8(&conn)?;
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        7 => {
-            migrate_7_to_8(&conn)?;
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        8 => {
-            migrate_8_to_9(&conn)?;
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        9 => {
-            migrate_9_to_10(&conn)?;
-            migrate_10_to_11(&conn)?;
-        }
-        10 => migrate_10_to_11(&conn)?,
-        CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
-        other => {
-            return Err(anyhow!(
-                "unsupported database schema {other}; expected 0..={CURRENT_SCHEMA_VERSION}"
-            ));
-        }
+    if !(0..=CURRENT_SCHEMA_VERSION).contains(&version) {
+        return Err(anyhow!(
+            "unsupported database schema {version}; expected 0..={CURRENT_SCHEMA_VERSION}"
+        ));
+    }
+    if version == CURRENT_SCHEMA_VERSION {
+        verify_tables(&conn, &REQUIRED_TABLES)?;
+        return Ok(());
+    }
+    if version == 0 {
+        verify_tables(&conn, &LEGACY_REQUIRED_TABLES)?;
+    }
+    // MIGRATIONS[n] 把 user_version n+1 升到 n+2;0 和 1 都从第一步开始
+    const MIGRATIONS: [fn(&Connection) -> Result<()>; 11] = [
+        migrate_1_to_2,
+        migrate_2_to_3,
+        migrate_3_to_4,
+        migrate_4_to_5,
+        migrate_5_to_6,
+        migrate_6_to_7,
+        migrate_7_to_8,
+        migrate_8_to_9,
+        migrate_9_to_10,
+        migrate_10_to_11,
+        migrate_11_to_12,
+    ];
+    for step in &MIGRATIONS[(version.max(1) - 1) as usize..] {
+        step(&conn)?;
     }
     Ok(())
 }
@@ -382,6 +317,7 @@ fn migrate_5_to_6(conn: &Connection) -> Result<()> {
             fees TEXT,
             rules TEXT,
             equity_base REAL,
+            cost_method TEXT,
             updated_at TEXT NOT NULL
         );",
     )?;
@@ -535,6 +471,20 @@ fn migrate_10_to_11(conn: &Connection) -> Result<()> {
     crate::ai_chat::ensure_default_thread(conn)?;
     verify_tables(conn, REQUIRED_TABLES)?;
     conn.pragma_update(None, "user_version", 11)?;
+    Ok(())
+}
+
+/// 成本法设置:交易日志设置表加一列 cost_method('average' 移动加权平均 / 'fifo' 先进先出),旧数据没填 = 移动加权平均。幂等:先查列再补。
+fn migrate_11_to_12(conn: &Connection) -> Result<()> {
+    let have: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('mobile_journal_settings')")?
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    if !have.iter().any(|name| name == "cost_method") {
+        conn.execute("ALTER TABLE mobile_journal_settings ADD COLUMN cost_method TEXT", [])?;
+    }
+    verify_tables(conn, REQUIRED_TABLES)?;
+    conn.pragma_update(None, "user_version", 12)?;
     Ok(())
 }
 
