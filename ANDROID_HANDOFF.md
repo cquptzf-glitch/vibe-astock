@@ -1365,7 +1365,7 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 
 下一步建议：盯盘异动流与昨日梯队实时 → 竞价与盘中路径 → 涨停样本 → 交易日志分组/风险与复查页签 → 每日复盘市场状态八格。K 线可继续补：叠加对比指数、画线工具、成交明细（逐笔）与资金流副图。
 
-### 盯盘实时动态、竞价与盘中、涨停样本、市场面板、交易日志风险与纪律（0.1.22，已提交、未 push、未发布）
+### 盯盘实时动态、竞价与盘中、涨停样本、市场面板、交易日志风险与纪律（0.1.22，已发布预览版）
 
 按 ANDROID_REMAINING.md 的主计划一次做了五块，各自独立提交（de13edd / 023fd68 / 0eec410 / 62b778f / d0cd613）。口径都移植自桌面版 orchestrator，每页的差异在 ANDROID_REMAINING.md「对照桌面版仍缺」和 PARITY_MATRIX.md 里逐条写明。
 
@@ -1396,7 +1396,9 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - 浏览器：Playwright 1.56.1 + 本机 Edge 跑 `desktop/test/mobile-ui-smoke.mjs`，6 组视口/主题、78 张截图通过（新增盯盘实时动态、竞价与盘中、涨停样本、风险与纪律（含展开设置编辑器）、市场面板）；已人工查看 360 深色实时动态、390 白色涨停样本、360 深色风险与纪律、360 白色市场面板。
 - 本轮新增内容（相对 0727bb4 的 6,761 行，不含 json 夹具）针对性扫描：无密钥/令牌/私钥/邮箱/本机路径；夹具另扫无命中。
 
-**没做 / 待办**：完整发布前隐私扫描（工作树 + HEAD + 完整历史，按 AGENTS.md 6.5）、push、Android CI、APK 构建与预览发布、真机验收、版本已改为 0.1.22（`core-rust/Cargo.toml`、`src-tauri/Cargo.toml`、`core-rust/Cargo.lock`）但没有发布说明文件。**不要在没有仓库主人确认的情况下 push**：Android CI 的 publish-preview job 会在成功后自动创建不可覆盖的 `android-mvp-v0.1.22` 预览版 Release（AGENTS.md 6.4：新建 Release 需要仓库主人单独授权）。
+**发布前隐私扫描（AGENTS.md 6.5，仓库主人在聊天里同意 push 与发布预览版之后做的）**：脚本在会话 scratchpad 里临时写的（规则：OpenAI 风格 key、GitHub token、AWS key、私钥块、JWT、Bearer、`key=` 赋值、邮箱、Windows/类 Unix 用户目录、开发盘符路径、带 token 的 URL、内网 IP），**没有入库**；因此命中数与此前 65/65/71 的口径不可比，判断「新增」的方法是**同一套规则对基线 0727bb4 和现在各扫一遍取差集**。结果：工作树 = HEAD 快照 = 145 条、相对基线新增 0；完整历史（`git log --all -p` 的新增行）128 种签名、相对基线历史新增 0；文件名级：历史上进过仓库的敏感文件名只有 `.env.example`（后端/前端/根目录，内容为空或占位）与 `.claude/launch.json`（启动配置），当前没有跟踪 `.env`、`.local/`、密钥、令牌文件。145 条既有命中人工核实：全部是测试里的假路径（alice/someone/test）、`example.*` 假邮箱、README 有意公开的作者邮箱、测试假 key / Bearer / access 令牌、SSRF 黑名单的内网网段常量、两处占位串（`core-rust/src/ai_config.rs` 测试里的「不应被存储」字符串、`orchestrator/src/task_service.ts` 的适配器占位）。GitHub 侧（公开 API）：Issues / PR / 评论均为 0，15 个 Release 正文无命中，Actions artifacts 只有 APK 与冻结样本截图。**待办**：Secret Scanning 与 Push Protection 的开关需要管理员权限，匿名读不到，仓库主人需自行确认已开启；本机没有 `gh`。注意：shell 重定向生成的文件会被 DLP 加密，扫描结果必须用管道/进程替换或直接输出，不能落盘再比较（本轮第一次比较就因此作废重做）。
+
+**CI 与发布**：推送 `0727bb4..2d92a32`（只推 `android-mvp`）。代码 2d92a32 的 [Android CI #39002403555](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39002403555)（build-apk、publish-preview）与 [跨平台 #39002403552](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39002403552)（ubuntu/windows/macos × Node 22/24）全部成功。已发布 [Android 0.1.22 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.22)（prerelease，非草稿），标签固定在 2d92a32190391a1901e28d8a54140ff5628c4d8e；APK 24,387,637 bytes（23.26 MiB），GitHub 记录的 SHA256：85eb0358ad3f276b1ffe1de6f2d367c710375d9f5887f669824300f4be03ab85（`.sha256` 文件 113 bytes，本机下载它时 github.com 连接超时，没有逐字对照文件内容，只核对了 API 给出的摘要）。APK artifact #12089996843、截图 artifact #12090001310 保留 30 天。CI 内各步骤测试数未从日志核对（公开 API 读不到 job 日志）。仍是 debug-signed 预览包；真机验收、正式签名/AAB、覆盖升级未做，更换安装前应导出业务备份；旧备份恢复后交易日志设置会回到默认。
 
 环境注意：本机 DLP 会让 shell 里读 `*.md` 得到密文（Read/Edit 工具和 Node 读到的是明文）；修改这几份文档请用 Read/Edit 工具，提交前用 `git cat-file -p :<path>` 确认 blob 是明文。
 
