@@ -1,0 +1,615 @@
+{
+  "at_risk": {
+    "at_risk_of_equity_pct": 1.5,
+    "available": true,
+    "bounded_count": 1,
+    "capital_of_equity_pct": 48.5,
+    "equity_base": 100000.0,
+    "equity_base_hint": null,
+    "over_per_trade_limit": [],
+    "over_position_limit": null,
+    "position_count": 2,
+    "positions": [
+      {
+        "at_risk": null,
+        "at_risk_pct": null,
+        "avg_cost": 9.5,
+        "bounded": false,
+        "capital": 28500.0,
+        "date": "2026-10-16",
+        "key": "mobile:15",
+        "name": "样本十五",
+        "planned_stop": null,
+        "planned_target": null,
+        "playbook": null,
+        "shares": 3000.0,
+        "symbol": "600015"
+      },
+      {
+        "at_risk": 1500.0,
+        "at_risk_pct": 7.5,
+        "avg_cost": 20.0,
+        "bounded": true,
+        "capital": 20000.0,
+        "date": "2026-10-16",
+        "key": "mobile:14",
+        "name": "样本十四",
+        "planned_stop": 18.5,
+        "planned_target": 24.0,
+        "playbook": "低吸",
+        "shares": 1000.0,
+        "symbol": "600014"
+      }
+    ],
+    "rules": {
+      "is_default": false,
+      "max_loss_per_trade_pct": 4.0,
+      "max_positions": 2.0
+    },
+    "total_at_risk": 1500.0,
+    "total_capital": 48500.0,
+    "unbounded_capital": 28500.0,
+    "unbounded_count": 1,
+    "unbounded_note": "另有 1 笔没写计划止损、占用本金 28,500 元,最坏情况无从估计 —— 它们没算进上面的总在险,所以那个数是下限。"
+  },
+  "available": true,
+  "generated_at": "2026-10-17T02:00:00Z",
+  "notes": [
+    "只有清仓的交易才计入已实现盈亏(与「交易统计」一致);没卖完的交易只出现在在险资金里",
+    "成交没填费用的按「设置」里的费率估算,默认费率只是初值,不是你的真实费率",
+    "个人成交、持仓、金额只留在本机,不进任何 AI"
+  ],
+  "playbooks": [
+    "打板",
+    "低吸",
+    "接力",
+    "半路",
+    "套利",
+    "其它"
+  ],
+  "risk": {
+    "discipline": {
+      "available": true,
+      "execution_rate": 0.667,
+      "note": "「计划外」要你自己在记录时标 —— 没标的归到未标注,不猜。这不是市场分析,是你自己的行为统计。",
+      "planned": {
+        "avg_pct": 4.39,
+        "count": 8,
+        "net_pnl": 3116.13,
+        "win_rate": 0.75
+      },
+      "unplanned": {
+        "avg_pct": -6.57,
+        "count": 4,
+        "net_pnl": -5077.9,
+        "win_rate": 0.0
+      },
+      "untagged": {
+        "avg_pct": -3.46,
+        "count": 2,
+        "net_pnl": -2137.49,
+        "win_rate": 0.5
+      },
+      "what_if_only_planned": {
+        "actual_net": -4099.26,
+        "cost_of_indiscipline": -7215.39,
+        "planned_only_net": 3116.13
+      }
+    },
+    "equity": {
+      "available": true,
+      "avg_loss": -1219.23,
+      "avg_win": 739.23,
+      "best_trade_share": null,
+      "current_drawdown": 5943.33,
+      "date_note": "按平仓日排列",
+      "longest_underwater": 9,
+      "max_drawdown": 6328.97,
+      "max_drawdown_since": "2026-09-29",
+      "net_pnl": -4099.26,
+      "net_without_best1": -5401.72,
+      "net_without_best3": -7129.38,
+      "payoff_ratio": 0.61,
+      "peak": 1844.07,
+      "peak_date": "2026-09-28",
+      "points": [
+        {
+          "cum_pnl": 784.39,
+          "date": "2026-09-22",
+          "drawdown": 0.0,
+          "pnl": 784.39
+        },
+        {
+          "cum_pnl": 166.38,
+          "date": "2026-09-23",
+          "drawdown": 618.01,
+          "pnl": -618.01
+        },
+        {
+          "cum_pnl": 900.8,
+          "date": "2026-09-24",
+          "drawdown": 0.0,
+          "pnl": 734.42
+        },
+        {
+          "cum_pnl": 1844.07,
+          "date": "2026-09-28",
+          "drawdown": 0.0,
+          "pnl": 943.27
+        },
+        {
+          "cum_pnl": 325.47,
+          "date": "2026-09-29",
+          "drawdown": 1518.6,
+          "pnl": -1518.6
+        },
+        {
+          "cum_pnl": 610.64,
+          "date": "2026-10-09",
+          "drawdown": 1233.43,
+          "pnl": 285.17
+        },
+        {
+          "cum_pnl": -911.17,
+          "date": "2026-10-12",
+          "drawdown": 2755.24,
+          "pnl": -1521.81
+        },
+        {
+          "cum_pnl": -1930.02,
+          "date": "2026-10-12",
+          "drawdown": 3774.09,
+          "pnl": -1018.85
+        },
+        {
+          "cum_pnl": -1945.22,
+          "date": "2026-10-13",
+          "drawdown": 3789.29,
+          "pnl": -15.2
+        },
+        {
+          "cum_pnl": -642.76,
+          "date": "2026-10-14",
+          "drawdown": 2486.83,
+          "pnl": 1302.46
+        },
+        {
+          "cum_pnl": -2062.24,
+          "date": "2026-10-15",
+          "drawdown": 3906.31,
+          "pnl": -1419.48
+        },
+        {
+          "cum_pnl": -4484.9,
+          "date": "2026-10-16",
+          "drawdown": 6328.97,
+          "pnl": -2422.66
+        },
+        {
+          "cum_pnl": -4099.26,
+          "date": "2026-10-16",
+          "drawdown": 5943.33,
+          "pnl": 385.64
+        }
+      ],
+      "profit_factor": 0.52,
+      "trades": 13,
+      "trades_since_peak": 9,
+      "win_rate": 0.462,
+      "worst_losing_streak": 3,
+      "worst_trade": -2422.66
+    },
+    "rolling": {
+      "available": true,
+      "lifetime": {
+        "avg_loss": -1219.23,
+        "avg_win": 739.23,
+        "date_from": "2026-09-22",
+        "date_note": "按平仓日排列",
+        "date_to": "2026-10-16",
+        "execution_rate": 0.636,
+        "net_pnl": -4099.26,
+        "payoff_ratio": 0.61,
+        "profit_factor": 0.52,
+        "trades": 13,
+        "win_rate": 0.462
+      },
+      "note": "10 笔看状态、20 笔看节奏、50 笔看打法是否还成立。终身统计会把最近的退化藏起来 —— 前面赚够了,最近一直亏,终身数字照样漂亮。",
+      "profit_factor_drift": -0.15,
+      "win_rate_drift": -0.062,
+      "windows": {
+        "10": {
+          "avg_loss": -1319.43,
+          "avg_win": 729.14,
+          "date_from": "2026-09-28",
+          "date_note": "按平仓日排列",
+          "date_to": "2026-10-16",
+          "enough": true,
+          "execution_rate": 0.625,
+          "net_pnl": -5000.06,
+          "payoff_ratio": 0.55,
+          "profit_factor": 0.37,
+          "trades": 10,
+          "win_rate": 0.4,
+          "window": 10
+        },
+        "20": {
+          "avg_loss": -1219.23,
+          "avg_win": 739.23,
+          "date_from": "2026-09-22",
+          "date_note": "按平仓日排列",
+          "date_to": "2026-10-16",
+          "enough": false,
+          "execution_rate": 0.636,
+          "net_pnl": -4099.26,
+          "payoff_ratio": 0.61,
+          "profit_factor": 0.52,
+          "trades": 13,
+          "win_rate": 0.462,
+          "window": 20
+        },
+        "50": {
+          "avg_loss": -1219.23,
+          "avg_win": 739.23,
+          "date_from": "2026-09-22",
+          "date_note": "按平仓日排列",
+          "date_to": "2026-10-16",
+          "enough": false,
+          "execution_rate": 0.636,
+          "net_pnl": -4099.26,
+          "payoff_ratio": 0.61,
+          "profit_factor": 0.52,
+          "trades": 13,
+          "win_rate": 0.462,
+          "window": 50
+        }
+      }
+    },
+    "violations": {
+      "after_loss_streak": {
+        "avg_pct": 9.87,
+        "threshold": 3,
+        "trades": 1,
+        "win_rate": 1.0
+      },
+      "available": true,
+      "is_default_rules": false,
+      "rule_status": {
+        "max_loss_per_day_pct": "checked",
+        "max_loss_per_trade_pct": "checked",
+        "max_positions": "unavailable:有没有成交明细的补记(缺买入、卖出日期),未能完整核对历史持仓上限;已确认的超限仍展示,结果可能漏计",
+        "max_trades_per_day": "checked",
+        "max_unplanned_ratio": "checked",
+        "pause_after_losses": "checked"
+      },
+      "rules": {
+        "max_loss_per_day_pct": 8.0,
+        "max_loss_per_trade_pct": 4.0,
+        "max_positions": 2.0,
+        "max_trades_per_day": 5.0,
+        "max_unplanned_ratio": 0.2,
+        "pause_after_losses": 3.0
+      },
+      "unchecked": [
+        "max_positions"
+      ],
+      "violation_count": 9,
+      "violations": [
+        {
+          "actual": 1.0,
+          "date": "2026-09-23",
+          "detail": "2026-09-23 计划外 1/1 笔",
+          "label": "计划外交易占比上限",
+          "limit": 0.2,
+          "rule": "max_unplanned_ratio"
+        },
+        {
+          "actual": -8.44,
+          "date": "2026-09-28",
+          "detail": "样本五 亏 -8.44%",
+          "label": "单笔最大亏损",
+          "limit": -4.0,
+          "rule": "max_loss_per_trade_pct"
+        },
+        {
+          "actual": 1.0,
+          "date": "2026-09-28",
+          "detail": "2026-09-28 计划外 1/1 笔",
+          "label": "计划外交易占比上限",
+          "limit": 0.2,
+          "rule": "max_unplanned_ratio"
+        },
+        {
+          "actual": -5.66,
+          "date": "2026-10-09",
+          "detail": "样本八 亏 -5.66%",
+          "label": "单笔最大亏损",
+          "limit": -4.0,
+          "rule": "max_loss_per_trade_pct"
+        },
+        {
+          "actual": -6.76,
+          "date": "2026-10-09",
+          "detail": "样本七 亏 -6.76%",
+          "label": "单笔最大亏损",
+          "limit": -4.0,
+          "rule": "max_loss_per_trade_pct"
+        },
+        {
+          "actual": 0.5,
+          "date": "2026-10-09",
+          "detail": "2026-10-09 计划外 1/2 笔",
+          "label": "计划外交易占比上限",
+          "limit": 0.2,
+          "rule": "max_unplanned_ratio"
+        },
+        {
+          "actual": -7.24,
+          "date": "2026-10-14",
+          "detail": "样本十一 亏 -7.24%",
+          "label": "单笔最大亏损",
+          "limit": -4.0,
+          "rule": "max_loss_per_trade_pct"
+        },
+        {
+          "actual": 1.0,
+          "date": "2026-10-14",
+          "detail": "2026-10-14 计划外 1/1 笔",
+          "label": "计划外交易占比上限",
+          "limit": 0.2,
+          "rule": "max_unplanned_ratio"
+        },
+        {
+          "actual": -10.09,
+          "date": "2026-10-15",
+          "detail": "样本十二 亏 -10.09%",
+          "label": "单笔最大亏损",
+          "limit": -4.0,
+          "rule": "max_loss_per_trade_pct"
+        }
+      ]
+    }
+  },
+  "settings": {
+    "defaults": {
+      "fees": {
+        "commission_min": 5.0,
+        "commission_rate": 0.00025,
+        "stamp_tax_rate": 0.0005,
+        "transfer_fee_rate": 0.00001
+      },
+      "rules": {
+        "max_loss_per_day_pct": 8.0,
+        "max_loss_per_trade_pct": 5.0,
+        "max_positions": 3.0,
+        "max_trades_per_day": 5.0,
+        "max_unplanned_ratio": 0.2,
+        "pause_after_losses": 3.0
+      }
+    },
+    "equity_base": 100000.0,
+    "fees": {
+      "commission_min": 5.0,
+      "commission_rate": 0.00025,
+      "stamp_tax_rate": 0.0005,
+      "transfer_fee_rate": 0.00001
+    },
+    "fees_default": true,
+    "fraction_rules": [
+      "max_loss_per_trade_pct",
+      "max_loss_per_day_pct",
+      "max_unplanned_ratio"
+    ],
+    "labels": {
+      "fees": {
+        "commission_min": "单笔佣金最低(元)",
+        "commission_rate": "佣金费率(双向)",
+        "stamp_tax_rate": "印花税(仅卖出)",
+        "transfer_fee_rate": "过户费(双向)"
+      },
+      "rules": {
+        "max_loss_per_day_pct": "单日最大亏损",
+        "max_loss_per_trade_pct": "单笔最大亏损",
+        "max_positions": "最多同时持仓",
+        "max_trades_per_day": "单日最多开仓",
+        "max_unplanned_ratio": "计划外交易占比上限",
+        "pause_after_losses": "连亏几笔后停手"
+      }
+    },
+    "note": "默认值只是能跑起来的初值,不是推荐值,也不是你的真实费率或规矩;费率四项要么全填要么全不填。",
+    "rules": {
+      "max_loss_per_day_pct": 8.0,
+      "max_loss_per_trade_pct": 4.0,
+      "max_positions": 2.0,
+      "max_trades_per_day": 5.0,
+      "max_unplanned_ratio": 0.2,
+      "pause_after_losses": 3.0
+    },
+    "rules_default": false,
+    "updated_at": "2026-10-17T03:31:52.387649700+00:00"
+  },
+  "source": "mobile_sqlite",
+  "stats": {
+    "by_hold": [
+      {
+        "avg": -3.86,
+        "best": -3.86,
+        "count": 1,
+        "key": "同日买卖(底仓待核)",
+        "money_scored": 1,
+        "net_pnl": -618.01,
+        "scored": 1,
+        "win_rate": 0.0,
+        "worst": -3.86
+      },
+      {
+        "avg": -0.48,
+        "best": 9.87,
+        "count": 7,
+        "key": "隔日",
+        "money_scored": 7,
+        "net_pnl": -2903.45,
+        "scored": 7,
+        "win_rate": 0.429,
+        "worst": -10.09
+      },
+      {
+        "avg": 7.34,
+        "best": 7.34,
+        "count": 1,
+        "key": "持有2天",
+        "money_scored": 1,
+        "net_pnl": 734.42,
+        "scored": 1,
+        "win_rate": 1.0,
+        "worst": 7.34
+      },
+      {
+        "avg": -1.52,
+        "best": 7.86,
+        "count": 3,
+        "key": "持有3天",
+        "money_scored": 3,
+        "net_pnl": -1597.39,
+        "scored": 3,
+        "win_rate": 0.333,
+        "worst": -6.76
+      },
+      {
+        "avg": 3.17,
+        "best": 3.17,
+        "count": 1,
+        "key": "持有10天",
+        "money_scored": 1,
+        "net_pnl": 285.17,
+        "scored": 1,
+        "win_rate": 1.0,
+        "worst": 3.17
+      },
+      {
+        "avg": null,
+        "best": null,
+        "count": 2,
+        "key": "还没卖",
+        "money_scored": 0,
+        "net_pnl": null,
+        "scored": 0,
+        "win_rate": null,
+        "worst": null
+      },
+      {
+        "avg": 3.2,
+        "best": 3.2,
+        "count": 1,
+        "key": "未填明细",
+        "money_scored": 0,
+        "net_pnl": null,
+        "scored": 1,
+        "win_rate": 1.0,
+        "worst": 3.2
+      }
+    ],
+    "by_planned": [
+      {
+        "avg": 4.39,
+        "best": 9.87,
+        "count": 9,
+        "key": "按计划",
+        "money_scored": 7,
+        "net_pnl": 3116.13,
+        "scored": 8,
+        "win_rate": 0.75,
+        "worst": -5.66
+      },
+      {
+        "avg": -6.57,
+        "best": -3.86,
+        "count": 4,
+        "key": "计划外",
+        "money_scored": 4,
+        "net_pnl": -5077.9,
+        "scored": 4,
+        "win_rate": 0.0,
+        "worst": -8.44
+      },
+      {
+        "avg": -3.46,
+        "best": 3.17,
+        "count": 3,
+        "key": "未标注",
+        "money_scored": 2,
+        "net_pnl": -2137.49,
+        "scored": 2,
+        "win_rate": 0.5,
+        "worst": -10.09
+      }
+    ],
+    "by_playbook": [
+      {
+        "avg": -2.08,
+        "best": 7.84,
+        "count": 6,
+        "key": "打板",
+        "money_scored": 5,
+        "net_pnl": -3793.76,
+        "scored": 6,
+        "win_rate": 0.333,
+        "worst": -7.24
+      },
+      {
+        "avg": 4.0,
+        "best": 7.34,
+        "count": 4,
+        "key": "低吸",
+        "money_scored": 3,
+        "net_pnl": 1104.86,
+        "scored": 3,
+        "win_rate": 0.667,
+        "worst": -0.15
+      },
+      {
+        "avg": 3.1,
+        "best": 9.87,
+        "count": 3,
+        "key": "接力",
+        "money_scored": 3,
+        "net_pnl": 727.13,
+        "scored": 3,
+        "win_rate": 0.667,
+        "worst": -8.44
+      },
+      {
+        "avg": -3.46,
+        "best": 3.17,
+        "count": 2,
+        "key": "半路",
+        "money_scored": 2,
+        "net_pnl": -2137.49,
+        "scored": 2,
+        "win_rate": 0.5,
+        "worst": -10.09
+      },
+      {
+        "avg": null,
+        "best": null,
+        "count": 1,
+        "key": "未标注",
+        "money_scored": 0,
+        "net_pnl": null,
+        "scored": 0,
+        "win_rate": null,
+        "worst": null
+      }
+    ],
+    "overall": {
+      "avg": 0.14,
+      "best": 9.87,
+      "count": 16,
+      "money_scored": 13,
+      "net_pnl": -4099.26,
+      "scored": 14,
+      "win_rate": 0.5,
+      "worst": -10.09
+    }
+  }
+}

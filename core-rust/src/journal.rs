@@ -6,10 +6,6 @@ use serde_json::{json, Value};
 use std::path::Path;
 
 const PLAYBOOKS: [&str; 6] = ["打板", "低吸", "接力", "半路", "套利", "其它"];
-const COMMISSION_RATE: f64 = 0.00025;
-const COMMISSION_MIN: f64 = 5.0;
-const STAMP_TAX_RATE: f64 = 0.0005;
-const TRANSFER_FEE_RATE: f64 = 0.00001;
 
 pub fn init(db_path: &Path) -> Result<()> {
     let conn = open(db_path)?;
@@ -49,6 +45,8 @@ pub fn init(db_path: &Path) -> Result<()> {
 
 pub fn view(db_path: &Path) -> Result<Value> {
     let conn = open(db_path)?;
+    let settings = crate::journal_settings::load(db_path)?;
+    let (fees, fees_default) = (settings.fees, settings.fees_default);
     let mut stmt = conn.prepare(
         "SELECT id, kind, symbol, name, date, playbook, as_planned,
                 planned_stop, planned_target, note, pnl_pct, created_at, updated_at
@@ -86,7 +84,7 @@ pub fn view(db_path: &Path) -> Result<Value> {
     for entry in raw {
         let entry = entry?;
         let fills = if entry.kind == "episode" {
-            fills_for(&conn, entry.id)?
+            fills_for(&conn, entry.id, &fees)?
         } else {
             Vec::new()
         };
@@ -140,12 +138,13 @@ pub fn view(db_path: &Path) -> Result<Value> {
         "available": true,
         "source": "mobile_sqlite",
         "playbooks": PLAYBOOKS,
-        "fee_defaults": {
-            "commission_rate": COMMISSION_RATE,
-            "commission_min": COMMISSION_MIN,
-            "stamp_tax_rate": STAMP_TAX_RATE,
-            "transfer_fee_rate": TRANSFER_FEE_RATE,
-            "note": "未填写实际费用时使用原项目默认费率估算；默认值不是投资或券商费率建议"
+        "fees": {
+            "commission_rate": fees.commission_rate,
+            "commission_min": fees.commission_min,
+            "stamp_tax_rate": fees.stamp_tax_rate,
+            "transfer_fee_rate": fees.transfer_fee_rate,
+            "is_default": fees_default,
+            "note": "未填写实际费用时按这组费率估算(默认值只是初值,不是投资或券商费率建议;可在「风险与纪律」里改成自己的)"
         },
         "summary": {
             "entries": rows.len(),
@@ -281,7 +280,7 @@ fn insert_entry(
     Ok(tx.last_insert_rowid())
 }
 
-fn fills_for(conn: &Connection, entry_id: i64) -> Result<Vec<Value>> {
+fn fills_for(conn: &Connection, entry_id: i64, fees: &crate::journal_settings::Fees) -> Result<Vec<Value>> {
     let mut stmt = conn.prepare(
         "SELECT id, side, date, price, shares, fee
          FROM journal_fills WHERE entry_id = ?1 ORDER BY sort_order ASC, id ASC",
@@ -292,7 +291,7 @@ fn fills_for(conn: &Connection, entry_id: i64) -> Result<Vec<Value>> {
         let shares = row.get::<_, f64>(4)?;
         let actual_fee = row.get::<_, Option<f64>>(5)?;
         let estimated = actual_fee.is_none();
-        let fee = actual_fee.unwrap_or_else(|| estimate_fee(&side, price, shares));
+        let fee = actual_fee.unwrap_or_else(|| fees.estimate(&side, price, shares));
         Ok(json!({
             "id": row.get::<_, i64>(0)?,
             "type": side,
@@ -453,16 +452,6 @@ fn positive_required(value: Option<&Value>, label: &str) -> Result<f64> {
 
 fn bool_db(value: Option<bool>) -> Option<i64> {
     value.map(|v| if v { 1 } else { 0 })
-}
-
-fn estimate_fee(side: &str, price: f64, shares: f64) -> f64 {
-    let amount = price * shares;
-    let mut fee = (amount * COMMISSION_RATE).max(COMMISSION_MIN);
-    fee += amount * TRANSFER_FEE_RATE;
-    if side == "sell" {
-        fee += amount * STAMP_TAX_RATE;
-    }
-    fee
 }
 
 fn open(db_path: &Path) -> Result<Connection> {

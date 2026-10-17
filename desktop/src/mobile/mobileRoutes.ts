@@ -33,6 +33,7 @@ export const MOBILE_PATHS = {
   records: "/mobile/journal",
   daily: "/mobile/journal/daily",
   review: "/mobile/journal/review",
+  journalRisk: "/mobile/journal/risk",
   ai: "/mobile/ai",
   library: "/mobile/library",
   reminders: "/mobile/reminders",

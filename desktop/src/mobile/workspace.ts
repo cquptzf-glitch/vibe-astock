@@ -31,6 +31,7 @@ export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "daily", title: "每日复盘", short: "日复", detail: "市场观察、题材轮动记录与明日验证", group: "review" },
   { page: "records", title: "交易日志", short: "日志", detail: "记一笔、成交明细、补成交与标注", group: "review", keywords: "成交 流水" },
   { page: "review", title: "交易统计", short: "统计", detail: "收益、胜率、盈亏比、纪律与在险资金", group: "review" },
+  { page: "journalRisk", title: "风险与纪律", short: "纪律", detail: "权益曲线与回撤、近 10/20/50 笔、纪律归因、规矩检查、在险资金与费率设置", group: "review", keywords: "回撤 权益曲线 规矩 违规 在险 费率 账户规模 状态漂移" },
   { page: "research", title: "个股深挖", short: "个股", detail: "搜索沪深北股票：行情、财务、公告、研报、资金与所属板块", group: "research", keywords: "股票 搜索 财务 公告" },
   { page: "rotation", title: "板块轮动", short: "板块", detail: "概念/行业今日与五日资金、成分股与走势", group: "research" },
   { page: "sector", title: "产业研究", short: "产业", detail: "产业链图谱与研究线索", group: "research" },

@@ -21,6 +21,8 @@ mod news;
 mod journal;
 mod journal_mutation;
 mod journal_review;
+mod journal_risk;
+mod journal_settings;
 mod market;
 mod monitor;
 mod quote;
@@ -246,6 +248,18 @@ impl AppCore {
             ("POST", "/mobile/journal") => match journal::act(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "journal", error.to_string())),
+            },
+            ("GET", "/mobile/journal/risk") => match journal_risk::view(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(500, "journal_risk", error.to_string())),
+            },
+            ("GET", "/mobile/journal/settings") => match journal_settings::view(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(500, "journal_settings", error.to_string())),
+            },
+            ("POST", "/mobile/journal/settings") => match journal_settings::save(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "journal_settings", error.to_string())),
             },
             ("POST", "/mobile/journal/append") => match journal_mutation::append_fills(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),

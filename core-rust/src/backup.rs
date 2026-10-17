@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 5;
+const SCHEMA_VERSION: u32 = 6;
 const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
@@ -44,6 +44,8 @@ struct BackupData {
     reminders: Vec<ReminderRow>,
     #[serde(default)]
     verifications: Vec<VerificationRow>,
+    #[serde(default)]
+    journal_settings: Option<crate::journal_settings::Row>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -183,6 +185,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             calendar_events: read_calendar_events(&conn)?,
             reminders: read_reminders(&conn)?,
             verifications: read_verifications(&conn)?,
+            journal_settings: crate::journal_settings::read_row(&conn)?,
         },
     };
     validate_envelope(&backup)?;
@@ -219,6 +222,7 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM mobile_calendar_events", [])?;
     tx.execute("DELETE FROM mobile_reminders", [])?;
     tx.execute("DELETE FROM mobile_verifications", [])?;
+    tx.execute("DELETE FROM mobile_journal_settings", [])?;
     tx.execute(
         "DELETE FROM sqlite_sequence WHERE name IN (
             'journal_entries', 'journal_fills', 'mobile_ai_messages',
@@ -388,6 +392,10 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![row.id, &row.date, &row.metric, &row.direction, &row.reason, &row.created_at, &row.updated_at],
         )?;
+    }
+
+    if let Some(row) = &backup.data.journal_settings {
+        crate::journal_settings::write_row(&tx, row)?;
     }
 
     tx.commit().context("commit backup restore")?;
@@ -606,6 +614,12 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         }
     }
 
+    if let Some(row) = &backup.data.journal_settings {
+        if let Some(problem) = crate::journal_settings::row_problem(row) {
+            return Err(anyhow!("交易日志设置无效: {problem}"));
+        }
+    }
+
     let mut verification_ids = HashSet::new();
     let mut verification_keys = HashSet::new();
     for row in &backup.data.verifications {
@@ -671,7 +685,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "documents": backup.data.documents.len(),
             "calendar_events": backup.data.calendar_events.len(),
             "reminders": backup.data.reminders.len(),
-            "verifications": backup.data.verifications.len()
+            "verifications": backup.data.verifications.len(),
+            "journal_settings": backup.data.journal_settings.is_some() as usize
         },
         "compatibility": {
             "current_schema_version": SCHEMA_VERSION,
@@ -679,7 +694,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "legacy_missing_documents_are_empty": backup.schema_version == 1,
             "legacy_missing_calendar_events_are_empty": backup.schema_version <= 2,
             "legacy_missing_reminders_are_empty": backup.schema_version <= 3,
-            "legacy_missing_verifications_are_empty": backup.schema_version <= 4
+            "legacy_missing_verifications_are_empty": backup.schema_version <= 4,
+            "legacy_missing_journal_settings_are_default": backup.schema_version <= 5
         },
         "security": {
             "credentials_included": false,
@@ -951,7 +967,8 @@ mod tests {
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
-        assert_eq!(backup["schema_version"], 5);
+        assert_eq!(backup["schema_version"], 6);
+        assert_eq!(backup["data"]["journal_settings"], Value::Null);
         assert_eq!(backup["data"]["verifications"], json!([]));
         assert_eq!(backup["data"]["watchlist"][0]["symbol"], "600519");
         assert_eq!(backup["data"]["documents"][0]["title"], "茅台跟踪");
@@ -1114,5 +1131,45 @@ mod tests {
         assert_eq!(preview["counts"]["reminders"], 0);
         assert_eq!(preview["compatibility"]["legacy_missing_reminders_are_empty"], true);
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn journal_settings_round_trip_and_legacy_backups_reset_them() {
+        let source = temp_db("jset-source");
+        init_all(&source);
+        crate::journal_settings::save(
+            &source,
+            &json!({"fees": {"commission_rate": 0.0001, "commission_min": 0, "stamp_tax_rate": 0.0005, "transfer_fee_rate": 0.00001},
+                    "rules": {"max_positions": 4}, "equity_base": 150000}),
+        )
+        .unwrap();
+        let backup = export(&source).unwrap();
+        assert_eq!(backup["schema_version"], 6);
+        assert_eq!(backup["data"]["journal_settings"]["equity_base"], 150000.0);
+        assert_eq!(validate(&backup).unwrap()["counts"]["journal_settings"], 1);
+
+        let target = temp_db("jset-target");
+        init_all(&target);
+        crate::journal_settings::save(&target, &json!({"equity_base": 1})).unwrap();
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": backup.clone()})).unwrap();
+        let restored = crate::journal_settings::load(&target).unwrap();
+        assert_eq!((restored.fees.commission_rate, restored.fees_default, restored.rules.max_positions, restored.equity_base), (0.0001, false, 4.0, Some(150000.0)));
+
+        // v5 备份没有设置:恢复后回到默认,不留着设备上原来的
+        let mut legacy = backup.clone();
+        legacy["schema_version"] = json!(5);
+        legacy["data"].as_object_mut().unwrap().remove("journal_settings");
+        let preview = validate(&legacy).unwrap();
+        assert_eq!(preview["compatibility"]["legacy_missing_journal_settings_are_default"], true);
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": legacy})).unwrap();
+        let reset = crate::journal_settings::load(&target).unwrap();
+        assert_eq!((reset.fees_default, reset.rules_default, reset.equity_base), (true, true, None));
+
+        // 设置里有不合规则的值:整份备份拒收
+        let mut bad = backup;
+        bad["data"]["journal_settings"]["fees"] = json!({"commission_rate": 2.5, "commission_min": 5, "stamp_tax_rate": 0.0005, "transfer_fee_rate": 0.00001});
+        assert!(validate(&bad).unwrap_err().to_string().contains("交易日志设置无效"));
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(target);
     }
 }

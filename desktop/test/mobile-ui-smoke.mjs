@@ -19,6 +19,7 @@ watchFixture.alerts = [
   { ts: "10:05:12", code: "600519", name: "贵州茅台", kind: "急跌", change_pct: -1.62, price: 1308, pct: -1.6, msg: "3 分钟 -1.6%(现价 1308,今日 -1.6%)", sources: ["自选", "大票"] },
 ];
 const samplesFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-samples-2026-10-16.json", "utf8"));
+const journalRiskFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-risk-synthetic.json", "utf8"));
 const intradayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-intraday-2026-10-17.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
@@ -55,6 +56,7 @@ const responses = {
   "/mobile/stock/snapshot": chartFixture.snapshot,
   "/mobile/watch/poll": watchFixture,
   "/mobile/intraday": intradayFixture,
+  "/mobile/journal/risk": journalRiskFixture,
   "/mobile/shortline/samples": samplesFixture,
 };
 const quote = { symbol: "600519", market: "SH", status: "ok", primary_source: "tencent", extra: { name: "贵州茅台", quote_date: "2026-10-16" }, evidence: [["price", 1329, "元"], ["change_pct", 1.22, "%"], ["pe_ttm", 19.81, "倍"], ["pb", 7.1, "倍"], ["turnover_pct", .31, "%"], ["total_market_cap", 16692.24, "亿元"]].map(([field, value, unit]) => ({ field, value, unit })) };
@@ -191,6 +193,15 @@ try {
       await page.getByText("事后名单", { exact: false }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-samples.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "风险与纪律", exact: true }).click();
+      await page.getByRole("heading", { name: "风险与纪律", exact: true }).waitFor();
+      await page.getByText("权益曲线与回撤", { exact: true }).waitFor();
+      await page.getByRole("img", { name: "权益曲线", exact: false }).waitFor();
+      await page.getByRole("button", { name: "修改", exact: true }).click();
+      await page.getByLabel("账户规模", { exact: true }).waitFor();
+      assert.equal(await page.getByLabel("单笔最大亏损", { exact: true }).inputValue(), "4");
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-risk.png"), fullPage: true });
       await page.locator(".group-tabs").getByRole("tab", { name: "明日验证", exact: true }).click();
       await page.getByText("写给下一场的条件", { exact: true }).waitFor();
       await page.getByRole("button", { name: "加一条", exact: false }).click();
@@ -201,8 +212,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 66, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples; 66 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 72, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk; 72 screenshots.");
 } finally {
   await browser.close();
 }

@@ -6,13 +6,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 const PLAYBOOKS: [&str; 6] = ["打板", "低吸", "接力", "半路", "套利", "其它"];
-const COMMISSION_RATE: f64 = 0.00025;
-const COMMISSION_MIN: f64 = 5.0;
-const STAMP_TAX_RATE: f64 = 0.0005;
-const TRANSFER_FEE_RATE: f64 = 0.00001;
 
 pub fn view(db_path: &Path) -> Result<Value> {
     let conn = Connection::open(db_path).context("open mobile journal review sqlite")?;
+    let fee_cfg = crate::journal_settings::load(db_path)?.fees;
     let mut stmt = conn.prepare(
         "SELECT id, kind, symbol, name, date, playbook, as_planned,
                 planned_stop, planned_target, pnl_pct
@@ -50,7 +47,7 @@ pub fn view(db_path: &Path) -> Result<Value> {
     for row in rows {
         let entry = row?;
         let metrics = if entry.kind == "episode" {
-            episode_metrics(&conn, entry.id)?
+            episode_metrics(&conn, entry.id, &fee_cfg)?
         } else {
             EpisodeMetrics {
                 pnl_pct: entry.pnl_pct,
@@ -159,7 +156,7 @@ pub fn view(db_path: &Path) -> Result<Value> {
     }))
 }
 
-fn episode_metrics(conn: &Connection, entry_id: i64) -> Result<EpisodeMetrics> {
+fn episode_metrics(conn: &Connection, entry_id: i64, fees_cfg: &crate::journal_settings::Fees) -> Result<EpisodeMetrics> {
     let mut stmt = conn.prepare(
         "SELECT side, price, shares, fee
          FROM journal_fills WHERE entry_id = ?1 ORDER BY sort_order ASC, id ASC",
@@ -187,7 +184,7 @@ fn episode_metrics(conn: &Connection, entry_id: i64) -> Result<EpisodeMetrics> {
             sell_amount += price * shares;
             sell_shares += shares;
         }
-        fees += fee.unwrap_or_else(|| estimate_fee(&side, price, shares));
+        fees += fee.unwrap_or_else(|| fees_cfg.estimate(&side, price, shares));
     }
 
     let open_shares = (buy_shares - sell_shares).max(0.0);
@@ -207,16 +204,6 @@ fn episode_metrics(conn: &Connection, entry_id: i64) -> Result<EpisodeMetrics> {
         avg_cost,
         open_cost,
     })
-}
-
-fn estimate_fee(side: &str, price: f64, shares: f64) -> f64 {
-    let amount = price * shares;
-    let mut fee = (amount * COMMISSION_RATE).max(COMMISSION_MIN);
-    fee += amount * TRANSFER_FEE_RATE;
-    if side == "sell" {
-        fee += amount * STAMP_TAX_RATE;
-    }
-    fee
 }
 
 fn round2(value: f64) -> f64 {

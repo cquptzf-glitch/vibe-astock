@@ -173,3 +173,25 @@
 .smp-axis .neg { justify-content:flex-end; } .smp-axis .mid { width:1px; height:100%; background: var(--mobile-border); }
 .smp-axis i { display:block; height:100%; } .smp-axis .neg i { background: color-mix(in srgb, var(--mobile-down) 70%, transparent); border-radius:4px 0 0 4px; }
 .smp-axis .pos i { background: color-mix(in srgb, var(--mobile-up) 70%, transparent); border-radius:0 4px 4px 0; }
+
+/* 交易日志 · 风险与纪律 */
+.jr-chart { display:block; width:100%; height:110px; margin:6px 0 8px; }
+.jr-chart .zero { stroke: var(--mobile-border); stroke-width:1; }
+.jr-chart .peak { fill:none; stroke: var(--mobile-muted); stroke-width:1; stroke-dasharray:3 3; vector-effect:non-scaling-stroke; }
+.jr-chart .cum { fill:none; stroke: var(--mobile-accent); stroke-width:1.8; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.jr-short td { color: var(--mobile-muted); } .jr-short small { color: var(--mobile-warning); font-size:10px; }
+.jr-rules { list-style:none; margin:0 0 8px; padding:0; display:flex; flex-direction:column; gap:4px; }
+.jr-rules li { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1px 8px; padding:6px 9px; border:1px solid var(--mobile-border); border-radius:8px; font-size:12px; }
+.jr-rules li b { font-weight:600; } .jr-rules li span { text-align:right; font-variant-numeric:tabular-nums; color: var(--mobile-muted); }
+.jr-rules li em { grid-column:1 / 3; font-style:normal; font-size:10px; color: var(--mobile-muted); overflow-wrap:anywhere; }
+.jr-rules li.no { border-style:dashed; } .jr-rules li.no em { color: var(--mobile-warning); }
+.jr-violations { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; max-height:260px; overflow-y:auto; }
+.jr-violations li { display:grid; grid-template-columns:auto minmax(0,1fr); gap:1px 8px; padding:6px 9px; border:1px solid color-mix(in srgb, var(--mobile-warning) 40%, transparent); border-radius:8px; font-size:12px; }
+.jr-violations time { color: var(--mobile-muted); font-variant-numeric:tabular-nums; font-size:11px; }
+.jr-violations span, .jr-violations small { grid-column:2; color: var(--mobile-muted); font-size:11px; overflow-wrap:anywhere; }
+.jr-toggle { min-height:30px; padding:3px 12px; border:1px solid var(--mobile-border); border-radius:8px; background:transparent; color: var(--mobile-accent); font-size:12px; }
+.jr-form { display:flex; flex-direction:column; gap:7px; margin-top:6px; }
+.jr-form label { display:grid; grid-template-columns:minmax(0,1fr) 120px; align-items:center; gap:8px; font-size:12px; color: var(--mobile-muted); }
+.jr-form input { min-height:34px; padding:5px 8px; border:1px solid var(--mobile-border); border-radius:8px; background: var(--mobile-soft); color: var(--mobile-text); font-size:14px; font-variant-numeric:tabular-nums; text-align:right; min-width:0; }
+.jr-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+.jr-actions button:not(.discovery-action) { min-height:34px; padding:5px 12px; border:1px solid var(--mobile-border); border-radius:8px; background:transparent; color: var(--mobile-muted); font-size:12px; }
