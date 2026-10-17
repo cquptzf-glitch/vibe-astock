@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 6;
+const SCHEMA_VERSION: u32 = 7;
 const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
@@ -46,6 +46,9 @@ struct BackupData {
     verifications: Vec<VerificationRow>,
     #[serde(default)]
     journal_settings: Option<crate::journal_settings::Row>,
+    /// 交易日志模式卡(v7 起;旧备份没有,恢复后为空)
+    #[serde(default)]
+    journal_modes: Vec<crate::journal_modes::Card>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -186,6 +189,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             reminders: read_reminders(&conn)?,
             verifications: read_verifications(&conn)?,
             journal_settings: crate::journal_settings::read_row(&conn)?,
+            journal_modes: crate::journal_modes::read_cards(&conn)?,
         },
     };
     validate_envelope(&backup)?;
@@ -223,11 +227,12 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM mobile_reminders", [])?;
     tx.execute("DELETE FROM mobile_verifications", [])?;
     tx.execute("DELETE FROM mobile_journal_settings", [])?;
+    tx.execute("DELETE FROM mobile_journal_modes", [])?;
     tx.execute(
         "DELETE FROM sqlite_sequence WHERE name IN (
             'journal_entries', 'journal_fills', 'mobile_ai_messages',
             'mobile_documents', 'mobile_calendar_events', 'mobile_reminders',
-            'mobile_verifications'
+            'mobile_verifications', 'mobile_journal_modes'
         )",
         [],
     )?;
@@ -398,6 +403,10 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
         crate::journal_settings::write_row(&tx, row)?;
     }
 
+    for card in &backup.data.journal_modes {
+        crate::journal_modes::write_card(&tx, card)?;
+    }
+
     tx.commit().context("commit backup restore")?;
 
     Ok(json!({
@@ -452,6 +461,7 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         || backup.data.calendar_events.len() > 100_000
         || backup.data.reminders.len() > 10_000
         || backup.data.verifications.len() > 100_000
+        || backup.data.journal_modes.len() > crate::journal_modes::CARDS_MAX
     {
         return Err(anyhow!("备份记录数量超过安全上限"));
     }
@@ -620,6 +630,16 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         }
     }
 
+    let mut mode_ids = HashSet::new();
+    for card in &backup.data.journal_modes {
+        if let Some(problem) = crate::journal_modes::card_problem(card) {
+            return Err(anyhow!("交易日志模式卡无效: {problem}"));
+        }
+        if !mode_ids.insert(card.id) {
+            return Err(anyhow!("模式卡包含重复 ID: {}", card.id));
+        }
+    }
+
     let mut verification_ids = HashSet::new();
     let mut verification_keys = HashSet::new();
     for row in &backup.data.verifications {
@@ -686,7 +706,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "calendar_events": backup.data.calendar_events.len(),
             "reminders": backup.data.reminders.len(),
             "verifications": backup.data.verifications.len(),
-            "journal_settings": backup.data.journal_settings.is_some() as usize
+            "journal_settings": backup.data.journal_settings.is_some() as usize,
+            "journal_modes": backup.data.journal_modes.len()
         },
         "compatibility": {
             "current_schema_version": SCHEMA_VERSION,
@@ -695,7 +716,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "legacy_missing_calendar_events_are_empty": backup.schema_version <= 2,
             "legacy_missing_reminders_are_empty": backup.schema_version <= 3,
             "legacy_missing_verifications_are_empty": backup.schema_version <= 4,
-            "legacy_missing_journal_settings_are_default": backup.schema_version <= 5
+            "legacy_missing_journal_settings_are_default": backup.schema_version <= 5,
+            "legacy_missing_journal_modes_are_empty": backup.schema_version <= 6
         },
         "security": {
             "credentials_included": false,
@@ -967,9 +989,10 @@ mod tests {
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
-        assert_eq!(backup["schema_version"], 6);
+        assert_eq!(backup["schema_version"], 7);
         assert_eq!(backup["data"]["journal_settings"], Value::Null);
         assert_eq!(backup["data"]["verifications"], json!([]));
+        assert_eq!(backup["data"]["journal_modes"], json!([]));
         assert_eq!(backup["data"]["watchlist"][0]["symbol"], "600519");
         assert_eq!(backup["data"]["documents"][0]["title"], "茅台跟踪");
         assert_eq!(backup["data"]["calendar_events"][0]["title"], "验证茅台假设");
@@ -1144,7 +1167,7 @@ mod tests {
         )
         .unwrap();
         let backup = export(&source).unwrap();
-        assert_eq!(backup["schema_version"], 6);
+        assert_eq!(backup["schema_version"], 7);
         assert_eq!(backup["data"]["journal_settings"]["equity_base"], 150000.0);
         assert_eq!(validate(&backup).unwrap()["counts"]["journal_settings"], 1);
 
@@ -1169,6 +1192,59 @@ mod tests {
         let mut bad = backup;
         bad["data"]["journal_settings"]["fees"] = json!({"commission_rate": 2.5, "commission_min": 5, "stamp_tax_rate": 0.0005, "transfer_fee_rate": 0.00001});
         assert!(validate(&bad).unwrap_err().to_string().contains("交易日志设置无效"));
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(target);
+    }
+
+    #[test]
+    fn journal_modes_round_trip_and_older_backups_restore_with_no_cards() {
+        let source = temp_db("modes-source");
+        init_all(&source);
+        let made = |name: &str, setup: &str| json!({"action": "save", "name": name, "playbook": "打板", "setup": setup, "entry": "排板"});
+        crate::journal_modes::act(&source, &made("首板早封", "10 点前封")).unwrap();
+        let card_id = crate::journal_modes::view(&source).unwrap()["modes"]["cards"][0]["id"].as_i64().unwrap();
+        crate::journal_modes::act(&source, &json!({"action": "save", "card_id": card_id, "name": "首板早封", "playbook": "打板", "setup": "9:45 前封", "entry": "排板", "changes": "收紧"})).unwrap();
+        crate::journal_modes::act(&source, &made("另一张", "x")).unwrap();
+        let backup = export(&source).unwrap();
+        assert_eq!(backup["schema_version"], 7);
+        assert_eq!(backup["data"]["journal_modes"].as_array().unwrap().len(), 2);
+        assert_eq!(backup["data"]["journal_modes"][0]["versions"].as_array().unwrap().len(), 2);
+        let preview = validate(&backup).unwrap();
+        assert_eq!(preview["counts"]["journal_modes"], 2);
+        assert_eq!(preview["compatibility"]["legacy_missing_journal_modes_are_empty"], false);
+
+        let target = temp_db("modes-target");
+        init_all(&target);
+        crate::journal_modes::act(&target, &made("设备上原有的", "y")).unwrap();
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": backup.clone()})).unwrap();
+        let restored = crate::journal_modes::read_cards(&Connection::open(&target).unwrap()).unwrap();
+        let original = crate::journal_modes::read_cards(&Connection::open(&source).unwrap()).unwrap();
+        assert_eq!(restored, original, "整张卡含全部版本原样还原,设备上原有的被替换");
+        // 恢复后继续新建不会撞上还原的 id
+        crate::journal_modes::act(&target, &made("恢复后新建", "z")).unwrap();
+        assert_eq!(crate::journal_modes::read_cards(&Connection::open(&target).unwrap()).unwrap().len(), 3);
+
+        // v1~v6 备份没有模式卡:仍可恢复,恢复后为空(不留着设备上原来的)
+        for version in [1, 2, 3, 4, 5, 6] {
+            let mut legacy = backup.clone();
+            legacy["schema_version"] = json!(version);
+            legacy["data"].as_object_mut().unwrap().remove("journal_modes");
+            let preview = validate(&legacy).unwrap();
+            assert_eq!(preview["compatibility"]["legacy_missing_journal_modes_are_empty"], true, "v{version}");
+            restore(&target, &json!({"mode": "replace", "confirm": true, "backup": legacy})).unwrap();
+            assert!(crate::journal_modes::read_cards(&Connection::open(&target).unwrap()).unwrap().is_empty(), "v{version}");
+        }
+
+        // 不合规则的模式卡:整份备份拒收
+        let mut bad = backup.clone();
+        bad["data"]["journal_modes"][0]["versions"][0]["setup"] = json!("字".repeat(801));
+        assert!(validate(&bad).unwrap_err().to_string().contains("模式卡无效"));
+        let mut dup = backup.clone();
+        dup["data"]["journal_modes"][1]["id"] = dup["data"]["journal_modes"][0]["id"].clone();
+        assert!(validate(&dup).unwrap_err().to_string().contains("重复 ID"));
+        let mut empty_versions = backup;
+        empty_versions["data"]["journal_modes"][0]["versions"] = json!([]);
+        assert!(validate(&empty_versions).is_err());
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(target);
     }

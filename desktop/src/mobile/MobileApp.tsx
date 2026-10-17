@@ -17,6 +17,7 @@ import { MarketOverview } from "./MarketOverview";
 import { MobileHeader, HomeShortcuts } from "./MobileHeader";
 import { IntradayPanel } from "./IntradayPanel";
 import { MarketPanel } from "./MarketPanel";
+import { JournalModesPanel } from "./JournalModesPanel";
 import { JournalRiskPanel } from "./JournalRiskPanel";
 import { SamplesPanel } from "./SamplesPanel";
 import { MonitorPanel } from "./MonitorPanel";
@@ -428,6 +429,7 @@ export function MobileApp() {
       case "daily": return <DailyReviewPanel onOpenSymbol={openFromList} />;
       case "records": return <JournalPanelV2 onOpenSymbol={openFromList} />;
       case "journalRisk": return <JournalRiskPanel />;
+      case "journalModes": return <JournalModesPanel />;
       case "review": return <JournalReviewPanel onOpenSymbol={openFromList} />;
       case "rotation": return <RotationPanel onOpenBoard={(board) => navigate({ page: "board", board })} />;
       case "board": return <BoardDetailPanel key={route.board} code={route.board!} onOpenSymbol={openFromList} />;

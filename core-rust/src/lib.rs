@@ -19,6 +19,7 @@ mod industry_signals;
 mod intraday;
 mod news;
 mod journal;
+mod journal_modes;
 mod journal_mutation;
 mod journal_review;
 mod journal_risk;
@@ -253,6 +254,14 @@ impl AppCore {
             ("GET", "/mobile/journal/risk") => match journal_risk::view(&self.db_path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(500, "journal_risk", error.to_string())),
+            },
+            ("GET", "/mobile/journal/modes") => match journal_modes::view(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(500, "journal_modes", error.to_string())),
+            },
+            ("POST", "/mobile/journal/modes") => match journal_modes::act(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "journal_modes", error.to_string())),
             },
             ("GET", "/mobile/journal/settings") => match journal_settings::view(&self.db_path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),

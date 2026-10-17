@@ -606,6 +606,36 @@ pub(crate) fn rows_of(entries: Vec<Entry>, fees: &Fees) -> Vec<Row> {
     entries.into_iter().enumerate().map(|(i, e)| settle(e, fees, i)).collect()
 }
 
+/// 能进交易日志的代码:A 股股票(六位数字,不是基金 / ETF / 债券 / 可转债 / 回购)。
+/// 1、5 开头 = 基金 ETF LOF 债券可转债深市回购,沪市 01、02 开头 = 国债,204 开头 = 沪市国债逆回购(同桌面版 episodes.ts)。
+/// 🔴 交易日志只算 A 股股票:ETF、债券混进来会算进股票的胜率和纪律统计,还会按股票扣印花税
+pub(crate) fn is_journal_symbol(symbol: &str) -> bool {
+    symbol.len() == 6 && symbol.bytes().all(|b| b.is_ascii_digit()) && !(symbol.starts_with('1') || symbol.starts_with('5') || symbol.starts_with("01") || symbol.starts_with("02") || symbol.starts_with("204"))
+}
+
+/// 一笔交易的入场日:一轮 = 第一笔买入那天,补记 = 用户填的日期(同桌面版 JournalRow.date)
+pub(crate) fn entry_day(r: &Row) -> String {
+    if r.e.kind == "episode" { r.first_buy.clone().unwrap_or_else(|| r.e.date.clone()) } else { r.e.date.clone() }
+}
+
+/// 桌面版列表顺序:入场日新的在前,同一天后录的在前,再按 id(分析页的「最近 N 笔」都按这个顺序截取)
+pub(crate) fn va_order(rows: &mut [Row]) {
+    rows.sort_by(|a, b| entry_day(b).cmp(&entry_day(a)).then(b.e.created_at.cmp(&a.e.created_at)).then(a.e.id.cmp(&b.e.id)));
+}
+
+/// 分析页共用的读取:设置 + 只含 A 股股票的交易。不是 A 股的记录(ETF 等)单独返回,由「问题记录」页列出。
+pub(crate) struct Analysis {
+    pub settings: Settings,
+    pub rows: Vec<Row>,
+    pub excluded: Vec<Entry>,
+}
+
+pub(crate) fn analysis(db: &Path) -> Result<Analysis> {
+    let settings = journal_settings::load(db)?;
+    let (kept, excluded): (Vec<Entry>, Vec<Entry>) = load_entries(db)?.into_iter().partition(|e| is_journal_symbol(&e.symbol));
+    Ok(Analysis { rows: rows_of(kept, &settings.fees), settings, excluded })
+}
+
 pub(crate) fn build(rows: &[Row], settings: &Settings) -> Value {
     json!({
         "available": true,
@@ -630,9 +660,10 @@ pub(crate) fn build(rows: &[Row], settings: &Settings) -> Value {
 }
 
 pub fn view(db: &Path) -> Result<Value> {
-    let settings = journal_settings::load(db)?;
-    let rows = rows_of(load_entries(db)?, &settings.fees);
-    Ok(build(&rows, &settings))
+    let a = analysis(db)?;
+    let mut v = build(&a.rows, &a.settings);
+    v["excluded_non_stock"] = json!(a.excluded.len());
+    Ok(v)
 }
 
 #[cfg(test)]
