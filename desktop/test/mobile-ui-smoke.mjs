@@ -128,7 +128,7 @@ try {
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-settings.png"), fullPage: true });
       await page.locator(".appearance-refresh .wc-select").click();
       await page.getByRole("option", { name: "每 30 秒", exact: true }).click();
-      assert.equal((await page.locator(".appearance-refresh .wc-select").innerText()).trim(), "每 30 秒");
+      await page.waitForFunction(() => document.querySelector(".appearance-refresh .wc-select")?.textContent?.trim() === "每 30 秒");
       await page.locator(".appearance-refresh .wc-select").click();
       await page.getByRole("option", { name: "仅手动刷新", exact: true }).click();
       await page.getByRole("button", { name: "模型 API 设置", exact: true }).click();
@@ -232,7 +232,7 @@ try {
       await page.getByRole("grid").waitFor();
       await assertWidth();
       await page.getByRole("button", { name: "今天", exact: true }).click();
-      assert.match(await page.getByLabel("施行日期", { exact: false }).innerText(), /^\s*\d{4}-\d{2}-\d{2}\s*$/, "网页日期控件选中今天");
+      await page.waitForFunction(() => /^\s*\d{4}-\d{2}-\d{2}\s*$/.test(document.querySelector('[aria-label^="施行日期"]')?.textContent ?? ""));
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-structure.png"), fullPage: true });
       await page.locator(".group-tabs").getByRole("tab", { name: "行业题材", exact: true }).click();
@@ -305,6 +305,11 @@ try {
   assert.deepEqual(errors, []);
   fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 126, page_errors: errors }, null, 2));
   console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 126 screenshots.");
+} catch (error) {
+  // 注解(::error::)匿名可读;日志要登录才能看
+  const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);
+  console.log(`::error title=Mobile UI smoke failed::${text}`);
+  throw error;
 } finally {
   await browser.close();
 }
