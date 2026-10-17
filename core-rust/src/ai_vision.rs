@@ -220,7 +220,9 @@ fn dedupe(drafts: Vec<Value>, warnings: &mut Vec<String>) -> Vec<Value> {
 
 /// 用腾讯股票搜索核对:有代码的核对名称,没代码的按名称给候选
 async fn cross_check(client: &Client, mut drafts: Vec<Value>) -> (Vec<Value>, Option<String>) {
-    let results: Vec<(usize, Result<Vec<Value>, String>)> = stream::iter(drafts.iter().enumerate().map(|(i, d)| (i, d["code"].as_str().map(String::from), d["name"].as_str().unwrap_or("").to_string())))
+    // 先把要查的东西拷成自己拥有的数据:带借用的闭包会让整个 future 在 Tauri 命令里不满足 Send / 高阶生命周期
+    let jobs: Vec<(usize, Option<String>, String)> = drafts.iter().enumerate().map(|(i, d)| (i, d["code"].as_str().map(String::from), d["name"].as_str().unwrap_or("").to_string())).collect();
+    let results: Vec<(usize, Result<Vec<Value>, String>)> = stream::iter(jobs)
         .map(|(i, code, name)| {
             let client = client.clone();
             async move {

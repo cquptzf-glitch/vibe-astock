@@ -41,12 +41,12 @@ export function GroupTabs({ page, onNavigate }: { page: MobilePage; onNavigate: 
 }
 
 const GROUP_ICONS = { overview: Home, watch: Eye, review: Activity, research: Search, my: UserRound };
-export function WorkspaceNav({ page, onNavigate }: { page: MobilePage; onNavigate: (page: MobilePage) => void }) {
+export function WorkspaceNav({ page, onNavigate, unreadMessages = 0 }: { page: MobilePage; onNavigate: (page: MobilePage) => void; unreadMessages?: number }) {
   const inSettings = page === "settings";
   const active = page === "functions" || inSettings ? null : workspaceGroup(page);
   return <nav className="mobile-nav" aria-label="主导航">{WORKSPACE_GROUPS.map((section) => {
     const Icon = GROUP_ICONS[section.id];
-    return <button key={section.id} type="button" className={active === section.id ? "active" : ""} aria-current={active === section.id ? "page" : undefined} onClick={() => onNavigate(section.home)}><Icon size={19} /><span>{section.title}</span></button>;
+    return <button key={section.id} type="button" className={active === section.id ? "active" : ""} aria-current={active === section.id ? "page" : undefined} onClick={() => onNavigate(section.home)}><Icon size={19} /><span>{section.title}</span>{section.id === "my" && unreadMessages > 0 && <i className="nav-badge" aria-label={`${unreadMessages} 条未读消息`}>{unreadMessages > 9 ? "9+" : unreadMessages}</i>}</button>;
   })}
     <button type="button" className={inSettings ? "active" : ""} aria-current={inSettings ? "page" : undefined} onClick={() => onNavigate("settings")}><Settings2 size={19} /><span>设置</span></button>
   </nav>;

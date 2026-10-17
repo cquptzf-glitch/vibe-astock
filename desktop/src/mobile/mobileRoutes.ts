@@ -1,6 +1,7 @@
 export const MOBILE_PATHS = {
   functions: "/mobile/functions",
   my: "/mobile/my",
+  messages: "/mobile/my/messages",
   research: "/mobile/research",
   emotion: "/mobile/review/emotion",
   ladder: "/mobile/review/ladder",

@@ -35,6 +35,9 @@ const tradeImportFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mob
 const perfFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-portfolio-perf-synthetic.json", "utf8"));
 const xrayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-portfolio-xray-synthetic.json", "utf8"));
 const replayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-portfolio-replay-synthetic.json", "utf8"));
+const messagesFixture = { unread: 2, messages: [
+  { id: 3, kind: "watch_move", day: "2026-10-16", title: "2026-10-16 自选异动(2 只)", body: "样本光模块 300308 +10.00%(涨停) / 样本新股 688001 -10.00%(跌停) / 阈值:涨跌幅 ≥ 5% 或触及涨跌停;只在打开 App 时取一次行情,不是实时推送。", route: "monitor", read: false, created_at: "a", updated_at: "b" },
+  { id: 2, kind: "close_summary", day: "2026-10-16", title: "2026-10-16 收盘摘要", body: "涨停 61 家 · 炸板 49 · 跌停 10 · 最高 11 板 · 炸板率 44.5% / 只列已经发生的读数,不构成买卖建议。", route: "emotion", read: false, created_at: "a", updated_at: "b" }] };
 const intradayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-intraday-2026-10-17.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
@@ -76,6 +79,8 @@ const responses = {
   "/mobile/intraday": intradayFixture,
   "/mobile/review/market": marketPanelFixture,
   "/mobile/review/tiers": tiersFixture,
+  "/mobile/messages": messagesFixture,
+  "/mobile/messages/generate": { created: [], skipped: [], list: messagesFixture },
   "/mobile/portfolio/summary": portfolioFixture,
   "/mobile/portfolio/perf": perfFixture,
   "/mobile/portfolio/xray": xrayFixture,
@@ -145,6 +150,16 @@ try {
       assert.ok(navTops.length === 6 && Math.max(...navTops) - Math.min(...navTops) < 2, "bottom navigation must keep five groups and settings in one row");
       await page.getByRole("region", { name: "情绪速览" }).getByText("炸板率", { exact: true }).waitFor();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-home.png"), fullPage: true });
+      // 消息(我的):启动时生成的消息列表 + 导航角标
+      await page.getByLabel("2 条未读消息").waitFor();
+      await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
+      await page.locator(".directory-grid button", { hasText: "盘前提醒、收盘摘要、自选异动" }).click();
+      await page.getByRole("list", { name: "消息列表" }).waitFor();
+      await page.getByText("收盘摘要", { exact: true }).first().waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-messages.png"), fullPage: true });
+      await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^首页/ }).click();
+      await page.locator(".mo-wrap").waitFor();
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "设置", exact: true }).click();
       await page.getByRole("button", { name: "白色模式", exact: true }).waitFor();
       assert.equal((await page.locator(".appearance-refresh .wc-select").innerText()).trim(), "仅手动刷新");
@@ -390,8 +405,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 156, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 156 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 162, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 162 screenshots.");
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
   const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);

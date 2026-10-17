@@ -35,6 +35,7 @@ import { RotationPanel } from "./RotationPanel";
 import { SectorPanel } from "./SectorPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { WatchQuotesPanel } from "./WatchQuotesPanel";
+import { MessagesPanel, refreshMessages } from "./MessagesPanel";
 import { FunctionDirectory, GroupTabs, WorkspaceNav } from "./WorkspaceNavigation";
 import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
@@ -140,6 +141,9 @@ export function MobileApp() {
   const [loadedSymbol, setLoadedSymbol] = useState("");
   const [error, setError] = useState("");
   const [, setHealth] = useState<{ ok: boolean; version: string } | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  // 启动时生成一次当天该有的消息(盘前提醒 / 收盘摘要 / 自选异动),取不到就算了,不打扰
+  useEffect(() => { void refreshMessages().then((out) => setUnreadMessages(out.list.unread)).catch(() => undefined); }, []);
 
   const currentName = String(quote?.extra?.name ?? "");
   const isWatched = Boolean(activeSymbol && watchlist.some((item) => item.symbol === activeSymbol));
@@ -420,6 +424,7 @@ export function MobileApp() {
       case "candidate": return <CandidatePanel onOpenSymbol={openFromList} />;
       case "backtest": return <BacktestPanel />;
       case "ai": return <AiWorkspace />;
+      case "messages": return <MessagesPanel onNavigate={go} onUnread={setUnreadMessages} />;
       case "calendar": return <CalendarPanel />;
       case "reminders": return <ReminderPanel />;
       case "library":
@@ -444,7 +449,7 @@ export function MobileApp() {
         {renderPage()}
       </main>
 
-      <WorkspaceNav page={page} onNavigate={go} />
+      <WorkspaceNav page={page} onNavigate={go} unreadMessages={unreadMessages} />
       <DialogHost />
     </div>
   );

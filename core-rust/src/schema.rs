@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 9;
+pub const CURRENT_SCHEMA_VERSION: i64 = 10;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -107,6 +107,7 @@ const REQUIRED_TABLES: &[&str] = &[
     "mobile_structure_days",
     "mobile_regime_events",
     "mobile_dividends",
+    "mobile_messages",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -132,6 +133,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
             migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
         }
         1 => {
             migrate_1_to_2(&conn)?;
@@ -142,6 +144,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
             migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
         }
         2 => {
             migrate_2_to_3(&conn)?;
@@ -151,6 +154,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
             migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
         }
         3 => {
             migrate_3_to_4(&conn)?;
@@ -159,6 +163,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
             migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
         }
         4 => {
             migrate_4_to_5(&conn)?;
@@ -166,23 +171,31 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
             migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
         }
         5 => {
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
             migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
         }
         6 => {
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
             migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
         }
         7 => {
             migrate_7_to_8(&conn)?;
             migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
         }
-        8 => migrate_8_to_9(&conn)?,
+        8 => {
+            migrate_8_to_9(&conn)?;
+            migrate_9_to_10(&conn)?;
+        }
+        9 => migrate_9_to_10(&conn)?,
         CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
         other => {
             return Err(anyhow!(
@@ -411,7 +424,7 @@ fn migrate_6_to_7(conn: &Connection) -> Result<()> {
         );",
     )?;
     // v7 的表清单 = 当前清单去掉 v8 才加的表
-    let v7: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| *t != "mobile_dividends").collect();
+    let v7: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| !matches!(*t, "mobile_dividends" | "mobile_messages")).collect();
     verify_tables(conn, &v7)?;
     conn.pragma_update(None, "user_version", 7)?;
     Ok(())
@@ -444,7 +457,8 @@ fn migrate_7_to_8(conn: &Connection) -> Result<()> {
             updated_at TEXT NOT NULL
         );",
     )?;
-    verify_tables(conn, REQUIRED_TABLES)?;
+    let v8: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| *t != "mobile_messages").collect();
+    verify_tables(conn, &v8)?;
     conn.pragma_update(None, "user_version", 8)?;
     Ok(())
 }
@@ -458,8 +472,30 @@ fn migrate_8_to_9(conn: &Connection) -> Result<()> {
     if !have.iter().any(|name| name == "vision") {
         conn.execute("ALTER TABLE mobile_ai_config ADD COLUMN vision INTEGER NOT NULL DEFAULT 0", [])?;
     }
-    verify_tables(conn, REQUIRED_TABLES)?;
+    let v9: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| *t != "mobile_messages").collect();
+    verify_tables(conn, &v9)?;
     conn.pragma_update(None, "user_version", 9)?;
+    Ok(())
+}
+
+/// 消息流(收盘摘要、盘前提醒、自选异动):App 打开时按当天行情生成,按 (kind, day) 去重;可以由行情重新生成,不进备份。
+fn migrate_9_to_10(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mobile_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            day TEXT NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            route TEXT NOT NULL DEFAULT '',
+            read INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(kind, day)
+        );",
+    )?;
+    verify_tables(conn, REQUIRED_TABLES)?;
+    conn.pragma_update(None, "user_version", 10)?;
     Ok(())
 }
 
@@ -542,7 +578,7 @@ mod tests {
 
     #[test]
     fn upgrades_every_supported_schema_to_current() {
-        for version in [1_i64, 2, 3, 4, 5, 6, 7, 8] {
+        for version in [1_i64, 2, 3, 4, 5, 6, 7, 8, 9] {
             let path = temp_db(&format!("schema-{version}"));
             let conn = Connection::open(&path).unwrap();
             create_legacy_tables(&conn);
@@ -566,6 +602,9 @@ mod tests {
             }
             if version >= 8 {
                 migrate_7_to_8(&conn).unwrap();
+            }
+            if version >= 9 {
+                migrate_8_to_9(&conn).unwrap();
             }
             conn.pragma_update(None, "user_version", version).unwrap();
             drop(conn);

@@ -33,6 +33,7 @@ mod journal_risk;
 mod journal_settings;
 mod market;
 mod market_panel;
+mod messages;
 mod monitor;
 mod portfolio;
 mod portfolio_perf;
@@ -258,6 +259,12 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "data_clear", error.to_string())),
             },
+            ("GET", "/mobile/messages") => Ok(MobileApiResponse::ok(messages::list(&self.db_path)?)),
+            ("POST", "/mobile/messages") => match messages::act(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "messages", error.to_string())),
+            },
+            ("POST", "/mobile/messages/generate") => Ok(discovery_response(messages::generate(&self.client, &self.db_path).await)),
             ("GET", "/mobile/portfolio/perf") => Ok(discovery_response(portfolio_perf::view(&self.client, &self.db_path).await)),
             ("GET", "/mobile/portfolio/replay") => Ok(discovery_response(portfolio_replay::view(&self.client, &self.db_path).await)),
             ("GET", "/mobile/portfolio/xray") => Ok(discovery_response(portfolio_xray::view(&self.client, &self.db_path).await)),

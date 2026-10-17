@@ -30,3 +30,6 @@
 .library-editor-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; padding:10px; color:var(--mobile-text); background:var(--mobile-soft); border:0; font-size:13px; }
 .library-document-body { white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; line-height:1.75; padding:12px; max-height:60vh; overflow:auto; }
 @media(min-width:700px) { .directory-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .directory-grid button { min-height:88px; } .home-emotion-grid { grid-template-columns:repeat(6,minmax(0,1fr)); } }
+
+.mobile-nav button { position: relative; }
+.nav-badge { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--mobile-up); color: #fff; font-size: 9.5px; font-style: normal; line-height: 15px; text-align: center; }

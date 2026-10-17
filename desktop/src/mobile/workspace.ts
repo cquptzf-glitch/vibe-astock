@@ -47,6 +47,7 @@ export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "candidate", title: "候选池", short: "候选", detail: "确定性规则筛选与候选观察", group: "research" },
   { page: "backtest", title: "历史回测", short: "回测", detail: "单股均线交叉、历史收益、回撤与成交明细", group: "research" },
   { page: "ai", title: "AI 助手", short: "AI", detail: "研究对话、复盘解读与模型配置", group: "research" },
+  { page: "messages", title: "消息", short: "消息", detail: "盘前提醒、收盘摘要、自选异动(打开 App 时按当天行情生成,不是推送)", group: "my", keywords: "提醒 摘要 异动 通知" },
   { page: "calendar", title: "事件日历", short: "日历", detail: "事件记录、关联股票与后续验证", group: "my" },
   { page: "reminders", title: "提醒规则", short: "提醒", detail: "复盘、价格条件与通知定位", group: "my" },
   { page: "notes", title: "研究记录", short: "记录", detail: "正文检索、分类/股票筛选与本地笔记", group: "my" },
