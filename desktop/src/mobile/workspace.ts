@@ -25,6 +25,7 @@ export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "seal", title: "盘面事实", short: "事实", detail: "昨日强势股反馈矩阵、亏钱效应、封板质量与分制度", group: "review", keywords: "封板 炸板率 亏钱效应" },
   { page: "themes", title: "行业题材", short: "题材", detail: "行业梯队、跨日延续、涨停时间分布与关键事件", group: "review", keywords: "题材 事件 账本" },
   { page: "samples", title: "涨停样本", short: "样本", detail: "前一天涨停的票次日表现:按打法、首板封板时间、入场日情绪分开看", group: "review", keywords: "打法 首板 连板接力 封板时间 历史统计 事后名单" },
+  { page: "structure", title: "结构变化", short: "结构", detail: "断点是市场变了、数据源变了还是规则变了:涨停结构比较、字段清单、人工登记的制度事件", group: "review", keywords: "字段 制度 数据源 漂移 门槛" },
   { page: "weekly", title: "近 5 天", short: "5天", detail: "热度走势、行业轮动矩阵与龙头谱系", group: "review", keywords: "轮动 龙头 最高标" },
   { page: "history", title: "情绪历史", short: "历史", detail: "六项读数的历史分位、偏热偏冷与逐日读数", group: "review", keywords: "分位 转热 转冷" },
   { page: "verify", title: "明日验证", short: "验证", detail: "晚上写下读数判断、下一场对账与累计战绩", group: "review", keywords: "条件 对账 命中率" },

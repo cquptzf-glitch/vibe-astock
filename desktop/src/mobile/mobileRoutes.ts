@@ -9,6 +9,7 @@ export const MOBILE_PATHS = {
   themes: "/mobile/review/themes",
   samples: "/mobile/review/samples",
   marketReview: "/mobile/review/market",
+  structure: "/mobile/review/structure",
   weekly: "/mobile/review/weekly",
   history: "/mobile/review/history",
   verify: "/mobile/review/verify",

@@ -340,15 +340,16 @@ pub(crate) fn review_day(
     Ok((date, prev))
 }
 
-pub(crate) async fn fetch_pool(client: &Client, kind: PoolKind, compact_date: &str) -> Result<Vec<Row>> {
+/// 东财池子的原始响应(未解析)
+pub(crate) async fn fetch_pool_root(client: &Client, kind: PoolKind, compact_date: &str) -> Result<Value> {
     let (api, sort) = kind.api();
-    let root: Value = client
+    Ok(client
         .get(format!("https://push2ex.eastmoney.com/{api}"))
         .query(&[
             ("ut", ZTB_UT),
             ("dpt", "wz.ztzt"),
-            ("Pageindex", "0"),
             ("pagesize", "10000"),
+            ("Pageindex", "0"),
             ("sort", sort),
             ("date", compact_date),
         ])
@@ -358,8 +359,29 @@ pub(crate) async fn fetch_pool(client: &Client, kind: PoolKind, compact_date: &s
         .await?
         .error_for_status()?
         .json()
-        .await?;
+        .await?)
+}
+
+pub(crate) async fn fetch_pool(client: &Client, kind: PoolKind, compact_date: &str) -> Result<Vec<Row>> {
+    let root = fetch_pool_root(client, kind, compact_date).await?;
     parse_pool(&root, kind, compact_date)
+}
+
+/// 池子原始行里出现过的全部键(含 zttj 的子键,写成 `zttj.days`),排序去重;池子为空 = None(看不出字段,不当成字段变了)
+pub(crate) fn raw_fields(root: &Value) -> Option<Vec<String>> {
+    let pool = root.get("data")?.get("pool")?.as_array()?;
+    let mut keys: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for item in pool.iter().filter_map(Value::as_object) {
+        for (k, v) in item {
+            match v.as_object() {
+                Some(sub) => keys.extend(sub.keys().map(|s| format!("{k}.{s}"))),
+                None => {
+                    keys.insert(k.clone());
+                }
+            }
+        }
+    }
+    (!keys.is_empty()).then(|| keys.into_iter().collect())
 }
 
 pub(crate) fn error_message(label: &str, error: &anyhow::Error) -> String {

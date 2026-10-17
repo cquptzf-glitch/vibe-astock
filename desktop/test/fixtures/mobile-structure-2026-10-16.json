@@ -1,0 +1,131 @@
+{
+  "available": true,
+  "date": "2026-10-16",
+  "field_changed": [],
+  "field_drift": [
+    {
+      "added": null,
+      "changed": false,
+      "days": 14,
+      "detectable": true,
+      "label": "涨停池",
+      "note": "字段清单稳定(14 天);只覆盖 2026-09-21 至 2026-10-16,不能证明之外的日子字段没变",
+      "pool": "zt",
+      "removed": null,
+      "versions": [
+        {
+          "count": 17,
+          "fields": "amount,c,fbt,fund,hs,hybk,lbc,lbt,ltsz,m,n,p,tshare,zbc,zdp,zttj.ct,zttj.days",
+          "since": "2026-09-21",
+          "until": "2026-10-16"
+        }
+      ]
+    },
+    {
+      "added": null,
+      "changed": false,
+      "days": 14,
+      "detectable": true,
+      "label": "炸板池",
+      "note": "字段清单稳定(14 天);只覆盖 2026-09-21 至 2026-10-16,不能证明之外的日子字段没变",
+      "pool": "zb",
+      "removed": null,
+      "versions": [
+        {
+          "count": 17,
+          "fields": "amount,c,fbt,hs,hybk,ltsz,m,n,p,tshare,zbc,zdp,zf,zs,ztp,zttj.ct,zttj.days",
+          "since": "2026-09-21",
+          "until": "2026-10-16"
+        }
+      ]
+    },
+    {
+      "added": null,
+      "changed": false,
+      "days": 14,
+      "detectable": true,
+      "label": "跌停池",
+      "note": "字段清单稳定(14 天);只覆盖 2026-09-21 至 2026-10-16,不能证明之外的日子字段没变",
+      "pool": "dt",
+      "removed": null,
+      "versions": [
+        {
+          "count": 16,
+          "fields": "amount,c,days,fba,fund,hs,hybk,lbt,ltsz,m,n,oc,p,pe,tshare,zdp",
+          "since": "2026-09-21",
+          "until": "2026-10-16"
+        }
+      ]
+    },
+    {
+      "added": null,
+      "changed": false,
+      "days": 13,
+      "detectable": true,
+      "label": "昨日涨停池",
+      "note": "字段清单稳定(13 天);只覆盖 2026-09-21 至 2026-10-16,不能证明之外的日子字段没变",
+      "pool": "yzt",
+      "removed": null,
+      "versions": [
+        {
+          "count": 17,
+          "fields": "amount,c,hs,hybk,ltsz,m,n,p,tshare,yfbt,ylbc,zdp,zf,zs,ztp,zttj.ct,zttj.days",
+          "since": "2026-09-21",
+          "until": "2026-10-16"
+        }
+      ]
+    }
+  ],
+  "gaps": [
+    "16 个交易日的涨停结构没取到(东财只留最近一个月左右,更早又没缓存过的日子取不到),已剔除"
+  ],
+  "generated_at": "2026-10-17T06:08:00.674431700+00:00",
+  "missing_days": [
+    "2026-08-28",
+    "2026-08-31",
+    "2026-09-01",
+    "2026-09-02",
+    "2026-09-03",
+    "2026-09-04",
+    "2026-09-07",
+    "2026-09-08",
+    "2026-09-09",
+    "2026-09-10",
+    "2026-09-11",
+    "2026-09-14",
+    "2026-09-15",
+    "2026-09-16",
+    "2026-09-17",
+    "2026-09-18"
+  ],
+  "note": "结构移位不等于制度变化 —— 也可能是数据源改了字段(看字段清单),或就是市场真的变了。三类分开看,别把前两类读成第三类。",
+  "prior_window": {
+    "days": 20,
+    "from": "2026-09-21",
+    "to": "2026-09-24",
+    "used": 4
+  },
+  "recent_window": {
+    "days": 10,
+    "from": "2026-09-28",
+    "to": "2026-10-16",
+    "used": 10
+  },
+  "regime_events": [],
+  "regime_note": "制度变化只收人工登记的条目,系统不从数据反推「这天大概改了规则」—— 猜错会把市场波动当成制度事件,宁可留空。",
+  "source": "东财涨停 / 炸板 / 跌停 / 昨日涨停池(每天一次,已收盘的日子存本机)+ 人工登记的制度事件",
+  "structure": {
+    "available": false,
+    "metrics": [],
+    "reason": "最近 10 个交易日取到 10 天、之前 20 个交易日取到 4 天,每个窗口至少要 5 天",
+    "shifted": [],
+    "skipped": []
+  },
+  "summary": "结构比较暂不可用(最近 10 个交易日取到 10 天、之前 20 个交易日取到 4 天,每个窗口至少要 5 天);还没登记制度事件(要人工登记,系统不自动推断)。",
+  "thresholds": {
+    "count_rel": 0.35,
+    "min_days": 5,
+    "share_abs": 0.1
+  },
+  "unsettled_days": []
+}

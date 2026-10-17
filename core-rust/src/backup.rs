@@ -49,6 +49,8 @@ struct BackupData {
     /// 交易日志模式卡(v7 起;旧备份没有,恢复后为空)
     #[serde(default)]
     journal_modes: Vec<crate::journal_modes::Card>,
+    #[serde(default)]
+    regime_events: Vec<crate::structure::Event>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -190,6 +192,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             verifications: read_verifications(&conn)?,
             journal_settings: crate::journal_settings::read_row(&conn)?,
             journal_modes: crate::journal_modes::read_cards(&conn)?,
+            regime_events: crate::structure::read_events(&conn)?,
         },
     };
     validate_envelope(&backup)?;
@@ -228,11 +231,12 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM mobile_verifications", [])?;
     tx.execute("DELETE FROM mobile_journal_settings", [])?;
     tx.execute("DELETE FROM mobile_journal_modes", [])?;
+    tx.execute("DELETE FROM mobile_regime_events", [])?;
     tx.execute(
         "DELETE FROM sqlite_sequence WHERE name IN (
             'journal_entries', 'journal_fills', 'mobile_ai_messages',
             'mobile_documents', 'mobile_calendar_events', 'mobile_reminders',
-            'mobile_verifications', 'mobile_journal_modes'
+            'mobile_verifications', 'mobile_journal_modes', 'mobile_regime_events'
         )",
         [],
     )?;
@@ -403,6 +407,9 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
         crate::journal_settings::write_row(&tx, row)?;
     }
 
+    for event in &backup.data.regime_events {
+        crate::structure::write_event(&tx, event)?;
+    }
     for card in &backup.data.journal_modes {
         crate::journal_modes::write_card(&tx, card)?;
     }
@@ -462,6 +469,7 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         || backup.data.reminders.len() > 10_000
         || backup.data.verifications.len() > 100_000
         || backup.data.journal_modes.len() > crate::journal_modes::CARDS_MAX
+        || backup.data.regime_events.len() > crate::structure::EVENTS_MAX
     {
         return Err(anyhow!("备份记录数量超过安全上限"));
     }
@@ -631,6 +639,15 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
     }
 
     let mut mode_ids = HashSet::new();
+    let mut event_ids = HashSet::new();
+    for event in &backup.data.regime_events {
+        if event.id <= 0 || !event_ids.insert(event.id) {
+            return Err(anyhow!("制度事件包含无效或重复 ID: {}", event.id));
+        }
+        if let Some(problem) = crate::structure::event_problem(event) {
+            return Err(anyhow!("{problem}"));
+        }
+    }
     for card in &backup.data.journal_modes {
         if let Some(problem) = crate::journal_modes::card_problem(card) {
             return Err(anyhow!("交易日志模式卡无效: {problem}"));
@@ -707,7 +724,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "reminders": backup.data.reminders.len(),
             "verifications": backup.data.verifications.len(),
             "journal_settings": backup.data.journal_settings.is_some() as usize,
-            "journal_modes": backup.data.journal_modes.len()
+            "journal_modes": backup.data.journal_modes.len(),
+            "regime_events": backup.data.regime_events.len()
         },
         "compatibility": {
             "current_schema_version": SCHEMA_VERSION,
@@ -717,7 +735,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "legacy_missing_reminders_are_empty": backup.schema_version <= 3,
             "legacy_missing_verifications_are_empty": backup.schema_version <= 4,
             "legacy_missing_journal_settings_are_default": backup.schema_version <= 5,
-            "legacy_missing_journal_modes_are_empty": backup.schema_version <= 6
+            "legacy_missing_journal_modes_are_empty": backup.schema_version <= 6,
+            "legacy_missing_regime_events_are_empty": backup.schema_version <= 6
         },
         "security": {
             "credentials_included": false,
@@ -1245,6 +1264,49 @@ mod tests {
         let mut empty_versions = backup;
         empty_versions["data"]["journal_modes"][0]["versions"] = json!([]);
         assert!(validate(&empty_versions).is_err());
+        let _ = std::fs::remove_file(source);
+        let _ = std::fs::remove_file(target);
+    }
+
+    #[test]
+    fn regime_events_round_trip_and_older_backups_restore_with_none() {
+        let source = temp_db("regime-source");
+        init_all(&source);
+        crate::structure::act(&source, &json!({"action": "save", "date": "2026-07-06", "title": "主板 ST 放宽到 10%", "note": "公告"})).unwrap();
+        crate::structure::act(&source, &json!({"action": "save", "date": "2999-01-01", "title": "未来规则"})).unwrap();
+        let backup = export(&source).unwrap();
+        assert_eq!(backup["data"]["regime_events"].as_array().unwrap().len(), 2);
+        let preview = validate(&backup).unwrap();
+        assert_eq!((preview["counts"]["regime_events"].clone(), preview["compatibility"]["legacy_missing_regime_events_are_empty"].clone()), (json!(2), json!(false)));
+
+        let target = temp_db("regime-target");
+        init_all(&target);
+        crate::structure::act(&target, &json!({"action": "save", "date": "2026-01-01", "title": "设备上原有的"})).unwrap();
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": backup.clone()})).unwrap();
+        let restored = crate::structure::read_events(&Connection::open(&target).unwrap()).unwrap();
+        assert_eq!(restored.iter().map(|e| e.title.as_str()).collect::<Vec<_>>(), vec!["主板 ST 放宽到 10%", "未来规则"], "恢复后是备份里的两条,设备上原有的被替换");
+        // 恢复后新建的编号接在后面,不撞
+        crate::structure::act(&target, &json!({"action": "save", "date": "2026-10-01", "title": "新登记"})).unwrap();
+        assert_eq!(crate::structure::read_events(&Connection::open(&target).unwrap()).unwrap().len(), 3);
+
+        // v1–v6 备份没有这一项:恢复后清空
+        let mut legacy = backup.clone();
+        legacy["schema_version"] = json!(6);
+        legacy["data"].as_object_mut().unwrap().remove("regime_events");
+        assert_eq!(validate(&legacy).unwrap()["compatibility"]["legacy_missing_regime_events_are_empty"], true);
+        restore(&target, &json!({"mode": "replace", "confirm": true, "backup": legacy})).unwrap();
+        assert!(crate::structure::read_events(&Connection::open(&target).unwrap()).unwrap().is_empty());
+
+        // 日期无效 / 标题超长 / 重复 id:整份拒收
+        let mut bad = backup.clone();
+        bad["data"]["regime_events"][0]["date"] = json!("2026-13-40");
+        assert!(validate(&bad).unwrap_err().to_string().contains("日期无效"));
+        let mut long = backup.clone();
+        long["data"]["regime_events"][0]["title"] = json!("字".repeat(61));
+        assert!(validate(&long).unwrap_err().to_string().contains("最多 60 字"));
+        let mut dup = backup;
+        dup["data"]["regime_events"][1]["id"] = dup["data"]["regime_events"][0]["id"].clone();
+        assert!(validate(&dup).unwrap_err().to_string().contains("重复 ID"));
         let _ = std::fs::remove_file(source);
         let _ = std::fs::remove_file(target);
     }

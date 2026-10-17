@@ -42,6 +42,7 @@ mod schema;
 mod search;
 mod shortline;
 mod storage;
+mod structure;
 mod symbol;
 mod theme_tree;
 mod watch;
@@ -394,6 +395,8 @@ impl AppCore {
             ("GET", "/mobile/shortline/cycle") => Ok(discovery_response(emotion::cycle(&self.client, &request.path).await)),
             ("GET", "/mobile/shortline/history") => Ok(discovery_response(emotion_history::history(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/shortline/weekly") => Ok(discovery_response(emotion_history::weekly(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/review/structure") => Ok(discovery_response(structure::fetch(&self.client, &self.db_path, &request.path).await)),
+            ("POST", "/mobile/review/structure") => Ok(discovery_response(structure::act(&self.db_path, &request.body))),
             ("GET", "/mobile/review/tiers") => Ok(discovery_response(review_tiers::fetch(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/review/market") => Ok(discovery_response(market_panel::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/shortline/theme-tree") => Ok(discovery_response(theme_tree::fetch(&self.client, &self.db_path, &request.path).await)),
@@ -510,6 +513,8 @@ mod discovery_contract_tests {
             "/mobile/shortline/theme-tree?date=2026-02-30",
             "/mobile/review/market?date=2026-02-30",
             "/mobile/review/tiers?date=2026-02-30",
+            "/mobile/review/structure?date=2026-02-30",
+            "/mobile/review/structure?refresh=2",
             "/mobile/review/tiers?date=2999-01-01",
             "/mobile/review/market?date=2999-01-01",
             "/mobile/journal/excursion?mode=live",

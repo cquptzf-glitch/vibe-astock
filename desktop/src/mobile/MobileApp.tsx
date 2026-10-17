@@ -17,6 +17,7 @@ import { MarketOverview } from "./MarketOverview";
 import { MobileHeader, HomeShortcuts } from "./MobileHeader";
 import { IntradayPanel } from "./IntradayPanel";
 import { MarketPanel } from "./MarketPanel";
+import { StructurePanel } from "./StructurePanel";
 import { JournalAttributionPanel } from "./JournalAttributionPanel";
 import { JournalEnvPanel } from "./JournalEnvPanel";
 import { JournalExcursionPanel } from "./JournalExcursionPanel";
@@ -426,6 +427,7 @@ export function MobileApp() {
       case "seal": return <MarketFactsPanel onOpenSymbol={openFromList} />;
       case "themes": return <ThemesPanel onOpenSymbol={openFromList} />;
       case "marketReview": return <MarketPanel onOpenSymbol={openFromList} />;
+      case "structure": return <StructurePanel />;
       case "samples": return <SamplesPanel />;
       case "weekly": return <WeeklyPanel onOpenSymbol={openFromList} />;
       case "history": return <HistoryPanel />;

@@ -104,6 +104,8 @@ const REQUIRED_TABLES: &[&str] = &[
     "mobile_journal_bars",
     "mobile_journal_env_days",
     "mobile_ths_reasons",
+    "mobile_structure_days",
+    "mobile_regime_events",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -371,6 +373,19 @@ fn migrate_6_to_7(conn: &Connection) -> Result<()> {
             payload TEXT NOT NULL,
             note TEXT NOT NULL,
             fetched_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS mobile_structure_days (
+            date TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            fetched_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS mobile_regime_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            title TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );",
     )?;
     verify_tables(conn, REQUIRED_TABLES)?;
