@@ -62,7 +62,16 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{fs, path::PathBuf, time::Duration};
+use futures_util::future::{AbortHandle, Abortable};
+use std::{collections::HashMap, fs, path::PathBuf, sync::{Arc, Mutex}, time::Duration};
+
+/// `?thread=编号`:没给 = None;不是正整数直接拒绝
+fn thread_param(path: &str) -> std::result::Result<Option<i64>, String> {
+    match discovery::parameter(path, "thread") {
+        None => Ok(None),
+        Some(raw) => raw.trim().parse::<i64>().ok().filter(|v| *v > 0).map(Some).ok_or_else(|| "thread 必须是正整数".to_string()),
+    }
+}
 
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 
@@ -98,6 +107,8 @@ pub struct AppCore {
     db_path: PathBuf,
     watch: watch::SharedWatch,
     intraday: intraday::SharedIntraday,
+    /// 正在流式回复的请求:请求号 → 中止句柄,「停止」按钮靠它取消
+    ai_cancel: Arc<Mutex<HashMap<String, AbortHandle>>>,
 }
 
 impl AppCore {
@@ -118,7 +129,35 @@ impl AppCore {
             .user_agent(format!("Mozilla/5.0 VibeAStock-Mobile/{APP_VERSION}"))
             .build()?;
 
-        Ok(Self { client, db_path, watch: watch::SharedWatch::default(), intraday: intraday::SharedIntraday::default() })
+        Ok(Self { client, db_path, watch: watch::SharedWatch::default(), intraday: intraday::SharedIntraday::default(), ai_cancel: Arc::default() })
+    }
+
+    /// 流式 AI 回复(命令层用):每来一段增量调 on_delta;请求号登记后可以被 `ai_chat_cancel` 取消,取消时什么都不存
+    pub async fn ai_chat_stream(&self, body: Value, on_delta: &mut (dyn FnMut(&str) + Send)) -> MobileApiResponse {
+        let id = body.get("request_id").and_then(Value::as_str).unwrap_or("").to_string();
+        if id.is_empty() || id.len() > 64 {
+            return MobileApiResponse::error(400, "ai_chat", "request_id 必须是 1–64 个字符");
+        }
+        let (handle, registration) = AbortHandle::new_pair();
+        if let Ok(mut map) = self.ai_cancel.lock() {
+            map.insert(id.clone(), handle);
+        }
+        let outcome = Abortable::new(ai_chat::send_stream(&self.client, &self.db_path, &body, on_delta), registration).await;
+        if let Ok(mut map) = self.ai_cancel.lock() {
+            map.remove(&id);
+        }
+        match outcome {
+            Err(_) => MobileApiResponse::error(499, "ai_chat_cancelled", "已取消,这一轮没有保存"),
+            Ok(Ok(value)) => MobileApiResponse::ok(value),
+            Ok(Err(ai_chat::ChatError::BadRequest(message))) => MobileApiResponse::error(400, "ai_chat", message),
+            Ok(Err(ai_chat::ChatError::Upstream(message))) => MobileApiResponse::error(502, "ai_chat_upstream", message),
+            Ok(Err(ai_chat::ChatError::Internal(error))) => MobileApiResponse::error(500, "ai_chat_internal", error.to_string()),
+        }
+    }
+
+    /// 取消一个正在流式回复的请求;返回是否真的有这个请求在跑
+    pub fn ai_chat_cancel(&self, request_id: &str) -> bool {
+        self.ai_cancel.lock().ok().and_then(|mut map| map.remove(request_id)).map(|handle| handle.abort()).is_some()
     }
 
     #[cfg(test)]
@@ -359,13 +398,27 @@ impl AppCore {
             ("DELETE", "/mobile/ai/config") => {
                 Ok(MobileApiResponse::ok(ai_review::clear_config(&self.db_path)?))
             }
-            ("GET", "/mobile/ai/chat") => {
-                Ok(MobileApiResponse::ok(ai_chat::history(&self.db_path)?))
+            ("GET", "/mobile/ai/chat") => match thread_param(&request.path) {
+                Ok(thread) => match ai_chat::history(&self.db_path, thread.unwrap_or(ai_chat::DEFAULT_THREAD)) {
+                    Ok(value) => Ok(MobileApiResponse::ok(value)),
+                    Err(error) => Ok(MobileApiResponse::error(400, "ai_chat", error.to_string())),
+                },
+                Err(message) => Ok(MobileApiResponse::error(400, "ai_chat", message)),
+            },
+            ("DELETE", "/mobile/ai/chat") => match thread_param(&request.path) {
+                Ok(thread) => Ok(MobileApiResponse::ok(ai_chat::clear(&self.db_path, thread)?)),
+                Err(message) => Ok(MobileApiResponse::error(400, "ai_chat", message)),
+            },
+            ("GET", "/mobile/ai/threads") => Ok(MobileApiResponse::ok(ai_chat::threads(&self.db_path)?)),
+            ("POST", "/mobile/ai/threads") => match ai_chat::thread_act(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "ai_threads", error.to_string())),
+            },
+            ("POST", "/mobile/ai/chat/cancel") => {
+                let id = request.body.get("request_id").and_then(Value::as_str).unwrap_or("");
+                Ok(MobileApiResponse::ok(json!({"cancelled": self.ai_chat_cancel(id)})))
             }
-            ("DELETE", "/mobile/ai/chat") => {
-                Ok(MobileApiResponse::ok(ai_chat::clear(&self.db_path)?))
-            }
-            ("POST", "/mobile/ai/chat") => match ai_chat::send(&self.client, &self.db_path, &request.body).await {
+            ("POST", "/mobile/ai/chat") | ("POST", "/mobile/ai/chat/stream") => match ai_chat::send(&self.client, &self.db_path, &request.body).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(ai_chat::ChatError::BadRequest(message)) => {
                     Ok(MobileApiResponse::error(400, "ai_chat", message))

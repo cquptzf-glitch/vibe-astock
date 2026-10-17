@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path};
 
 const BACKUP_FORMAT: &str = "vibe_astock_mobile_backup";
-const SCHEMA_VERSION: u32 = 8;
+const SCHEMA_VERSION: u32 = 9;
 const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const APP_VERSION: &str = env!("VIBE_APP_VERSION");
 const MAX_BACKUP_BYTES: usize = 32 * 1024 * 1024;
@@ -36,6 +36,8 @@ struct BackupData {
     journal_fills: Vec<JournalFillRow>,
     daily_reviews: Vec<DailyReviewRow>,
     ai_messages: Vec<AiMessageRow>,
+    #[serde(default)]
+    ai_threads: Vec<AiThreadRow>,
     #[serde(default)]
     documents: Vec<DocumentRow>,
     #[serde(default)]
@@ -126,6 +128,21 @@ struct AiMessageRow {
     role: String,
     content: String,
     created_at: String,
+    /// v9 起:消息属于哪个对话;旧备份没有,恢复后都归「默认对话」(编号 1)
+    #[serde(default = "default_thread")]
+    thread_id: i64,
+}
+
+fn default_thread() -> i64 {
+    crate::ai_chat::DEFAULT_THREAD
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AiThreadRow {
+    id: i64,
+    title: String,
+    created_at: String,
+    updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,6 +213,7 @@ pub fn export(db_path: &Path) -> Result<Value> {
             journal_fills: read_journal_fills(&conn)?,
             daily_reviews: read_daily_reviews(&conn)?,
             ai_messages: read_ai_messages(&conn)?,
+            ai_threads: read_ai_threads(&conn)?,
             documents: read_documents(&conn)?,
             calendar_events: read_calendar_events(&conn)?,
             reminders: read_reminders(&conn)?,
@@ -236,6 +254,7 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM watchlist", [])?;
     tx.execute("DELETE FROM mobile_daily_reviews", [])?;
     tx.execute("DELETE FROM mobile_ai_messages", [])?;
+    tx.execute("DELETE FROM mobile_ai_threads", [])?;
     tx.execute("DELETE FROM mobile_documents", [])?;
     tx.execute("DELETE FROM mobile_calendar_events", [])?;
     tx.execute("DELETE FROM mobile_reminders", [])?;
@@ -246,7 +265,7 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
     tx.execute("DELETE FROM mobile_dividends", [])?;
     tx.execute(
         "DELETE FROM sqlite_sequence WHERE name IN (
-            'journal_entries', 'journal_fills', 'mobile_ai_messages',
+            'journal_entries', 'journal_fills', 'mobile_ai_messages', 'mobile_ai_threads',
             'mobile_documents', 'mobile_calendar_events', 'mobile_reminders',
             'mobile_verifications', 'mobile_journal_modes', 'mobile_regime_events', 'mobile_dividends'
         )",
@@ -322,10 +341,17 @@ pub fn restore(db_path: &Path, body: &Value) -> Result<Value> {
         )?;
     }
 
+    for row in &backup.data.ai_threads {
+        tx.execute(
+            "INSERT INTO mobile_ai_threads(id, title, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+            params![row.id, &row.title, &row.created_at, &row.updated_at],
+        )?;
+    }
+    crate::ai_chat::ensure_default_thread(&tx)?;
     for row in &backup.data.ai_messages {
         tx.execute(
-            "INSERT INTO mobile_ai_messages(id, role, content, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params![row.id, &row.role, &row.content, &row.created_at],
+            "INSERT INTO mobile_ai_messages(id, role, content, created_at, thread_id) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![row.id, &row.role, &row.content, &row.created_at, row.thread_id],
         )?;
     }
 
@@ -559,8 +585,26 @@ fn validate_envelope(backup: &BackupEnvelope) -> Result<()> {
         ensure_text(&row.tomorrow_check, 6000, "明日验证")?;
     }
 
+    let mut thread_ids = HashSet::new();
+    thread_ids.insert(crate::ai_chat::DEFAULT_THREAD);
+    if backup.data.ai_threads.len() as i64 > crate::ai_chat::THREADS_MAX {
+        return Err(anyhow!("AI 对话数量超过上限 {}", crate::ai_chat::THREADS_MAX));
+    }
+    let mut seen_threads = HashSet::new();
+    for row in &backup.data.ai_threads {
+        if row.id <= 0 || !seen_threads.insert(row.id) {
+            return Err(anyhow!("AI 对话包含无效或重复 ID: {}", row.id));
+        }
+        if row.title.trim().is_empty() || row.title.chars().count() > 30 {
+            return Err(anyhow!("AI 对话标题无效(要 1–30 个字): {}", row.id));
+        }
+        thread_ids.insert(row.id);
+    }
     let mut message_ids = HashSet::new();
     for row in &backup.data.ai_messages {
+        if !thread_ids.contains(&row.thread_id) {
+            return Err(anyhow!("AI 聊天消息 {} 属于不存在的对话 {}", row.id, row.thread_id));
+        }
         if row.id <= 0 || !message_ids.insert(row.id) {
             return Err(anyhow!("AI 聊天包含无效或重复 ID: {}", row.id));
         }
@@ -746,6 +790,7 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "journal_fills": backup.data.journal_fills.len(),
             "daily_reviews": backup.data.daily_reviews.len(),
             "ai_messages": backup.data.ai_messages.len(),
+            "ai_threads": backup.data.ai_threads.len(),
             "documents": backup.data.documents.len(),
             "calendar_events": backup.data.calendar_events.len(),
             "reminders": backup.data.reminders.len(),
@@ -766,7 +811,8 @@ fn preview(backup: &BackupEnvelope) -> Value {
             "legacy_missing_journal_modes_are_empty": backup.schema_version <= 6,
             "legacy_missing_regime_events_are_empty": backup.schema_version <= 6,
             "legacy_missing_watchlist_groups_are_empty": backup.schema_version <= 7,
-            "legacy_missing_dividends_are_empty": backup.schema_version <= 7
+            "legacy_missing_dividends_are_empty": backup.schema_version <= 7,
+            "legacy_missing_ai_threads_are_default": backup.schema_version <= 8
         },
         "security": {
             "credentials_included": false,
@@ -863,9 +909,17 @@ fn read_daily_reviews(conn: &Connection) -> Result<Vec<DailyReviewRow>> {
     Ok(rows)
 }
 
+fn read_ai_threads(conn: &Connection) -> Result<Vec<AiThreadRow>> {
+    let mut stmt = conn.prepare("SELECT id, title, created_at, updated_at FROM mobile_ai_threads ORDER BY id")?;
+    let rows = stmt
+        .query_map([], |row| Ok(AiThreadRow { id: row.get(0)?, title: row.get(1)?, created_at: row.get(2)?, updated_at: row.get(3)? }))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 fn read_ai_messages(conn: &Connection) -> Result<Vec<AiMessageRow>> {
     let mut stmt = conn.prepare(
-        "SELECT id, role, content, created_at FROM mobile_ai_messages ORDER BY id",
+        "SELECT id, role, content, created_at, thread_id FROM mobile_ai_messages ORDER BY id",
     )?;
     let rows = stmt
         .query_map([], |row| {
@@ -874,6 +928,7 @@ fn read_ai_messages(conn: &Connection) -> Result<Vec<AiMessageRow>> {
                 role: row.get(1)?,
                 content: row.get(2)?,
                 created_at: row.get(3)?,
+                thread_id: row.get(4)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -1041,7 +1096,7 @@ mod tests {
         assert!(!text.contains("super-secret-key"));
         assert!(!text.contains("demo-model"));
         assert_eq!(backup["security"]["credentials_included"], false);
-        assert_eq!(backup["schema_version"], 8);
+        assert_eq!(backup["schema_version"], 9);
         assert_eq!(backup["data"]["journal_settings"], Value::Null);
         assert_eq!(backup["data"]["verifications"], json!([]));
         assert_eq!(backup["data"]["journal_modes"], json!([]));
@@ -1132,7 +1187,7 @@ mod tests {
         let config = crate::ai_config::load(&target).unwrap().unwrap();
         assert_eq!(config.base_url, "https://device.example/v1");
         assert_eq!(config.model, "device-model");
-        let history = crate::ai_chat::history(&target).unwrap();
+        let history = crate::ai_chat::history(&target, 1).unwrap();
         assert_eq!(history["count"], 1);
         let documents = crate::documents::list(&target, "/mobile/documents?kind=report").unwrap();
         assert_eq!(documents["count"], 1);
@@ -1219,7 +1274,7 @@ mod tests {
         )
         .unwrap();
         let backup = export(&source).unwrap();
-        assert_eq!(backup["schema_version"], 8);
+        assert_eq!(backup["schema_version"], 9);
         assert_eq!(backup["data"]["journal_settings"]["equity_base"], 150000.0);
         assert_eq!(validate(&backup).unwrap()["counts"]["journal_settings"], 1);
 
@@ -1258,7 +1313,7 @@ mod tests {
         crate::journal_modes::act(&source, &json!({"action": "save", "card_id": card_id, "name": "首板早封", "playbook": "打板", "setup": "9:45 前封", "entry": "排板", "changes": "收紧"})).unwrap();
         crate::journal_modes::act(&source, &made("另一张", "x")).unwrap();
         let backup = export(&source).unwrap();
-        assert_eq!(backup["schema_version"], 8);
+        assert_eq!(backup["schema_version"], 9);
         assert_eq!(backup["data"]["journal_modes"].as_array().unwrap().len(), 2);
         assert_eq!(backup["data"]["journal_modes"][0]["versions"].as_array().unwrap().len(), 2);
         let preview = validate(&backup).unwrap();

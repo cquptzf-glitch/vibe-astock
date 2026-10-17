@@ -1497,3 +1497,11 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - `privacy.ts`:模块级状态 + localStorage `vibe.privacy`;`priv(text)` 开着返回 ••••;`usePrivacyMode()`(useSyncExternalStore)给需要重绘的组件(持仓页、交易日志页标题栏的眼睛按钮、设置页开关、密码样式输入框);其余页面是「进页面时读一次」(开关在设置页或页内按钮,切换时这些页面不在屏幕上或本身订阅了)。**新增显示个人金额 / 股数 / 价位的地方都要过 `priv()`,输入框用 `type={on ? "password" : "text"}`,画权益曲线这类能反推盈亏大小的图要判断 `isPrivate()`**。市场行情(最新价)、涨跌幅与收益率百分比、权重百分比不遮。
 - 已覆盖:PortfolioPanel / PortfolioIncome / PortfolioAnalysis / JournalPanelV2 / JournalRiskPanel(含权益曲线)/ JournalReviewPanel / JournalEnvPanel / JournalAttributionPanel / JournalProblemsPanel。测试 `mobile_privacy.test.ts` 用 `setPrivate(true)` + 渲染各视图验证遮罩,冒烟里在持仓页点眼睛开关再关。
 - 0.1.27 已发布(9a45a75,APK 25,669,211 字节)。
+
+### AI 对话:流式、停止、多会话(0.1.29)
+
+- **多会话**(`ai_chat.rs`):`mobile_ai_threads(id, title, created_at, updated_at)` + `mobile_ai_messages.thread_id`(默认 1,编号 1 的「默认对话」始终存在,`ensure_default_thread`);路由 `GET /mobile/ai/chat?thread=`、`DELETE /mobile/ai/chat?thread=`(不带 thread = 清全部消息,保留旧语义)、`GET /mobile/ai/threads`、`POST /mobile/ai/threads {action: create|rename|delete}`;标题 ≤ 30 字,最多 50 个,新对话用第一个问题当标题(只改还叫「新对话」的)。`migrate_10_to_11` 幂等(先查列,`ai_chat::init` 的建表也带新列);旧的迁移里 `verify_tables` 要排除后来才有的表。备份 v9:`ai_threads` + 每条消息的 `thread_id`(`#[serde(default)]`),校验线程 id 唯一、标题 1–30 字、消息引用的对话存在。
+- **流式**:`send_stream` 用 `Response::chunk()`(reqwest 没开 stream 特性)攒字节、按合法 UTF-8 前缀取文字,`sse_feed` 按行解析 `data:`,只取 `choices[0].delta.content`,`[DONE]` 结束;服务端不是 `text/event-stream` 时当普通回复一次性读。命令层 `/mobile/ai/chat/stream`:注入 API Key 后调 `AppCore::ai_chat_stream`,闭包里 `app.emit("ai-chat-delta", {request_id, delta})`;前端 `AiChatPanel` 用 `__TAURI__.event.listen` 按请求号过滤、累加显示,没有事件通道(浏览器预览)就走原来的一次性 `POST /mobile/ai/chat`。
+- **停止**:`AppCore.ai_cancel`(请求号 → `AbortHandle`),`Abortable` 包住整个流式 future,`POST /mobile/ai/chat/cancel {request_id}` 中止;被中止的 future 不会走到 `save`,所以这一轮(含用户那句)不入库;前端识别「已取消」把问题留在输入框。
+- 测试里的本地 SSE 模拟服务:注意响应头用 `\r\n`、读请求头用 `b"\r\n\r\n"`——用 Python 脚本往 Rust 文件里写这些转义很容易被吃掉(写成真换行),这次就是因此卡住了测试,直接用 Edit 工具写。
+- 0.1.28 已发布(45418ee,APK 25,665,915 字节);同一提交的跨平台验证里 ubuntu / Node 22 一组「Orchestrator full suite and typecheck」失败,与本次改动无关,疑似偶发。

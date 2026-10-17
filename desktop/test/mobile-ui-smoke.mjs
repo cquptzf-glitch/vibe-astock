@@ -66,7 +66,8 @@ const responses = {
   "/mobile/ai/recognize": { status: "ok", target: "watch", model: "vision-sample", images: ["shot.png"], probe: false, warnings: [], note: "这是模型读图的结果,可能读错数字或名称。", drafts: [
     { code: "300750", name: "样本电池", shares: 100, cost: 250, uncertain: [], candidates: [], official_name: "样本电池" },
     { code: null, name: "样本银行", shares: null, cost: null, uncertain: ["没有读到代码,只有名称"], candidates: [{ symbol: "000001", name: "样本银行" }], official_name: null }] },
-  "/mobile/ai/chat": { messages: [], count: 0 },
+  "/mobile/ai/chat": { thread: 1, messages: [], count: 0 },
+  "/mobile/ai/threads": { threads: [{ id: 1, title: "默认对话", updated_at: "a", count: 0 }, { id: 2, title: "估值讨论", updated_at: "b", count: 4 }], default_thread: 1 },
   "/mobile/shortline/emotion": emotionFixture.emotion,
   "/mobile/shortline/cycle": emotionFixture.cycle,
   "/mobile/shortline/history": historyFixture.history,
@@ -158,6 +159,12 @@ try {
       await page.getByText("收盘摘要", { exact: true }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-messages.png"), fullPage: true });
+      // AI 对话:对话栏(多会话)与停止按钮所在的发送区
+      await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^研究/ }).click();
+      await page.locator(".group-tabs").getByRole("tab", { name: "AI 助手", exact: true }).click();
+      await page.getByLabel("对话列表").waitFor();
+      await page.getByRole("button", { name: "新对话", exact: true }).waitFor();
+      await assertWidth();
       // 研报文件导入:选文本文件 → 预览 → 取消
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
       await page.locator(".directory-grid button", { hasText: "保存、查阅与检索报告正文" }).click();

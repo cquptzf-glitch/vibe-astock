@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_vibe_reminders::VibeRemindersExt;
 use tauri_plugin_vibe_share::VibeShareExt;
 use vibe_astock_core::{AppCore, MobileApiRequest, MobileApiResponse};
@@ -262,7 +262,7 @@ pub async fn mobile_api(
         return Ok(state.handle(request).await);
     }
 
-    if method == "POST" && (route == "/mobile/ai/review" || route == "/mobile/ai/chat" || route == "/mobile/ai/recognize") {
+    if method == "POST" && (route == "/mobile/ai/review" || route == "/mobile/ai/chat" || route == "/mobile/ai/chat/stream" || route == "/mobile/ai/recognize") {
         let key = match secure_ai::key_for_current_provider(&app, &state) {
             Ok(value) => value,
             Err(error) => return Ok(response_error(500, "secure_storage", error)),
@@ -273,6 +273,15 @@ pub async fn mobile_api(
                 "__secure_api_key",
                 Value::String(key),
             );
+        }
+        if route == "/mobile/ai/chat/stream" {
+            // 流式回复:每来一段增量就给前端发一个事件(带请求号),「停止」走 /mobile/ai/chat/cancel
+            let request_id = request.body.get("request_id").and_then(Value::as_str).unwrap_or("").to_string();
+            let handle = app.clone();
+            let mut emit = move |delta: &str| {
+                let _ = handle.emit("ai-chat-delta", json!({ "request_id": &request_id, "delta": delta }));
+            };
+            return Ok(state.ai_chat_stream(request.body, &mut emit).await);
         }
         return Ok(state.handle(request).await);
     }

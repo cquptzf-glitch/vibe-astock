@@ -286,3 +286,11 @@
     padding-left: 22px;
   }
 }
+
+.ai-chat-threads { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.ai-chat-threads .wc-select { flex: 1 1 auto; }
+.mobile-app .ai-chat-threads > button { display: inline-grid; place-items: center; min-width: 34px; min-height: 34px; padding: 0; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); }
+.mobile-app .ai-chat-threads > button:disabled { opacity: .45; }
+.ai-chat-rename { display: flex; gap: 6px; margin: 0 0 6px; }
+.ai-chat-rename input { flex: 1 1 auto; min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 13px; }
+.mobile-app .ai-chat-rename button { min-height: 34px; padding: 0 12px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); font-size: 12px; }
