@@ -39,6 +39,7 @@ export const MOBILE_PATHS = {
   journalExcursion: "/mobile/journal/excursion",
   journalEnv: "/mobile/journal/environment",
   journalAttribution: "/mobile/journal/attribution",
+  journalProblems: "/mobile/journal/problems",
   ai: "/mobile/ai",
   library: "/mobile/library",
   reminders: "/mobile/reminders",

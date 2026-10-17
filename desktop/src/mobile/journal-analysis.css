@@ -22,3 +22,8 @@
 .jx-quad small { color: var(--mobile-muted); font-size:10px; overflow-wrap:anywhere; }
 .jx-quad strong.up { color: var(--mobile-up); } .jx-quad strong.down { color: var(--mobile-down); }
 .jx-quad .luck { border-style:dashed; }
+.jx-fills li.flagged { border-color: color-mix(in srgb, var(--mobile-warning) 55%, transparent); }
+.jx-fills li .meta { grid-column:1 / 2; }
+.jx-actions { display:flex; flex-wrap:wrap; gap:6px; justify-self:end; }
+.jx-actions button, .jx-list .jr-actions button:not(.discovery-action) { min-height:30px; padding:3px 10px; border:1px solid var(--mobile-border); border-radius:8px; background:transparent; color: var(--mobile-muted); font-size:12px; }
+.jx-edit { grid-column:1 / 3; }

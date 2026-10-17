@@ -1,0 +1,137 @@
+{
+  "available": true,
+  "counts": {
+    "manual_no_pnl": 1,
+    "no_fills": 1,
+    "oversell": 2
+  },
+  "entries": [
+    {
+      "date": "2026-10-12",
+      "entry_id": 2,
+      "fills": [
+        {
+          "date": "2026-10-15",
+          "fee": null,
+          "id": 3,
+          "price": 20.0,
+          "shares": 500.0,
+          "type": "buy"
+        },
+        {
+          "date": "2026-10-13",
+          "fee": null,
+          "id": 4,
+          "price": 21.0,
+          "shares": 500.0,
+          "type": "sell"
+        }
+      ],
+      "kind": "episode",
+      "name": "样本B",
+      "pnl_pct": null,
+      "problems": [
+        {
+          "fill_id": 4,
+          "kind": "oversell",
+          "why": "2026-10-13 卖出 500 股,但那天之前没有买入 —— 卖在买之前,或买入日期写晚了"
+        }
+      ],
+      "symbol": "600102"
+    },
+    {
+      "date": "2026-10-11",
+      "entry_id": 6,
+      "fills": [],
+      "kind": "episode",
+      "name": "样本空记录",
+      "pnl_pct": null,
+      "problems": [
+        {
+          "fill_id": null,
+          "kind": "no_fills",
+          "why": "这条记录没有任何成交,算不出盈亏"
+        }
+      ],
+      "symbol": "600105"
+    },
+    {
+      "date": "2026-10-10",
+      "entry_id": 5,
+      "fills": [],
+      "kind": "manual",
+      "name": "样本补记",
+      "pnl_pct": null,
+      "problems": [
+        {
+          "fill_id": null,
+          "kind": "manual_no_pnl",
+          "why": "补记没填盈亏 %,不进任何统计"
+        }
+      ],
+      "symbol": "600104"
+    },
+    {
+      "date": "2026-10-09",
+      "entry_id": 3,
+      "fills": [
+        {
+          "date": "2026-10-09",
+          "fee": null,
+          "id": 5,
+          "price": 8.0,
+          "shares": 2000.0,
+          "type": "buy"
+        },
+        {
+          "date": "2026-10-12",
+          "fee": null,
+          "id": 6,
+          "price": 8.4,
+          "shares": 1200.0,
+          "type": "sell"
+        },
+        {
+          "date": "2026-10-13",
+          "fee": null,
+          "id": 7,
+          "price": 8.6,
+          "shares": 1100.0,
+          "type": "sell"
+        }
+      ],
+      "kind": "episode",
+      "name": "样本C",
+      "pnl_pct": null,
+      "problems": [
+        {
+          "fill_id": 7,
+          "kind": "oversell",
+          "why": "2026-10-13 卖出 1100 股,当时只持有 800 股,超出的部分结算时会被忽略"
+        }
+      ],
+      "symbol": "600103"
+    }
+  ],
+  "generated_at": "2026-10-17T02:00:00Z",
+  "info": {
+    "entries": 6,
+    "fills": 7,
+    "fills_without_fee": 6
+  },
+  "non_stock": [
+    {
+      "date": "2026-10-12",
+      "entry_id": 4,
+      "fills": 1,
+      "name": "沪深300ETF样本",
+      "symbol": "510300"
+    }
+  ],
+  "notes": [
+    "交易日志只算 A 股股票:ETF、基金、债券、可转债、回购只计入持仓,不进交易日志的统计;下面只列出来,不算错误",
+    "修复只动你点的那一笔;改完不能比改之前更糟,一条记录至少留一笔成交。成交只在本机,不进任何 AI",
+    "没填费用的成交按「风险与纪律」里设置的费率估,不算问题"
+  ],
+  "problem_count": 4
+}

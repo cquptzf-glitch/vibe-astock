@@ -24,6 +24,7 @@ mod journal_env;
 mod journal_excursion;
 mod journal_inbox;
 mod journal_modes;
+mod journal_problems;
 mod journal_mutation;
 mod journal_review;
 mod journal_risk;
@@ -270,6 +271,14 @@ impl AppCore {
             ("GET", "/mobile/journal/excursion") => Ok(discovery_response(journal_excursion::view(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/journal/environment") => Ok(discovery_response(journal_env::view(&self.client, &self.db_path).await)),
             ("GET", "/mobile/journal/attribution") => Ok(discovery_response(journal_attribution::view(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/journal/problems") => match journal_problems::view(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(500, "journal_problems", error.to_string())),
+            },
+            ("POST", "/mobile/journal/problems") => match journal_problems::act(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "journal_problems", error.to_string())),
+            },
             ("GET", "/mobile/journal/inbox") => match journal_inbox::view(&self.db_path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(500, "journal_inbox", error.to_string())),

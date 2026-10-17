@@ -21,6 +21,7 @@ import { JournalAttributionPanel } from "./JournalAttributionPanel";
 import { JournalEnvPanel } from "./JournalEnvPanel";
 import { JournalExcursionPanel } from "./JournalExcursionPanel";
 import { JournalModesPanel } from "./JournalModesPanel";
+import { JournalProblemsPanel } from "./JournalProblemsPanel";
 import { JournalRiskPanel } from "./JournalRiskPanel";
 import { SamplesPanel } from "./SamplesPanel";
 import { MonitorPanel } from "./MonitorPanel";
@@ -436,6 +437,7 @@ export function MobileApp() {
       case "journalExcursion": return <JournalExcursionPanel />;
       case "journalEnv": return <JournalEnvPanel />;
       case "journalAttribution": return <JournalAttributionPanel />;
+      case "journalProblems": return <JournalProblemsPanel />;
       case "review": return <JournalReviewPanel onOpenSymbol={openFromList} />;
       case "rotation": return <RotationPanel onOpenBoard={(board) => navigate({ page: "board", board })} />;
       case "board": return <BoardDetailPanel key={route.board} code={route.board!} onOpenSymbol={openFromList} />;

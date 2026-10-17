@@ -24,6 +24,7 @@ const journalModesFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mo
 const journalExcursionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-excursion-synthetic.json", "utf8"));
 const journalEnvFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-env-synthetic.json", "utf8"));
 const journalAttributionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-attribution-synthetic.json", "utf8"));
+const journalProblemsFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-problems-synthetic.json", "utf8"));
 const marketPanelFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-market-panel-2026-10-16.json", "utf8"));
 const intradayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-intraday-2026-10-17.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
@@ -64,6 +65,7 @@ const responses = {
   "/mobile/review/market": marketPanelFixture,
   "/mobile/journal/risk": journalRiskFixture,
   "/mobile/journal/modes": journalModesFixture,
+  "/mobile/journal/problems": journalProblemsFixture,
   "/mobile/journal/attribution": journalAttributionFixture,
   "/mobile/journal/environment": journalEnvFixture,
   "/mobile/journal/inbox": journalExcursionFixture.inbox,
@@ -246,6 +248,13 @@ try {
       await page.getByText("判错 + 赚钱 · 运气", { exact: false }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-attribution.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "问题记录", exact: true }).click();
+      await page.getByRole("heading", { name: "问题记录", exact: true, level: 1 }).waitFor();
+      await page.getByText("卖在买之前", { exact: false }).first().waitFor();
+      await page.getByRole("button", { name: "改 卖出 2026-10-13", exact: true }).first().click();
+      await page.getByLabel("成交价", { exact: true }).first().waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-problems.png"), fullPage: true });
       await page.locator(".group-tabs").getByRole("tab", { name: "明日验证", exact: true }).click();
       await page.getByText("写给下一场的条件", { exact: true }).waitFor();
       await page.getByRole("button", { name: "加一条", exact: false }).click();
@@ -256,8 +265,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 102, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, market panel; 102 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 108, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel; 108 screenshots.");
 } finally {
   await browser.close();
 }

@@ -691,6 +691,16 @@ mod tests {
     }
 
     #[test]
+    fn only_a_share_stocks_belong_in_the_journal() {
+        for ok in ["600519", "000001", "300750", "688981", "002594", "830799", "920575", "301000"] {
+            assert!(is_journal_symbol(ok), "{ok}");
+        }
+        for no in ["510300", "159915", "113050", "127045", "010107", "020001", "204001", "12345", "6005190", "60051a", ""] {
+            assert!(!is_journal_symbol(no), "{no}");
+        }
+    }
+
+    #[test]
     fn settle_uses_moving_average_and_splits_pnl_by_sell_day() {
         let e = episode(1, "600001", "2026-10-12", vec![
             fill("buy", "2026-10-12", 10.0, 100.0, Some(2.0)), fill("buy", "2026-10-13", 12.0, 100.0, Some(2.0)),
