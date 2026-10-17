@@ -9,6 +9,7 @@ import { Activity, Coins, Gauge, Globe, TrendingUp } from "lucide-react";
 import { fmtNumber, fmtPercent, fmtYuan } from "./discoveryData";
 import { fmtRate, useCachedResource, useEmotion, type EmotionData } from "./emotionData";
 import { ReviewDateBar } from "./HistoryPanels";
+import { TiersCard } from "./ReviewTiers";
 import "./emotion.css";
 import "./monitor.css";
 
@@ -168,6 +169,7 @@ export function MarketPanelView({ data: d, emotion, onOpenSymbol }: { data: Mark
               <span className="watch-quote"><strong className={tone(r.net_buy_wan)}>{wan(r.net_buy_wan)}</strong><span className={tone(r.change_pct)}>{fmtPercent(r.change_pct)}</span></span></button>)}</div></>}
       </> : <Gap reason={d.dragon.reason} />}
     </Card>
+    <TiersCard date={d.date} onOpenSymbol={onOpenSymbol} />
     <p className="monitor-note">数据源:{d.source}。取不到的显示原因,不当成 0。AI 复盘和对话由「AI 助手」页单独提供。</p>
   </div>;
 }

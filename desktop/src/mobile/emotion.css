@@ -174,3 +174,6 @@ em.hit { color: #fff; background: var(--mobile-up); } em.miss { color: #fff; bac
 .emo-state.split { background: color-mix(in srgb, var(--mobile-warning) 16%, transparent); color: var(--mobile-warning); }
 .emo-state.new { background: color-mix(in srgb, var(--mobile-accent) 14%, transparent); color: var(--mobile-accent); }
 .emo-reason { margin: 0; color: var(--mobile-accent); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+
+.tier-btn { text-align: left; cursor: pointer; border: 1px solid transparent; color: inherit; font: inherit; }
+.tier-btn.on { border-color: color-mix(in srgb, var(--mobile-accent) 55%, transparent); background: color-mix(in srgb, var(--mobile-accent) 10%, var(--mobile-soft)); }
