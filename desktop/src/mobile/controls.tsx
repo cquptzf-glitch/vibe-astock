@@ -5,6 +5,7 @@
  */
 import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, CalendarDays } from "lucide-react";
 import { Children, Fragment, isValidElement, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import "./controls.css";
 
@@ -35,14 +36,20 @@ export function useDismiss(open: boolean, close: () => void) {
   }, [open, close]);
 }
 
-/** 底部弹出的面板。遮罩是 button:放在 <label> 里时点击遮罩不会被转发成「再点一次触发器」。 */
+/**
+ * 底部弹出的面板。🔴 必须渲染到页面根(.mobile-app)下,不能留在触发器所在的 <label> 里:
+ * 点选项时 React 在事件冒泡结束前就把选项节点从 DOM 里卸掉了,浏览器随后处理 <label> 的默认动作时发现点击目标
+ * 已经不是 label 里的可交互元素,会把这次点击转发给 label 里的第一个控件(触发器)——面板刚关就又被打开。
+ * (Chrome / Android WebView 都会这样,只是时机不同,慢机器上更容易撞上。)遮罩是 button,点遮罩同理不会被转发。
+ */
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   useDismiss(open, onClose);
-  if (!open) return null;
-  return <div className="wc-layer">
+  const host = typeof document === "undefined" ? null : document.querySelector(".mobile-app") ?? document.body;
+  if (!open || !host) return null;
+  return createPortal(<div className="wc-layer">
     <button type="button" className="wc-backdrop" aria-label="关闭" tabIndex={-1} onClick={onClose} />
     <div className="wc-sheet" role="dialog" aria-label={title}><div className="wc-sheet-head"><strong>{title}</strong></div>{children}</div>
-  </div>;
+  </div>, host);
 }
 
 export function WebSelect({ value, onChange, children, disabled, className, "aria-label": ariaLabel }: {

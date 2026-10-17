@@ -92,6 +92,8 @@ try {
     for (const theme of ["light", "dark"]) {
       const context = await browser.newContext({ viewport: { width, height: 850 }, deviceScaleFactor: 1, colorScheme: theme });
       const page = await context.newPage();
+      // 排查慢机器上的时序问题:VIBE_UI_THROTTLE=6 把 CPU 降速 6 倍
+      if (process.env.VIBE_UI_THROTTLE) await (await context.newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.VIBE_UI_THROTTLE) });
       page.on("pageerror", (error) => errors.push(String(error)));
       await page.addInitScript(({ responses, quote, klineRows, theme }) => {
         if (!localStorage.getItem("vibe.ui.seeded")) {
@@ -100,6 +102,11 @@ try {
           localStorage.setItem("vibe.mobile.refresh", "0");
           localStorage.setItem("vibe.ui.seeded", "1");
         }
+        // 自绘控件的事件轨迹:面板关不掉时,失败信息里带上点击与面板出现/消失的先后
+        window.__trace = [];
+        const mark = (what) => { if (window.__trace.length < 60) window.__trace.push(Math.round(performance.now()) + " " + what); };
+        document.addEventListener("click", (event) => mark("click " + (event.target?.tagName ?? "?") + "." + (event.target?.className?.baseVal ?? event.target?.className ?? "") + " [" + String(event.target?.textContent ?? "").slice(0, 12) + "]"), true);
+        new MutationObserver((records) => { for (const r of records) for (const n of [...r.addedNodes, ...r.removedNodes]) if (n.classList?.contains("wc-layer")) mark((r.addedNodes.length && [...r.addedNodes].includes(n) ? "layer+" : "layer-")); }).observe(document, { childList: true, subtree: true });
         window.__TAURI__ = { core: { invoke: async (command, args) => {
           if (command === "take_reminder_navigation") return null;
           if (command === "mobile_api") {
@@ -115,6 +122,11 @@ try {
       await page.getByRole("button", { name: "贵州茅台", exact: false }).first().waitFor();
       await page.getByText("沪深北成交", { exact: false }).waitFor();
       const compactHeight = await page.locator(".mo-wrap").evaluate((el) => el.getBoundingClientRect().height);
+      // 点完选项后面板必须收起;收不起来时把事件轨迹写进错误
+      const layerGone = async (what) => {
+        try { await page.locator(".wc-layer").waitFor({ state: "detached", timeout: 8000 }); }
+        catch (error) { throw new Error(what + ": 面板没有收起。事件轨迹:" + JSON.stringify(await page.evaluate(() => window.__trace)) + " | " + String(error.message).split("\n")[0]); }
+      };
       const assertWidth = async () => {
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
         assert.equal(overflow, false, width + " " + theme + " horizontal overflow");
@@ -132,11 +144,11 @@ try {
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-settings.png"), fullPage: true });
       await page.locator(".appearance-refresh .wc-select").click();
       await page.getByRole("option", { name: "每 30 秒", exact: true }).click();
-      await page.locator(".wc-layer").waitFor({ state: "detached" });
+      await layerGone("选完下拉选项");
       await page.waitForFunction(() => document.querySelector(".appearance-refresh .wc-select")?.textContent?.trim() === "每 30 秒");
       await page.locator(".appearance-refresh .wc-select").click();
       await page.getByRole("option", { name: "仅手动刷新", exact: true }).click();
-      await page.locator(".wc-layer").waitFor({ state: "detached" });
+      await layerGone("选完下拉选项");
       await page.getByRole("button", { name: "模型 API 设置", exact: true }).click();
       await page.getByPlaceholder("https://your-provider.example/v1").waitFor();
       await page.getByRole("button", { name: "模型 API 设置", exact: true }).click();
@@ -211,7 +223,7 @@ try {
       await page.getByRole("button", { name: "取消", exact: true }).click();
       await page.locator(".wl-toolbar .wc-select").click();
       await page.getByRole("option", { name: "按市盈率", exact: true }).click();
-      await page.locator(".wc-layer").waitFor({ state: "detached" });
+      await layerGone("选完下拉选项");
       await page.locator(".wl-dir").click();
       await page.waitForFunction(() => document.querySelector(".wl-row .wl-name strong")?.textContent === "平安银行");
       await page.getByRole("tab", { name: /^全部/ }).click();
