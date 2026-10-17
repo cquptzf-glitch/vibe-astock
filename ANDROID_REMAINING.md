@@ -1,6 +1,6 @@
 # Android 未完成功能清单
 
-开发中版本：0.1.20（复盘新增近 5 天、情绪历史、明日验证；SQLite schema v5 / 备份 v5）。本地通过：Rust 72 项单元/接口 + 1 项 parity（连续 3 次全量通过；2 项 ignored 实时探测对真实上游跑通）、前端类型检查与构建、431/432 项前端测试（未通过的是本机缺 orchestrator 依赖 ajv 的 agent_error）、本机 Edge 浏览器冒烟 6 组视口/主题 42 张截图。CI 与发布结果见 ANDROID_HANDOFF.md 末尾。
+当前版本：已发布 [Android 0.1.20 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.20)（复盘新增近 5 天、情绪历史、明日验证；SQLite schema v5 / 备份 v5）。本地通过：Rust 72 项单元/接口 + 1 项 parity（连续 3 次全量通过；2 项 ignored 实时探测对真实上游跑通）、前端类型检查与构建、431/432 项前端测试（未通过的是本机缺 orchestrator 依赖 ajv 的 agent_error）、本机 Edge 浏览器冒烟 6 组视口/主题 42 张截图。代码 2d49f00 的 Android CI #38983459066 与跨平台 #38983459069 全部成功；ARM64 APK 23,597,797 bytes（22.50 MiB），SHA256 c06e1f4676e1ad04bea137dc2fc734a6bd04019335adcb68abfa2d7eaceab460，仍为 debug-signed 预览版；真机验收未完成。发布前隐私扫描候选 65 / HEAD 65 / 历史 71 既有命中，新增 0。
 
 上一发布版本：已发布 [Android 0.1.19 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.19)（五大栏目导航 + 情绪复盘「今日情绪」整套迁移）。代码 47bbc61 的 Android CI #38975425413（build-apk、publish-preview）与跨平台 #38975425430 全部成功；ARM64 APK 23,334,749 bytes（22.25 MiB），SHA256 6282f1b84eb693fc3bbf02abfa81d305b9f26a619969cbcda5247f71991050ea，仍为 debug-signed 预览版；真机验收未完成。发布前隐私扫描：候选 65 / HEAD 65 / 完整历史 71 个既有命中（测试假 key、公开查询参数），新增 0；历史里的 `.env.example` 只有占位值。本地通过：Rust 64 项单元/接口 + 1 项 parity（另有 1 项需手动运行的实时探测，已对 2026-10-16 真实上游跑通）、前端类型检查与构建、427/428 项前端测试（未通过的 1 项是本机未装 orchestrator 依赖 ajv，CI 会安装）、用本机 Edge 跑的 6 组视口/主题浏览器冒烟与 30 张冻结样本截图；CI 同一冒烟用 chromium 通过（截图 artifact #12078317923）。CI 逐项测试数未从日志核对（公开 API 读不到日志）。
 

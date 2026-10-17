@@ -1339,7 +1339,9 @@ APK CI run 是否成功
 - 前端 `HistoryPanels.tsx`：近 5 天、情绪历史、明日验证（条件编辑器）三个复盘子页；路由 `/mobile/review/{weekly,history,verify}`。与情绪复盘各页共用复盘日选择。
 - 顺手修复：`ai_config` 测试的临时库路径在 Windows 并行测试里可能撞名（纳秒时间戳相同），偶发失败；加进程内计数。
 
-验证（本机）：Rust 72 项 + 1 项 parity 连续 3 次全量通过；`emotion_history::tests::live_history_weekly_verify_probe` 对真实上游：30 天窗口首次 0.96 秒、14 天取到、16 天超出保留期；第二次 46 毫秒全部读缓存；2026-10-16 最高板 11 偏热、赚钱效应 −3.3% 与炸板率 44.5% 偏冷。前端 431/432（agent_error 缺 ajv），新增 `mobile_history.test.ts` 用真实返回裁剪的 `desktop/test/fixtures/mobile-history-2026-10-16.json`；本机 Edge 浏览器冒烟 42 张截图通过，已人工查看 360 白色情绪历史与 390 深色明日验证。CI 与发布结果在本节末尾补充。
+验证（本机）：Rust 72 项 + 1 项 parity 连续 3 次全量通过；`emotion_history::tests::live_history_weekly_verify_probe` 对真实上游：30 天窗口首次 0.96 秒、14 天取到、16 天超出保留期；第二次 46 毫秒全部读缓存；2026-10-16 最高板 11 偏热、赚钱效应 −3.3% 与炸板率 44.5% 偏冷。前端 431/432（agent_error 缺 ajv），新增 `mobile_history.test.ts` 用真实返回裁剪的 `desktop/test/fixtures/mobile-history-2026-10-16.json`；本机 Edge 浏览器冒烟 42 张截图通过，已人工查看 360 白色情绪历史与 390 深色明日验证。发布前隐私扫描：候选 65 / HEAD 65 / 历史 71 个既有命中，新增 0，无 .env/.local/密钥文件被跟踪；提交后确认 blob 为明文。
+
+CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38983459066)（build-apk 与 publish-preview）和 [跨平台 #38983459069](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/38983459069) 全部成功。已发布 [Android 0.1.20 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.20)，标签固定在 2d49f005c04dfb5e2ffbbe40c0b985b1acee3d42；APK 23,597,797 bytes（22.50 MiB），SHA256：c06e1f4676e1ad04bea137dc2fc734a6bd04019335adcb68abfa2d7eaceab460。CI 内各步骤测试数未从日志核对（公开 API 读不到 job 日志）。真机验收与正式签名/AAB 仍未做。
 
 已知限制：情绪历史从东财保留期起积累，前期 60 天窗口大部分为空；节假日工作日写条件时用上证快照时间判断今天开没开市，取不到时允许新增/修改但不许删除。
 
