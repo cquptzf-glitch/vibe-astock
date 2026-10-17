@@ -1,43 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType, type LazyExoticComponent, type ReactNode } from "react";
 import { ArrowLeft, BookmarkPlus, ChevronRight, RefreshCw, Search, Star } from "lucide-react";
 
-import { AiWorkspace } from "./AiWorkspace";
-import { BacktestPanel } from "./BacktestPanel";
-import { BoardDetailPanel } from "./BoardDetailPanel";
-import { CalendarPanel } from "./CalendarPanel";
-import { CandidatePanel } from "./CandidatePanel";
-import { DailyReviewPanel } from "./DailyReviewPanel";
+import { clearAiPage, PERSONAL_PAGES, queueAiPrompt } from "./aiPageContext";
 import { EmotionTodayPanel, FirstBoardPanel, HomeEmotionBrief, LadderPanel, LimitUpTablePanel, MarketFactsPanel, ThemesPanel } from "./EmotionPanels";
-import { GpuRentPanel } from "./GpuRentPanel";
-import { HistoryPanel, VerifyPanel, WeeklyPanel } from "./HistoryPanels";
-import { JournalPanelV2 } from "./JournalPanelV2";
-import { JournalReviewPanel } from "./JournalReviewPanel";
-import { LibraryPanel } from "./LibraryPanel";
 import { MarketOverview } from "./MarketOverview";
 import { HomeShortcuts } from "./MobileHeader";
 import { WatchlistBoard } from "./WatchlistPanel";
 import { DialogHost } from "./controls";
-import { IntradayPanel } from "./IntradayPanel";
-import { MarketPanel } from "./MarketPanel";
-import { StructurePanel } from "./StructurePanel";
-import { JournalAttributionPanel } from "./JournalAttributionPanel";
-import { JournalEnvPanel } from "./JournalEnvPanel";
-import { JournalExcursionPanel } from "./JournalExcursionPanel";
-import { JournalModesPanel } from "./JournalModesPanel";
-import { JournalProblemsPanel } from "./JournalProblemsPanel";
-import { JournalRiskPanel } from "./JournalRiskPanel";
-import { SamplesPanel } from "./SamplesPanel";
 import { MonitorPanel } from "./MonitorPanel";
-import { NewsPanel } from "./NewsPanel";
-import { ReminderPanel } from "./ReminderPanel";
-import { RiskPanel } from "./RiskPanel";
-import { RotationPanel } from "./RotationPanel";
-import { SectorPanel } from "./SectorPanel";
-import { SettingsPanel } from "./SettingsPanel";
 import { WatchQuotesPanel } from "./WatchQuotesPanel";
 import { MessagesPanel, refreshMessages } from "./MessagesPanel";
 import { FunctionDirectory, GroupTabs, WorkspaceNav } from "./WorkspaceNavigation";
-import { PortfolioPanel } from "./PortfolioPanel";
 import { ResearchPanel } from "./ResearchPanel";
 import { StockDetailPanel } from "./StockDetailPanel";
 import { StockChart } from "./KlineChart";
@@ -52,6 +25,41 @@ import "./discovery.css";
 import "./journal-workspace.css";
 import "./library.css";
 import "./shortline.css";
+
+// 路由分包:首页和个股页以外的页面第一次进入时才加载(本机文件,几毫秒)。名字对应各文件里的具名导出
+function lazyPanel<M, K extends keyof M>(load: () => Promise<M>, name: K): LazyExoticComponent<M[K] extends ComponentType<infer P> ? ComponentType<P> : never> {
+  return lazy(() => load().then((m) => ({ default: m[name] as never })));
+}
+const AiWorkspace = lazyPanel(() => import("./AiWorkspace"), "AiWorkspace");
+const BacktestPanel = lazyPanel(() => import("./BacktestPanel"), "BacktestPanel");
+const BoardDetailPanel = lazyPanel(() => import("./BoardDetailPanel"), "BoardDetailPanel");
+const CalendarPanel = lazyPanel(() => import("./CalendarPanel"), "CalendarPanel");
+const CandidatePanel = lazyPanel(() => import("./CandidatePanel"), "CandidatePanel");
+const DailyReviewPanel = lazyPanel(() => import("./DailyReviewPanel"), "DailyReviewPanel");
+const GpuRentPanel = lazyPanel(() => import("./GpuRentPanel"), "GpuRentPanel");
+const JournalPanelV2 = lazyPanel(() => import("./JournalPanelV2"), "JournalPanelV2");
+const JournalReviewPanel = lazyPanel(() => import("./JournalReviewPanel"), "JournalReviewPanel");
+const LibraryPanel = lazyPanel(() => import("./LibraryPanel"), "LibraryPanel");
+const StructurePanel = lazyPanel(() => import("./StructurePanel"), "StructurePanel");
+const JournalAttributionPanel = lazyPanel(() => import("./JournalAttributionPanel"), "JournalAttributionPanel");
+const JournalEnvPanel = lazyPanel(() => import("./JournalEnvPanel"), "JournalEnvPanel");
+const JournalExcursionPanel = lazyPanel(() => import("./JournalExcursionPanel"), "JournalExcursionPanel");
+const JournalModesPanel = lazyPanel(() => import("./JournalModesPanel"), "JournalModesPanel");
+const JournalProblemsPanel = lazyPanel(() => import("./JournalProblemsPanel"), "JournalProblemsPanel");
+const JournalRiskPanel = lazyPanel(() => import("./JournalRiskPanel"), "JournalRiskPanel");
+const SamplesPanel = lazyPanel(() => import("./SamplesPanel"), "SamplesPanel");
+const NewsPanel = lazyPanel(() => import("./NewsPanel"), "NewsPanel");
+const ReminderPanel = lazyPanel(() => import("./ReminderPanel"), "ReminderPanel");
+const RiskPanel = lazyPanel(() => import("./RiskPanel"), "RiskPanel");
+const RotationPanel = lazyPanel(() => import("./RotationPanel"), "RotationPanel");
+const SectorPanel = lazyPanel(() => import("./SectorPanel"), "SectorPanel");
+const SettingsPanel = lazyPanel(() => import("./SettingsPanel"), "SettingsPanel");
+const PortfolioPanel = lazyPanel(() => import("./PortfolioPanel"), "PortfolioPanel");
+const MarketPanel = lazyPanel(() => import("./MarketPanel"), "MarketPanel");
+const IntradayPanel = lazyPanel(() => import("./IntradayPanel"), "IntradayPanel");
+const HistoryPanel = lazyPanel(() => import("./HistoryPanels"), "HistoryPanel");
+const VerifyPanel = lazyPanel(() => import("./HistoryPanels"), "VerifyPanel");
+const WeeklyPanel = lazyPanel(() => import("./HistoryPanels"), "WeeklyPanel");
 
 interface Evidence {
   field: string;
@@ -129,6 +137,9 @@ export function MobileApp() {
   const page = route.page;
   const isStock = page === "stock";
   const go = (next: MobilePage) => navigate({ page: next });
+  const askAi = (question: string) => { queueAiPrompt(question); go("ai"); };
+  // 个人页面(成交、持仓、盈亏)不给 AI:进入时清掉上一页留下的「附带当前页面」登记
+  useEffect(() => { if (PERSONAL_PAGES.has(route.page)) clearAiPage(); }, [route.page]);
   const [query, setQuery] = useState("");
   const [activeSymbol, setActiveSymbol] = useState("");
   const [quote, setQuote] = useState<Envelope | null>(null);
@@ -395,10 +406,10 @@ export function MobileApp() {
       case "risk": return <RiskPanel onOpenSymbol={openFromList} />;
       case "watch": return watchBlock;
       case "hold": return <section className="mobile-section"><PortfolioPanel onOpenSymbol={openFromList} /></section>;
-      case "emotion": return <EmotionTodayPanel onNavigate={go} />;
+      case "emotion": return <EmotionTodayPanel onNavigate={go} onAskAi={askAi} />;
       case "ladder": return <LadderPanel onOpenSymbol={openFromList} />;
       case "limitUp": return <LimitUpTablePanel onOpenSymbol={openFromList} />;
-      case "firstBoard": return <FirstBoardPanel onOpenSymbol={openFromList} />;
+      case "firstBoard": return <FirstBoardPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
       case "seal": return <MarketFactsPanel onOpenSymbol={openFromList} />;
       case "themes": return <ThemesPanel onOpenSymbol={openFromList} />;
       case "marketReview": return <MarketPanel onOpenSymbol={openFromList} />;
@@ -446,7 +457,7 @@ export function MobileApp() {
           </button>
         )}
         {error && <div className="mobile-error">{error}</div>}
-        {renderPage()}
+        <Suspense fallback={<div className="mobile-empty" role="status">加载中…</div>}>{renderPage()}</Suspense>
       </main>
 
       <WorkspaceNav page={page} onNavigate={go} unreadMessages={unreadMessages} />

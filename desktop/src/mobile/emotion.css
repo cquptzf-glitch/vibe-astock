@@ -177,3 +177,4 @@ em.hit { color: #fff; background: var(--mobile-up); } em.miss { color: #fff; bac
 
 .tier-btn { text-align: left; cursor: pointer; border: 1px solid transparent; color: inherit; font: inherit; }
 .tier-btn.on { border-color: color-mix(in srgb, var(--mobile-accent) 55%, transparent); background: color-mix(in srgb, var(--mobile-accent) 10%, var(--mobile-soft)); }
+.emo-ask { display:inline-flex; align-items:center; gap:5px; margin:2px 0 8px; }

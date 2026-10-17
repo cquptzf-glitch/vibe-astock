@@ -327,6 +327,14 @@ try {
       assert.ok(tabTops.length >= 9 && Math.max(...tabTops) - Math.min(...tabTops) < 2, "review sub-tabs must stay in one scrollable row");
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-emotion.png"), fullPage: true });
+      // 问 AI:点页面上的按钮 → 跳到 AI 对话,预填问题并勾选「附带当前页面」(只是勾选,不发送)
+      await page.getByRole("button", { name: /问 AI:解读今天的情绪读数/ }).click();
+      await page.getByLabel("附带当前页面").waitFor();
+      assert.equal(await page.getByLabel("附带当前页面").isChecked(), true, "从页面问 AI 时默认附带该页");
+      assert.match(await page.locator(".ai-chat-composer textarea").inputValue(), /赚钱效应/);
+      await assertWidth();
+      await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "复盘", exact: true }).click();
+      await page.getByRole("heading", { name: "今日情绪", exact: true }).waitFor();
       await page.locator(".group-tabs").getByRole("tab", { name: "连板天梯", exact: true }).click();
       await page.getByText("新华传媒", { exact: true }).first().waitFor();
       await assertWidth();

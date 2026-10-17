@@ -1,5 +1,6 @@
 import { BrainCircuit, Eraser, MessageSquarePlus, Pencil, RefreshCw, Send, ShieldCheck, Square, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { takeQueuedAiPrompt, useAiPageContext } from "./aiPageContext";
 
 import { askConfirm, WebSelect } from "./controls";
 import "./ai-chat.css";
@@ -116,6 +117,8 @@ export function AiChatPanel() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
+  const page = useAiPageContext();
+  const [attach, setAttach] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef<string>("");
 
@@ -144,6 +147,8 @@ export function AiChatPanel() {
   useEffect(() => { void load(); }, []);
   useEffect(() => { try { window.localStorage.setItem(THREAD_KEY, String(thread)); } catch { /* 可选 */ } }, [thread]);
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [messages, sending, streamText]);
+  // 从页面上的「问 AI」按钮跳过来:预填问题并附带那一页(用户还可以取消勾选、改问题)
+  useEffect(() => { const q = takeQueuedAiPrompt(); if (q) { setDraft(q); setAttach(true); } }, []);
 
   async function send() {
     const content = draft.trim();
@@ -154,6 +159,7 @@ export function AiChatPanel() {
     setStreamText("");
     setPendingUser(content);
     const events = eventApi();
+    const pageContext = attach && page ? { title: page.title, text: page.text } : undefined;
     const requestId = newRequestId();
     requestRef.current = requestId;
     let unlisten: (() => void) | null = null;
@@ -163,13 +169,13 @@ export function AiChatPanel() {
         unlisten = await events.listen(DELTA_EVENT, (event) => {
           if (event.payload.request_id === requestId && event.payload.delta) setStreamText((t) => t + event.payload.delta);
         });
-        result = await api<ChatSendResult>("/mobile/ai/chat/stream", { method: "POST", body: JSON.stringify({ content, thread_id: thread, request_id: requestId }) });
+        result = await api<ChatSendResult>("/mobile/ai/chat/stream", { method: "POST", body: JSON.stringify({ content, thread_id: thread, request_id: requestId, page_context: pageContext }) });
       } else {
-        result = await api<ChatSendResult>("/mobile/ai/chat", { method: "POST", body: JSON.stringify({ content, thread_id: thread }) });
+        result = await api<ChatSendResult>("/mobile/ai/chat", { method: "POST", body: JSON.stringify({ content, thread_id: thread, page_context: pageContext }) });
       }
       setMessages(result.history);
       setDraft("");
-      setNotice(`已通过 ${result.model} 完成回复；未附加自选、持仓、交易日志或日复盘数据。`);
+      setNotice(pageContext ? `已通过 ${result.model} 完成回复；按你的选择附带了页面「${pageContext.title}」的内容(只用于这一问);未附加自选、持仓、交易日志或日复盘数据。` : `已通过 ${result.model} 完成回复；未附加自选、持仓、交易日志或日复盘数据。`);
       void api<ThreadList>("/mobile/ai/threads").then((list) => setThreads(list.threads)).catch(() => undefined);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -323,6 +329,8 @@ export function AiChatPanel() {
         <div ref={endRef} />
       </div>
 
+      {page && <label className="ai-chat-attach"><input type="checkbox" checked={attach} disabled={sending} onChange={(e) => setAttach(e.target.checked)} aria-label="附带当前页面" />
+        <span>附带页面「{page.title}」的内容({page.text.length} 字)<small>只随这一问发给你配置的模型,不存进对话历史;个人成交、持仓、盈亏页面不会登记。</small></span></label>}
       <div className="ai-chat-composer">
         <textarea
           value={draft}

@@ -28,6 +28,8 @@ export type Result = {
     win_rate_pct: number | null;
     total_fees?: number;
     slippage_cost?: number;
+    blocked_buys?: number;
+    blocked_sells?: number;
     open_position: boolean;
   };
   per_symbol?: PerSymbol[];
@@ -63,6 +65,7 @@ export interface BacktestForm {
   slippage: string;
   stopLoss: string;
   experiment: boolean;
+  limitCheck: boolean;
 }
 
 const splitSymbols = (text: string) => text.split(/[\s,，、;；]+/).filter(Boolean);
@@ -71,7 +74,7 @@ const splitSymbols = (text: string) => text.split(/[\s,，、;；]+/).filter(Boo
 export function buildRequest(form: BacktestForm): Record<string, unknown> {
   const symbols = splitSymbols(form.symbols);
   const spec = specOf(form.strategy);
-  const body: Record<string, unknown> = { strategy: form.strategy, bars: Number(form.bars), fees: form.fees, slippage_bps: Number(form.slippage || "0") };
+  const body: Record<string, unknown> = { strategy: form.strategy, bars: Number(form.bars), fees: form.fees, slippage_bps: Number(form.slippage || "0"), limit_check: form.limitCheck };
   if (symbols.length > 1) body.symbols = symbols; else body.symbol = symbols[0] ?? "";
   for (const p of spec.params) body[p.key] = Number(form.params[p.key] ?? p.value);
   if (form.stopLoss.trim()) body.stop_loss_pct = Number(form.stopLoss);
@@ -136,6 +139,7 @@ export function ResultView({ result }: { result: Result }) {
     { label: "胜率", value: pct(m.win_rate_pct) },
     { label: "已平仓", value: `${m.closed_trades} 笔` },
     { label: "费用 / 滑点", value: `${yuan(m.total_fees)} / ${yuan(m.slippage_cost)}` },
+    ...(m.blocked_buys != null ? [{ label: "涨跌停没成交", value: `买 ${m.blocked_buys} / 卖 ${m.blocked_sells ?? 0} 次` }] : []),
   ], [m]);
   const trades = result.trades ?? [];
   const shown = trades.slice(-20).reverse();
@@ -172,7 +176,7 @@ export function ResultView({ result }: { result: Result }) {
 const defaultParams = (id: StrategyId): Record<string, string> => Object.fromEntries((specOf(id)).params.map((p) => [p.key, p.value]));
 
 export function BacktestPanel() {
-  const [form, setForm] = useState<BacktestForm>({ symbols: "600519", strategy: "sma_cross", params: defaultParams("sma_cross"), bars: "500", fees: "default", slippage: "0", stopLoss: "", experiment: false });
+  const [form, setForm] = useState<BacktestForm>({ symbols: "600519", strategy: "sma_cross", params: defaultParams("sma_cross"), bars: "500", fees: "default", slippage: "0", stopLoss: "", experiment: false, limitCheck: true });
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -206,6 +210,7 @@ export function BacktestPanel() {
         <label>交易费用<WebSelect aria-label="交易费用" value={form.fees} onChange={(e) => setForm({ ...form, fees: e.target.value as BacktestForm["fees"] })}><option value="default">默认费率(佣金万 2.5、最低 5 元)</option><option value="none">不计费用</option></WebSelect></label>
         <label>滑点(bp,万分之几)<input inputMode="decimal" value={form.slippage} onChange={(e) => setForm({ ...form, slippage: e.target.value })} aria-label="滑点" /></label>
         <label>止损(%,选填)<input inputMode="decimal" value={form.stopLoss} placeholder="不填 = 不止损" onChange={(e) => setForm({ ...form, stopLoss: e.target.value })} aria-label="止损" /></label>
+        <label className="check wide"><input type="checkbox" checked={form.limitCheck} onChange={(e) => setForm({ ...form, limitCheck: e.target.checked })} aria-label="模拟涨跌停" /> 模拟涨跌停(开盘贴着涨停买不进、贴着跌停卖不出;ST 股 5% 没单独识别)</label>
         <label className="check wide"><input type="checkbox" checked={form.experiment && !multi} disabled={multi} onChange={(e) => setForm({ ...form, experiment: e.target.checked })} /> 同时做参数实验(固定一小格组合,仅单只股票)</label>
         <p className="backtest-hint wide">{spec.hint}</p>
         <button type="submit" disabled={loading || !form.symbols.trim()}><Play size={14} />{loading ? <><Loader2 size={14} className="spin" /> 计算中</> : "开始回测"}</button>

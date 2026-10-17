@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { WebSelect, DateField } from "./controls";
-import { CalendarDays, ChevronRight, RefreshCw, RotateCcw } from "lucide-react";
+import { CalendarDays, ChevronRight, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
+import { emotionContext, firstBoardContext, useRegisterAiPage } from "./aiPageContext";
 import { fmtPercent, fmtYuan } from "./discoveryData";
 import {
   chinaToday, emotionPath, fmtRate, useCachedResource, useEmotion,
@@ -189,11 +190,13 @@ export function EmotionTodayView({ data, cycle, onNavigate }: { data: EmotionDat
   </div>;
 }
 
-export function EmotionTodayPanel({ onNavigate }: { onNavigate: (page: MobilePage) => void }) {
+export function EmotionTodayPanel({ onNavigate, onAskAi }: { onNavigate: (page: MobilePage) => void; onAskAi?: (question: string) => void }) {
   const state = useEmotionPage();
+  useRegisterAiPage("今日情绪", useMemo(() => (state.data ? emotionContext(state.data) : null), [state.data]));
   const cycle = useCachedResource<CycleData>("/mobile/shortline/cycle?days=10" + (state.date ? "&date=" + state.date : ""));
   return <section className="mobile-section emo-page">
     <EmotionHeader title="今日情绪" detail="赚钱效应、晋级率、连板溢价、梯队与周期" state={state} />
+    {state.data && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("结合这页的读数,今天的赚钱效应、晋级率和梯队说明了什么?哪些读数取不到或样本偏少?")}><Sparkles size={13} />问 AI:解读今天的情绪读数</button>}
     {state.data && <EmotionTodayView data={state.data} cycle={cycle} onNavigate={onNavigate} />}
   </section>;
 }
@@ -352,11 +355,14 @@ export function FirstBoardView({ data, onOpenSymbol, reasons }: { data: EmotionD
   </div>;
 }
 
-export function FirstBoardPanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
+export function FirstBoardPanel({ onOpenSymbol, onAskAi }: { onOpenSymbol: Open; onAskAi?: (question: string) => void }) {
   const state = useEmotionPage();
   const tree = useThemeTree(state.date);
+  const aiText = useMemo(() => (state.data ? firstBoardContext(state.data, tree.data?.reasons) : null), [state.data, tree.data]);
+  useRegisterAiPage("首板名单", aiText);
   return <section className="mobile-section emo-page">
     <EmotionHeader title="首板名单" detail="按首封时间排列，标出反包、制度与涨停原因" state={state} />
+    {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页的首板名单,把它们按题材和首封时间归类,说说有什么共性和差异;只描述已发生的现象,不要给买卖建议。")}><Sparkles size={13} />问 AI:归类这些首板</button>}
     {state.data && <FirstBoardView data={state.data} onOpenSymbol={onOpenSymbol} reasons={tree.data?.reasons} />}
     {state.data && !tree.data && <p className="emo-foot">{tree.error ? `涨停原因这次没取到:${tree.error}` : "涨停原因加载中…"}</p>}
     {tree.data && Object.keys(tree.data.reasons).length === 0 && <p className="emo-foot">涨停原因没取到:{tree.data.tree.available ? "没有原因覆盖" : tree.data.tree.reason}。</p>}

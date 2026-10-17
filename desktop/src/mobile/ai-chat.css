@@ -294,3 +294,6 @@
 .ai-chat-rename { display: flex; gap: 6px; margin: 0 0 6px; }
 .ai-chat-rename input { flex: 1 1 auto; min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 13px; }
 .mobile-app .ai-chat-rename button { min-height: 34px; padding: 0 12px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); font-size: 12px; }
+.ai-chat-attach { display:flex; gap:8px; align-items:flex-start; margin:8px 0 0; padding:8px 10px; border:1px solid var(--mobile-border); border-radius:12px; background:var(--mobile-soft); font-size:11px; }
+.ai-chat-attach input { margin-top:2px; }
+.ai-chat-attach small { display:block; margin-top:2px; color:var(--mobile-muted); font-size:10px; line-height:1.5; }
