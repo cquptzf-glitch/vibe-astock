@@ -1,0 +1,1168 @@
+{
+ "available": true,
+ "date": "2026-10-16",
+ "date_from": "2026-09-21",
+ "date_to": "2026-10-16",
+ "days": 30,
+ "days_used": 14,
+ "gaps": [
+  "16 个交易日的涨停样本没取到(东财只留最近一个月左右,更早又没缓存过的日子取不到),已剔除",
+  "1 天的入场日情绪读数没取到,归「环境未覆盖」"
+ ],
+ "generated_at": "2026-10-17T02:00:00Z",
+ "layer": "market_phenomenon",
+ "missing_days": [
+  "2026-08-28",
+  "2026-08-31",
+  "2026-09-01",
+  "2026-09-02",
+  "2026-09-03",
+  "2026-09-04",
+  "2026-09-07",
+  "2026-09-08",
+  "2026-09-09",
+  "2026-09-10",
+  "2026-09-11",
+  "2026-09-14",
+  "2026-09-15",
+  "2026-09-16",
+  "2026-09-17",
+  "2026-09-18"
+ ],
+ "reason": null,
+ "regime_cuts": {
+  "high": 337.8,
+  "low": 208.8
+ },
+ "sample_caveat": "样本 = 前一天收盘还封在涨停板上的票(事后名单)。包含一字板等未必买得进的票,没排除排队买不到的情况;冲板没封住的不在样本里。收益按前一天收盘到当天收盘、等权计算,没有成交模拟,不能推出真实收益或打法期望。这是市场现象统计,不是策略回测。",
+ "seal_curve": [
+  {
+   "avg": 1.82,
+   "best": 10.11,
+   "bucket": "开盘秒板",
+   "limit_up_rate": 0.339,
+   "median": 1.45,
+   "sample": 62,
+   "win_rate": 0.565,
+   "worst": -10
+  },
+  {
+   "avg": 1.67,
+   "best": 14.46,
+   "bucket": "9:35-10:00",
+   "limit_up_rate": 0.229,
+   "median": 1.34,
+   "sample": 109,
+   "win_rate": 0.578,
+   "worst": -11.48
+  },
+  {
+   "avg": 0.35,
+   "best": 14.71,
+   "bucket": "10:00-11:00",
+   "limit_up_rate": 0.123,
+   "median": -0.91,
+   "sample": 130,
+   "win_rate": 0.469,
+   "worst": -9.98
+  },
+  {
+   "avg": 0.51,
+   "best": 20.06,
+   "bucket": "11:00-14:00",
+   "limit_up_rate": 0.132,
+   "median": -0.61,
+   "sample": 174,
+   "win_rate": 0.443,
+   "worst": -12.7
+  },
+  {
+   "avg": 0.08,
+   "best": 24.12,
+   "bucket": "14:00后",
+   "limit_up_rate": 0.143,
+   "median": -1.27,
+   "sample": 126,
+   "win_rate": 0.452,
+   "worst": -11.23
+  },
+  {
+   "avg": 5.65,
+   "best": 10.01,
+   "bucket": "封板时间缺失",
+   "limit_up_rate": 0.667,
+   "median": 10.01,
+   "sample": 3,
+   "win_rate": 0.667,
+   "worst": -3.05
+  }
+ ],
+ "source": "东财昨日涨停表现池(每天一次,已收盘的日子存本机)+ 入场日情绪读数(和情绪历史共用)",
+ "strategies": [
+  {
+   "by_regime": {
+    "情绪中": {
+     "avg": 0.34,
+     "best": 24.12,
+     "limit_up_rate": 0.16,
+     "median": -0.54,
+     "sample": 100,
+     "win_rate": 0.47,
+     "worst": -11.23
+    },
+    "情绪弱": {
+     "avg": 0,
+     "best": 20,
+     "limit_up_rate": 0.183,
+     "median": -1.7,
+     "sample": 175,
+     "win_rate": 0.423,
+     "worst": -10
+    },
+    "情绪强": {
+     "avg": 0.91,
+     "best": 20.06,
+     "limit_up_rate": 0.163,
+     "median": 0,
+     "sample": 263,
+     "win_rate": 0.494,
+     "worst": -12.7
+    },
+    "环境未覆盖": {
+     "avg": 2.73,
+     "best": 10.34,
+     "limit_up_rate": 0.212,
+     "median": 1.41,
+     "sample": 66,
+     "win_rate": 0.667,
+     "worst": -7.48
+    }
+   },
+   "daily": [
+    {
+     "avg": 2.73,
+     "date": "2026-09-21",
+     "equity": 102.73,
+     "regime": "环境未覆盖",
+     "sample": 66
+    },
+    {
+     "avg": 2.68,
+     "date": "2026-09-22",
+     "equity": 105.48,
+     "regime": "情绪强",
+     "sample": 81
+    },
+    {
+     "avg": -1.47,
+     "date": "2026-09-23",
+     "equity": 103.93,
+     "regime": "情绪强",
+     "sample": 39
+    },
+    {
+     "avg": 0.29,
+     "date": "2026-09-24",
+     "equity": 104.23,
+     "regime": "情绪弱",
+     "sample": 39
+    },
+    {
+     "avg": -2.37,
+     "date": "2026-09-28",
+     "equity": 101.76,
+     "regime": "情绪中",
+     "sample": 39
+    },
+    {
+     "avg": 2.79,
+     "date": "2026-09-29",
+     "equity": 104.6,
+     "regime": "情绪弱",
+     "sample": 26
+    },
+    {
+     "avg": 0.6,
+     "date": "2026-09-30",
+     "equity": 105.23,
+     "regime": "情绪强",
+     "sample": 47
+    },
+    {
+     "avg": -1.44,
+     "date": "2026-10-08",
+     "equity": 103.72,
+     "regime": "情绪强",
+     "sample": 39
+    },
+    {
+     "avg": 2.87,
+     "date": "2026-10-09",
+     "equity": 106.69,
+     "regime": "情绪中",
+     "sample": 33
+    },
+    {
+     "avg": 1.89,
+     "date": "2026-10-12",
+     "equity": 108.71,
+     "regime": "情绪强",
+     "sample": 57
+    },
+    {
+     "avg": 1.14,
+     "date": "2026-10-13",
+     "equity": 109.95,
+     "regime": "情绪中",
+     "sample": 28
+    },
+    {
+     "avg": 0.19,
+     "date": "2026-10-14",
+     "equity": 110.16,
+     "regime": "情绪弱",
+     "sample": 59
+    },
+    {
+     "avg": -1.87,
+     "date": "2026-10-15",
+     "equity": 108.1,
+     "regime": "情绪弱",
+     "sample": 21
+    },
+    {
+     "avg": -1.83,
+     "date": "2026-10-16",
+     "equity": 106.12,
+     "regime": "情绪弱",
+     "sample": 30
+    }
+   ],
+   "desc": "前一天首次涨停的全部个股,持有到当天收盘",
+   "final_equity": 106.12,
+   "name": "首板打板",
+   "overall": {
+    "avg": 0.75,
+    "best": 24.12,
+    "limit_up_rate": 0.174,
+    "median": -0.28,
+    "sample": 604,
+    "win_rate": 0.488,
+    "worst": -12.7
+   }
+  },
+  {
+   "by_regime": {
+    "情绪中": {
+     "avg": 0.93,
+     "best": 14.46,
+     "limit_up_rate": 0.216,
+     "median": 0.18,
+     "sample": 37,
+     "win_rate": 0.514,
+     "worst": -9.97
+    },
+    "情绪弱": {
+     "avg": 1.53,
+     "best": 10.11,
+     "limit_up_rate": 0.318,
+     "median": 2.04,
+     "sample": 44,
+     "win_rate": 0.568,
+     "worst": -10
+    },
+    "情绪强": {
+     "avg": 1.52,
+     "best": 10.08,
+     "limit_up_rate": 0.25,
+     "median": 0.67,
+     "sample": 68,
+     "win_rate": 0.544,
+     "worst": -11.48
+    },
+    "环境未覆盖": {
+     "avg": 4.06,
+     "best": 10.09,
+     "limit_up_rate": 0.318,
+     "median": 2.36,
+     "sample": 22,
+     "win_rate": 0.773,
+     "worst": -3.69
+    }
+   },
+   "daily": [
+    {
+     "avg": 4.06,
+     "date": "2026-09-21",
+     "equity": 104.06,
+     "regime": "环境未覆盖",
+     "sample": 22
+    },
+    {
+     "avg": 3.84,
+     "date": "2026-09-22",
+     "equity": 108.06,
+     "regime": "情绪强",
+     "sample": 22
+    },
+    {
+     "avg": -2.19,
+     "date": "2026-09-23",
+     "equity": 105.69,
+     "regime": "情绪强",
+     "sample": 10
+    },
+    {
+     "avg": 0.15,
+     "date": "2026-09-24",
+     "equity": 105.85,
+     "regime": "情绪弱",
+     "sample": 9
+    },
+    {
+     "avg": -1.31,
+     "date": "2026-09-28",
+     "equity": 104.46,
+     "regime": "情绪中",
+     "sample": 13
+    },
+    {
+     "avg": 5.97,
+     "date": "2026-09-29",
+     "equity": 110.7,
+     "regime": "情绪弱",
+     "sample": 9
+    },
+    {
+     "avg": 3.8,
+     "date": "2026-09-30",
+     "equity": 114.9,
+     "regime": "情绪强",
+     "sample": 16
+    },
+    {
+     "avg": -2.34,
+     "date": "2026-10-08",
+     "equity": 112.22,
+     "regime": "情绪强",
+     "sample": 15
+    },
+    {
+     "avg": 2.93,
+     "date": "2026-10-09",
+     "equity": 115.5,
+     "regime": "情绪中",
+     "sample": 16
+    },
+    {
+     "avg": 3.04,
+     "date": "2026-10-12",
+     "equity": 119.01,
+     "regime": "情绪强",
+     "sample": 5
+    },
+    {
+     "avg": 0.58,
+     "date": "2026-10-13",
+     "equity": 119.71,
+     "regime": "情绪中",
+     "sample": 8
+    },
+    {
+     "avg": 1.32,
+     "date": "2026-10-14",
+     "equity": 121.29,
+     "regime": "情绪弱",
+     "sample": 11
+    },
+    {
+     "avg": 1.84,
+     "date": "2026-10-15",
+     "equity": 123.52,
+     "regime": "情绪弱",
+     "sample": 6
+    },
+    {
+     "avg": -1.5,
+     "date": "2026-10-16",
+     "equity": 121.66,
+     "regime": "情绪弱",
+     "sample": 9
+    }
+   ],
+   "desc": "前一天首板且 10:00 前最终封板(早盘封住且之后没再炸开)",
+   "final_equity": 121.66,
+   "name": "首板·早封",
+   "overall": {
+    "avg": 1.72,
+    "best": 14.46,
+    "limit_up_rate": 0.269,
+    "median": 1.34,
+    "sample": 171,
+    "win_rate": 0.573,
+    "worst": -11.48
+   }
+  },
+  {
+   "by_regime": {
+    "情绪中": {
+     "avg": -3.45,
+     "best": 3.18,
+     "limit_up_rate": 0,
+     "median": -3.82,
+     "sample": 11,
+     "win_rate": 0.364,
+     "worst": -11.23
+    },
+    "情绪弱": {
+     "avg": -3.29,
+     "best": 10.02,
+     "limit_up_rate": 0.053,
+     "median": -4.13,
+     "sample": 19,
+     "win_rate": 0.211,
+     "worst": -10
+    },
+    "情绪强": {
+     "avg": 1.02,
+     "best": 14.4,
+     "limit_up_rate": 0.077,
+     "median": -0.56,
+     "sample": 26,
+     "win_rate": 0.462,
+     "worst": -10.06
+    },
+    "环境未覆盖": {
+     "avg": -1.8,
+     "best": 2.98,
+     "limit_up_rate": 0,
+     "median": -1.35,
+     "sample": 4,
+     "win_rate": 0.25,
+     "worst": -7.48
+    }
+   },
+   "daily": [
+    {
+     "avg": -1.8,
+     "date": "2026-09-21",
+     "equity": 98.2,
+     "regime": "环境未覆盖",
+     "sample": 4
+    },
+    {
+     "avg": 2,
+     "date": "2026-09-22",
+     "equity": 100.16,
+     "regime": "情绪强",
+     "sample": 11
+    },
+    {
+     "avg": -1.01,
+     "date": "2026-09-23",
+     "equity": 99.15,
+     "regime": "情绪强",
+     "sample": 7
+    },
+    {
+     "avg": -3.8,
+     "date": "2026-09-24",
+     "equity": 95.38,
+     "regime": "情绪弱",
+     "sample": 2
+    },
+    {
+     "avg": -3.28,
+     "date": "2026-09-28",
+     "equity": 92.26,
+     "regime": "情绪中",
+     "sample": 8
+    },
+    {
+     "avg": -6.99,
+     "date": "2026-09-29",
+     "equity": 85.81,
+     "regime": "情绪弱",
+     "sample": 4
+    },
+    {
+     "avg": 2.63,
+     "date": "2026-09-30",
+     "equity": 88.06,
+     "regime": "情绪强",
+     "sample": 2
+    },
+    {
+     "avg": null,
+     "date": "2026-10-08",
+     "equity": 88.06,
+     "regime": "情绪强",
+     "sample": 0
+    },
+    {
+     "avg": -6.92,
+     "date": "2026-10-09",
+     "equity": 81.97,
+     "regime": "情绪中",
+     "sample": 2
+    },
+    {
+     "avg": 1.06,
+     "date": "2026-10-12",
+     "equity": 82.84,
+     "regime": "情绪强",
+     "sample": 6
+    },
+    {
+     "avg": 2.13,
+     "date": "2026-10-13",
+     "equity": 84.6,
+     "regime": "情绪中",
+     "sample": 1
+    },
+    {
+     "avg": -3.25,
+     "date": "2026-10-14",
+     "equity": 81.85,
+     "regime": "情绪弱",
+     "sample": 4
+    },
+    {
+     "avg": 0.34,
+     "date": "2026-10-15",
+     "equity": 82.13,
+     "regime": "情绪弱",
+     "sample": 4
+    },
+    {
+     "avg": -3.08,
+     "date": "2026-10-16",
+     "equity": 79.6,
+     "regime": "情绪弱",
+     "sample": 5
+    }
+   ],
+   "desc": "前一天首板但 14:30 后才最终封板(含尾盘偷袭和全天反复炸板后回封)",
+   "final_equity": 79.6,
+   "name": "首板·尾盘封",
+   "overall": {
+    "avg": -1.35,
+    "best": 14.4,
+    "limit_up_rate": 0.05,
+    "median": -2.57,
+    "sample": 60,
+    "win_rate": 0.35,
+    "worst": -11.23
+   }
+  },
+  {
+   "by_regime": {
+    "情绪中": {
+     "avg": 4.81,
+     "best": 24.12,
+     "limit_up_rate": 0.294,
+     "median": 1.83,
+     "sample": 17,
+     "win_rate": 0.647,
+     "worst": -9.98
+    },
+    "情绪弱": {
+     "avg": 0.64,
+     "best": 10.05,
+     "limit_up_rate": 0.162,
+     "median": -0.06,
+     "sample": 37,
+     "win_rate": 0.486,
+     "worst": -9.98
+    },
+    "情绪强": {
+     "avg": 1.49,
+     "best": 20.06,
+     "limit_up_rate": 0.175,
+     "median": 0.87,
+     "sample": 40,
+     "win_rate": 0.55,
+     "worst": -10
+    },
+    "环境未覆盖": {
+     "avg": 2.75,
+     "best": 10.01,
+     "limit_up_rate": 0.182,
+     "median": 2.88,
+     "sample": 11,
+     "win_rate": 0.727,
+     "worst": -7.48
+    }
+   },
+   "daily": [
+    {
+     "avg": 2.75,
+     "date": "2026-09-21",
+     "equity": 102.75,
+     "regime": "环境未覆盖",
+     "sample": 11
+    },
+    {
+     "avg": 5.92,
+     "date": "2026-09-22",
+     "equity": 108.83,
+     "regime": "情绪强",
+     "sample": 13
+    },
+    {
+     "avg": -2.54,
+     "date": "2026-09-23",
+     "equity": 106.07,
+     "regime": "情绪强",
+     "sample": 4
+    },
+    {
+     "avg": 3.7,
+     "date": "2026-09-24",
+     "equity": 109.99,
+     "regime": "情绪弱",
+     "sample": 9
+    },
+    {
+     "avg": 3.58,
+     "date": "2026-09-28",
+     "equity": 113.93,
+     "regime": "情绪中",
+     "sample": 8
+    },
+    {
+     "avg": -0.25,
+     "date": "2026-09-29",
+     "equity": 113.65,
+     "regime": "情绪弱",
+     "sample": 3
+    },
+    {
+     "avg": -2.15,
+     "date": "2026-09-30",
+     "equity": 111.2,
+     "regime": "情绪强",
+     "sample": 12
+    },
+    {
+     "avg": -2.73,
+     "date": "2026-10-08",
+     "equity": 108.17,
+     "regime": "情绪强",
+     "sample": 6
+    },
+    {
+     "avg": 9.36,
+     "date": "2026-10-09",
+     "equity": 118.29,
+     "regime": "情绪中",
+     "sample": 7
+    },
+    {
+     "avg": 7.04,
+     "date": "2026-10-12",
+     "equity": 126.62,
+     "regime": "情绪强",
+     "sample": 5
+    },
+    {
+     "avg": -6.17,
+     "date": "2026-10-13",
+     "equity": 118.81,
+     "regime": "情绪中",
+     "sample": 2
+    },
+    {
+     "avg": 0.56,
+     "date": "2026-10-14",
+     "equity": 119.47,
+     "regime": "情绪弱",
+     "sample": 15
+    },
+    {
+     "avg": 3.62,
+     "date": "2026-10-15",
+     "equity": 123.8,
+     "regime": "情绪弱",
+     "sample": 3
+    },
+    {
+     "avg": -3.98,
+     "date": "2026-10-16",
+     "equity": 118.87,
+     "regime": "情绪弱",
+     "sample": 7
+    }
+   ],
+   "desc": "前一天首板且属于那批涨停股里家数最多的两个行业(行业 ≠ 题材)",
+   "final_equity": 118.87,
+   "name": "首板·涨停数前二行业",
+   "overall": {
+    "avg": 1.86,
+    "best": 24.12,
+    "limit_up_rate": 0.19,
+    "median": 1.45,
+    "sample": 105,
+    "win_rate": 0.562,
+    "worst": -10
+   }
+  },
+  {
+   "by_regime": {
+    "情绪中": {
+     "avg": 1.22,
+     "best": 10.06,
+     "limit_up_rate": 0.325,
+     "median": 0.84,
+     "sample": 40,
+     "win_rate": 0.55,
+     "worst": -10.01
+    },
+    "情绪弱": {
+     "avg": 0.16,
+     "best": 10.06,
+     "limit_up_rate": 0.373,
+     "median": -0.89,
+     "sample": 51,
+     "win_rate": 0.49,
+     "worst": -10.02
+    },
+    "情绪强": {
+     "avg": 2.56,
+     "best": 20.01,
+     "limit_up_rate": 0.418,
+     "median": 3.52,
+     "sample": 79,
+     "win_rate": 0.582,
+     "worst": -10.04
+    },
+    "环境未覆盖": {
+     "avg": 6.01,
+     "best": 10.03,
+     "limit_up_rate": 0.667,
+     "median": 9.96,
+     "sample": 12,
+     "win_rate": 0.75,
+     "worst": -6.69
+    }
+   },
+   "daily": [
+    {
+     "avg": 6.01,
+     "date": "2026-09-21",
+     "equity": 106.01,
+     "regime": "环境未覆盖",
+     "sample": 12
+    },
+    {
+     "avg": 2.26,
+     "date": "2026-09-22",
+     "equity": 108.41,
+     "regime": "情绪强",
+     "sample": 21
+    },
+    {
+     "avg": 1.42,
+     "date": "2026-09-23",
+     "equity": 109.95,
+     "regime": "情绪强",
+     "sample": 24
+    },
+    {
+     "avg": 1.4,
+     "date": "2026-09-24",
+     "equity": 111.48,
+     "regime": "情绪弱",
+     "sample": 12
+    },
+    {
+     "avg": -0.68,
+     "date": "2026-09-28",
+     "equity": 110.73,
+     "regime": "情绪中",
+     "sample": 13
+    },
+    {
+     "avg": 2.1,
+     "date": "2026-09-29",
+     "equity": 113.05,
+     "regime": "情绪弱",
+     "sample": 7
+    },
+    {
+     "avg": 4.25,
+     "date": "2026-09-30",
+     "equity": 117.86,
+     "regime": "情绪强",
+     "sample": 10
+    },
+    {
+     "avg": 5.09,
+     "date": "2026-10-08",
+     "equity": 123.86,
+     "regime": "情绪强",
+     "sample": 12
+    },
+    {
+     "avg": 3.89,
+     "date": "2026-10-09",
+     "equity": 128.67,
+     "regime": "情绪中",
+     "sample": 10
+    },
+    {
+     "avg": 1.43,
+     "date": "2026-10-12",
+     "equity": 130.51,
+     "regime": "情绪强",
+     "sample": 12
+    },
+    {
+     "avg": 1.1,
+     "date": "2026-10-13",
+     "equity": 131.95,
+     "regime": "情绪中",
+     "sample": 17
+    },
+    {
+     "avg": 0.82,
+     "date": "2026-10-14",
+     "equity": 133.03,
+     "regime": "情绪弱",
+     "sample": 10
+    },
+    {
+     "avg": -2.49,
+     "date": "2026-10-15",
+     "equity": 129.72,
+     "regime": "情绪弱",
+     "sample": 15
+    },
+    {
+     "avg": 0.87,
+     "date": "2026-10-16",
+     "equity": 130.85,
+     "regime": "情绪弱",
+     "sample": 7
+    }
+   ],
+   "desc": "前一天已经 2 板及以上的个股,持有到当天收盘",
+   "final_equity": 130.85,
+   "name": "连板接力",
+   "overall": {
+    "avg": 1.82,
+    "best": 20.01,
+    "limit_up_rate": 0.401,
+    "median": 2.09,
+    "sample": 182,
+    "win_rate": 0.56,
+    "worst": -10.04
+   }
+  },
+  {
+   "by_regime": {
+    "情绪中": {
+     "avg": 1.94,
+     "best": 10.04,
+     "limit_up_rate": 0.333,
+     "median": 2.16,
+     "sample": 15,
+     "win_rate": 0.6,
+     "worst": -10
+    },
+    "情绪弱": {
+     "avg": 1.67,
+     "best": 10.06,
+     "limit_up_rate": 0.481,
+     "median": 4.71,
+     "sample": 27,
+     "win_rate": 0.593,
+     "worst": -10.02
+    },
+    "情绪强": {
+     "avg": 4.27,
+     "best": 10.05,
+     "limit_up_rate": 0.464,
+     "median": 8.46,
+     "sample": 28,
+     "win_rate": 0.75,
+     "worst": -10.01
+    },
+    "环境未覆盖": {
+     "avg": 7.19,
+     "best": 10.03,
+     "limit_up_rate": 0.75,
+     "median": 10.01,
+     "sample": 4,
+     "win_rate": 0.75,
+     "worst": -1.3
+    }
+   },
+   "daily": [
+    {
+     "avg": 7.19,
+     "date": "2026-09-21",
+     "equity": 107.19,
+     "regime": "环境未覆盖",
+     "sample": 4
+    },
+    {
+     "avg": 2.7,
+     "date": "2026-09-22",
+     "equity": 110.08,
+     "regime": "情绪强",
+     "sample": 8
+    },
+    {
+     "avg": 2.93,
+     "date": "2026-09-23",
+     "equity": 113.31,
+     "regime": "情绪强",
+     "sample": 7
+    },
+    {
+     "avg": 0.69,
+     "date": "2026-09-24",
+     "equity": 114.09,
+     "regime": "情绪弱",
+     "sample": 9
+    },
+    {
+     "avg": -3.38,
+     "date": "2026-09-28",
+     "equity": 110.24,
+     "regime": "情绪中",
+     "sample": 5
+    },
+    {
+     "avg": 1.35,
+     "date": "2026-09-29",
+     "equity": 111.72,
+     "regime": "情绪弱",
+     "sample": 4
+    },
+    {
+     "avg": 3.33,
+     "date": "2026-09-30",
+     "equity": 115.44,
+     "regime": "情绪强",
+     "sample": 3
+    },
+    {
+     "avg": 5.67,
+     "date": "2026-10-08",
+     "equity": 121.99,
+     "regime": "情绪强",
+     "sample": 6
+    },
+    {
+     "avg": 7.19,
+     "date": "2026-10-09",
+     "equity": 130.76,
+     "regime": "情绪中",
+     "sample": 7
+    },
+    {
+     "avg": 8.38,
+     "date": "2026-10-12",
+     "equity": 141.72,
+     "regime": "情绪强",
+     "sample": 4
+    },
+    {
+     "avg": -1.46,
+     "date": "2026-10-13",
+     "equity": 139.65,
+     "regime": "情绪中",
+     "sample": 3
+    },
+    {
+     "avg": 3.57,
+     "date": "2026-10-14",
+     "equity": 144.63,
+     "regime": "情绪弱",
+     "sample": 5
+    },
+    {
+     "avg": 2.71,
+     "date": "2026-10-15",
+     "equity": 148.55,
+     "regime": "情绪弱",
+     "sample": 4
+    },
+    {
+     "avg": 0.94,
+     "date": "2026-10-16",
+     "equity": 149.95,
+     "regime": "情绪弱",
+     "sample": 5
+    }
+   ],
+   "desc": "前一天 3 板及以上的高位股,持有到当天收盘",
+   "final_equity": 149.95,
+   "name": "高标接力",
+   "overall": {
+    "avg": 3.01,
+    "best": 10.06,
+    "limit_up_rate": 0.459,
+    "median": 6.57,
+    "sample": 74,
+    "win_rate": 0.662,
+    "worst": -10.02
+   }
+  },
+  {
+   "by_regime": {
+    "情绪中": {
+     "avg": 0.59,
+     "best": 24.12,
+     "limit_up_rate": 0.207,
+     "median": -0.39,
+     "sample": 140,
+     "win_rate": 0.493,
+     "worst": -11.23
+    },
+    "情绪弱": {
+     "avg": 0.04,
+     "best": 20,
+     "limit_up_rate": 0.226,
+     "median": -1.62,
+     "sample": 226,
+     "win_rate": 0.438,
+     "worst": -10.02
+    },
+    "情绪强": {
+     "avg": 1.29,
+     "best": 20.06,
+     "limit_up_rate": 0.222,
+     "median": 0.33,
+     "sample": 342,
+     "win_rate": 0.515,
+     "worst": -12.7
+    },
+    "环境未覆盖": {
+     "avg": 3.23,
+     "best": 10.34,
+     "limit_up_rate": 0.282,
+     "median": 1.65,
+     "sample": 78,
+     "win_rate": 0.679,
+     "worst": -7.48
+    }
+   },
+   "daily": [
+    {
+     "avg": 3.23,
+     "date": "2026-09-21",
+     "equity": 103.23,
+     "regime": "环境未覆盖",
+     "sample": 78
+    },
+    {
+     "avg": 2.6,
+     "date": "2026-09-22",
+     "equity": 105.91,
+     "regime": "情绪强",
+     "sample": 102
+    },
+    {
+     "avg": -0.37,
+     "date": "2026-09-23",
+     "equity": 105.52,
+     "regime": "情绪强",
+     "sample": 63
+    },
+    {
+     "avg": 0.55,
+     "date": "2026-09-24",
+     "equity": 106.1,
+     "regime": "情绪弱",
+     "sample": 51
+    },
+    {
+     "avg": -1.95,
+     "date": "2026-09-28",
+     "equity": 104.03,
+     "regime": "情绪中",
+     "sample": 52
+    },
+    {
+     "avg": 2.64,
+     "date": "2026-09-29",
+     "equity": 106.78,
+     "regime": "情绪弱",
+     "sample": 33
+    },
+    {
+     "avg": 1.24,
+     "date": "2026-09-30",
+     "equity": 108.1,
+     "regime": "情绪强",
+     "sample": 57
+    },
+    {
+     "avg": 0.1,
+     "date": "2026-10-08",
+     "equity": 108.21,
+     "regime": "情绪强",
+     "sample": 51
+    },
+    {
+     "avg": 3.11,
+     "date": "2026-10-09",
+     "equity": 111.58,
+     "regime": "情绪中",
+     "sample": 43
+    },
+    {
+     "avg": 1.81,
+     "date": "2026-10-12",
+     "equity": 113.6,
+     "regime": "情绪强",
+     "sample": 69
+    },
+    {
+     "avg": 1.13,
+     "date": "2026-10-13",
+     "equity": 114.88,
+     "regime": "情绪中",
+     "sample": 45
+    },
+    {
+     "avg": 0.28,
+     "date": "2026-10-14",
+     "equity": 115.2,
+     "regime": "情绪弱",
+     "sample": 69
+    },
+    {
+     "avg": -2.13,
+     "date": "2026-10-15",
+     "equity": 112.75,
+     "regime": "情绪弱",
+     "sample": 36
+    },
+    {
+     "avg": -1.32,
+     "date": "2026-10-16",
+     "equity": 111.26,
+     "regime": "情绪弱",
+     "sample": 37
+    }
+   ],
+   "desc": "前一天涨停的全部个股(基准线,对照其它打法有没有多赚)",
+   "final_equity": 111.26,
+   "name": "全体涨停",
+   "overall": {
+    "avg": 1,
+    "best": 24.12,
+    "limit_up_rate": 0.226,
+    "median": 0.17,
+    "sample": 786,
+    "win_rate": 0.505,
+    "worst": -12.7
+   }
+  }
+ ],
+ "unsettled_days": []
+}

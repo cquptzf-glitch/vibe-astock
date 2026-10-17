@@ -429,7 +429,7 @@ fn is_limit_down(row: &Row, day: &str) -> bool {
     row.ret.is_some_and(|ret| ret <= -(limit_pct(&row.code, &row.name, day) - 0.3))
 }
 
-fn is_limit_up(row: &Row, day: &str) -> Option<bool> {
+pub(crate) fn is_limit_up(row: &Row, day: &str) -> Option<bool> {
     if let (Some(close), Some(limit)) = (row.close, row.limit_price) {
         if limit > 0.0 {
             return Some((close * 100.0).round() == (limit * 100.0).round());

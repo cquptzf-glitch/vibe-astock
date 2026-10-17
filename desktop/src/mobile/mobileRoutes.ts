@@ -7,6 +7,7 @@ export const MOBILE_PATHS = {
   firstBoard: "/mobile/review/first-board",
   seal: "/mobile/review/seal",
   themes: "/mobile/review/themes",
+  samples: "/mobile/review/samples",
   weekly: "/mobile/review/weekly",
   history: "/mobile/review/history",
   verify: "/mobile/review/verify",

@@ -245,7 +245,7 @@ fn cache_store(db: &Path, records: &[&DayRecord]) -> Result<()> {
     Ok(())
 }
 
-fn retention_floor(now: ChinaNow) -> String {
+pub(crate) fn retention_floor(now: ChinaNow) -> String {
     (now.0 - ChronoDuration::days(SOURCE_RETENTION_DAYS)).format("%Y-%m-%d").to_string()
 }
 

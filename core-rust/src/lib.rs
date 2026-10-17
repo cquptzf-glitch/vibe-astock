@@ -27,6 +27,7 @@ mod quote;
 mod reminders;
 mod research;
 mod rotation;
+mod samples;
 mod schema;
 mod search;
 mod shortline;
@@ -347,6 +348,7 @@ impl AppCore {
             ("GET", "/mobile/shortline/cycle") => Ok(discovery_response(emotion::cycle(&self.client, &request.path).await)),
             ("GET", "/mobile/shortline/history") => Ok(discovery_response(emotion_history::history(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/shortline/weekly") => Ok(discovery_response(emotion_history::weekly(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/shortline/samples") => Ok(discovery_response(samples::fetch(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::verify(&self.client, &self.db_path, &request.path).await)),
             ("POST", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::save_verify(&self.client, &self.db_path, &request.body).await)),
             ("GET", "/mobile/news/catalog") => Ok(MobileApiResponse::ok(news::catalog()?)),
@@ -451,6 +453,10 @@ mod discovery_contract_tests {
             "/mobile/watch/alerts?date=2999-01-01",
             "/mobile/intraday?date=2999-01-01",
             "/mobile/intraday?date=bad",
+            "/mobile/shortline/samples?days=9",
+            "/mobile/shortline/samples?days=91",
+            "/mobile/shortline/samples?date=2026-02-30",
+            "/mobile/shortline/samples?refresh=2",
         ] {
             let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
             assert_eq!(response.status,400,"{path}: {}",response.body);

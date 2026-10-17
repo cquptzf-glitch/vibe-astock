@@ -141,3 +141,35 @@
 .intra-points em { padding:0 5px; border-radius:4px; background: var(--mobile-soft); color: var(--mobile-muted); font-style:normal; font-size:10px; font-weight:700; }
 .intra-points em.yes { background: color-mix(in srgb, var(--mobile-accent) 15%, transparent); color: var(--mobile-accent); }
 .intra-slots + .watch-card, .watch-live > .watch-hint { margin-top:0; }
+
+/* 涨停样本 */
+.smp-caveat { display:flex; align-items:flex-start; gap:7px; margin:8px 0; padding:9px 11px; border:1px solid color-mix(in srgb, var(--mobile-warning) 40%, transparent); border-radius:10px; background: color-mix(in srgb, var(--mobile-warning) 9%, transparent); color: var(--mobile-warning); font-size:12px; line-height:1.6; }
+.smp-caveat svg { flex:0 0 auto; margin-top:3px; }
+.smp-heading { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px; margin:6px 0 0; font-size:15px; }
+.smp-heading svg { align-self:center; } .smp-heading small { color: var(--mobile-muted); font-size:11px; font-weight:400; }
+.smp-title { display:flex; flex-wrap:wrap; align-items:center; gap:6px; } .smp-title h3 { margin:0; font-size:14px; }
+.smp-chip { padding:1px 7px; border-radius:5px; background: var(--mobile-soft); color: var(--mobile-muted); font-style:normal; font-size:10px; font-weight:700; }
+.smp-chip.up { color: var(--mobile-up); background: color-mix(in srgb, var(--mobile-up) 14%, transparent); }
+.smp-chip.down { color: var(--mobile-down); background: color-mix(in srgb, var(--mobile-down) 14%, transparent); }
+.smp-chip.warn { color: var(--mobile-warning); background: color-mix(in srgb, var(--mobile-warning) 14%, transparent); }
+.smp-base { border-style:dashed; }
+.smp-big { grid-template-columns:repeat(3,minmax(0,1fr)); } .smp-big strong { font-size:18px; }
+.smp-line { display:flex; flex-wrap:wrap; gap:4px 12px; margin:8px 0 0; padding-top:7px; border-top:1px dashed var(--mobile-border); color: var(--mobile-muted); font-size:11px; }
+.smp-line b { color: var(--mobile-text); font-variant-numeric:tabular-nums; } .smp-line b.up { color: var(--mobile-up); } .smp-line b.down { color: var(--mobile-down); }
+.smp-sub { margin:8px 0 3px; color: var(--mobile-accent); font-size:11px; }
+.smp-regime { display:flex; align-items:center; gap:8px; font-size:12px; font-variant-numeric:tabular-nums; color: var(--mobile-muted); }
+.smp-regime > span:first-child { width:70px; flex:0 0 auto; } .smp-regime b { width:58px; text-align:right; }
+.smp-regime b.up { color: var(--mobile-up); } .smp-regime b.down { color: var(--mobile-down); }
+.smp-days { display:flex; align-items:stretch; gap:1px; height:40px; margin-top:8px; padding-top:6px; border-top:1px dashed var(--mobile-border); }
+.smp-days > div { flex:1 1 0; display:flex; flex-direction:column; min-width:0; }
+.smp-days .top, .smp-days .bot { flex:1 1 0; display:flex; } .smp-days .top { align-items:flex-end; } .smp-days .bot { align-items:flex-start; }
+.smp-days i { display:block; width:100%; } .smp-days i.pos { background: color-mix(in srgb, var(--mobile-up) 70%, transparent); } .smp-days i.neg { background: color-mix(in srgb, var(--mobile-down) 70%, transparent); }
+.smp-curve { display:flex; flex-direction:column; gap:8px; }
+.smp-curve-row { display:grid; grid-template-columns:78px minmax(0,1fr) 58px; align-items:center; gap:2px 8px; font-size:12px; font-variant-numeric:tabular-nums; }
+.smp-bucket { color: var(--mobile-muted); }
+.smp-curve-row b { text-align:right; } .smp-curve-row b.up { color: var(--mobile-up); } .smp-curve-row b.down { color: var(--mobile-down); }
+.smp-curve-row small { grid-column:2 / 4; color: var(--mobile-muted); font-size:10px; }
+.smp-axis { display:flex; align-items:center; height:14px; } .smp-axis .neg, .smp-axis .pos { display:flex; flex:1 1 0; height:100%; }
+.smp-axis .neg { justify-content:flex-end; } .smp-axis .mid { width:1px; height:100%; background: var(--mobile-border); }
+.smp-axis i { display:block; height:100%; } .smp-axis .neg i { background: color-mix(in srgb, var(--mobile-down) 70%, transparent); border-radius:4px 0 0 4px; }
+.smp-axis .pos i { background: color-mix(in srgb, var(--mobile-up) 70%, transparent); border-radius:0 4px 4px 0; }

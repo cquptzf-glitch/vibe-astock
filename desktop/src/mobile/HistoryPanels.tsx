@@ -61,7 +61,7 @@ function Gaps({ gaps }: { gaps: string[] }) {
   return gaps.length ? <div className="discovery-notice">{gaps.join("；")}</div> : null;
 }
 
-function ReviewDateBar({ title, detail, loading, error, onRefresh, shownDate }: { title: string; detail: string; loading: boolean; error: string; onRefresh: () => void; shownDate?: string }) {
+export function ReviewDateBar({ title, detail, loading, error, onRefresh, shownDate }: { title: string; detail: string; loading: boolean; error: string; onRefresh: () => void; shownDate?: string }) {
   const [date, setDate] = useEmotionDate();
   const today = chinaToday();
   return <div className="emo-header">
