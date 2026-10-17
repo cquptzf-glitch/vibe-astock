@@ -467,3 +467,20 @@
     grid-column: 1 / -1;
   }
 }
+.candidate-groups { display:flex; gap:6px; overflow-x:auto; margin:8px 0; padding-bottom:2px; }
+.candidate-groups button { flex:none; padding:5px 10px; border:1px solid var(--mobile-border); border-radius:999px; background:var(--mobile-soft); color:inherit; font-size:11px; }
+.candidate-groups button.active { background:var(--mobile-accent,#f97316); border-color:transparent; color:#fff; }
+.candidate-mode { display:flex; gap:6px; margin:6px 0 8px; }
+.candidate-mode button { flex:1; padding:6px 0; border:1px solid var(--mobile-border); border-radius:10px; background:var(--mobile-soft); color:inherit; font-size:11px; }
+.candidate-mode button.active { border-color:var(--mobile-accent,#f97316); color:var(--mobile-accent,#f97316); font-weight:700; }
+.candidate-presets { margin-top:9px; display:grid; gap:7px; }
+.candidate-preset-list { display:flex; flex-wrap:wrap; gap:6px; }
+.candidate-preset-list span { display:inline-flex; border:1px solid var(--mobile-border); border-radius:999px; overflow:hidden; background:var(--mobile-soft); }
+.candidate-preset-list button { padding:4px 8px; border:0; background:none; color:inherit; font-size:11px; }
+.candidate-preset-save { display:flex; gap:6px; }
+.candidate-preset-save input { flex:1; min-width:0; border:1px solid var(--mobile-border); border-radius:10px; background:var(--mobile-card,var(--mobile-soft)); color:inherit; padding:7px 9px; font-size:12px; }
+.candidate-preset-save button { display:inline-flex; align-items:center; gap:4px; padding:0 10px; border:1px solid var(--mobile-border); border-radius:10px; background:var(--mobile-soft); color:inherit; font-size:11px; }
+.candidate-message { margin:6px 0 0; color:var(--mobile-muted); font-size:10px; }
+.candidate-sort { display:flex; align-items:center; gap:8px; margin:10px 0 4px; }
+.candidate-sort > button { display:inline-flex; align-items:center; gap:4px; padding:6px 10px; border:1px solid var(--mobile-border); border-radius:10px; background:var(--mobile-soft); color:inherit; font-size:11px; }
+.candidate-sort small { color:var(--mobile-muted); font-size:10px; }

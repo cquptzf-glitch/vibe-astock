@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { WebSelect, DateField } from "./controls";
-import { CalendarDays, Plus, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
+import { CalendarDays, Plus, RefreshCw, RotateCcw, Save, Sparkles, Trash2 } from "lucide-react";
+import { historyContext, useRegisterAiPage, weeklyContext } from "./aiPageContext";
 import { fmtPercent } from "./discoveryData";
 import { chinaToday, clearEmotionCache, fmtRate, useCachedResource, useEmotionDate } from "./emotionData";
 import "./emotion.css";
@@ -124,14 +125,17 @@ export function HistoryView({ data }: { data: HistoryData }) {
   </div>;
 }
 
-export function HistoryPanel() {
+export function HistoryPanel({ onAskAi }: { onAskAi?: (question: string) => void }) {
   const [date] = useEmotionDate();
   const [days, setDays] = useState(30);
   const result = useCachedResource<HistoryData>(`/mobile/shortline/history?days=${days}${date ? "&date=" + date : ""}`);
+  const aiText = useMemo(() => (result.data ? historyContext(result.data) : null), [result.data]);
+  useRegisterAiPage("情绪历史", aiText);
   return <section className="mobile-section emo-page">
     <ReviewDateBar title="情绪历史" detail="六项读数在近 N 个交易日里的位置与变化" loading={result.loading} error={result.error} onRefresh={result.refresh} shownDate={result.data?.date} />
     <div className="mobile-stock-tabs" role="tablist" aria-label="统计窗口">{[10, 20, 30, 60].map((n) =>
       <button key={n} type="button" role="tab" aria-selected={days === n} className={days === n ? "active" : ""} onClick={() => setDays(n)}>{n} 天</button>)}</div>
+    {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页的读数,说说各项情绪读数在窗口内处于什么位置、和前一日比有什么变化;样本不足或没有分位的要指出来。只描述已发生的现象,不要给买卖建议。")}><Sparkles size={13} />问 AI:解读这些读数的位置</button>}
     {result.data && <HistoryView data={result.data} />}
   </section>;
 }
@@ -185,11 +189,14 @@ export function WeeklyView({ data, onOpenSymbol }: { data: WeeklyData; onOpenSym
   </div>;
 }
 
-export function WeeklyPanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
+export function WeeklyPanel({ onOpenSymbol, onAskAi }: { onOpenSymbol: Open; onAskAi?: (question: string) => void }) {
   const [date] = useEmotionDate();
   const result = useCachedResource<WeeklyData>("/mobile/shortline/weekly" + (date ? "?date=" + date : ""));
+  const aiText = useMemo(() => (result.data ? weeklyContext(result.data) : null), [result.data]);
+  useRegisterAiPage("近 5 天", aiText);
   return <section className="mobile-section emo-page">
     <ReviewDateBar title="近 5 天" detail="热度、行业轮动与龙头谱系" loading={result.loading} error={result.error} onRefresh={result.refresh} shownDate={result.data?.date} />
+    {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页近 5 个交易日的读数写一份市场周报:先写这周情绪的走势(涨停、最高板、炸板率、赚钱效应),再写行业轮动和龙头谱系的变化,最后列出数据缺口。只描述已发生的现象,不要给买卖建议,也不要提到我的个人交易。")}><Sparkles size={13} />问 AI:生成市场周报</button>}
     {result.data && <WeeklyView data={result.data} onOpenSymbol={onOpenSymbol} />}
   </section>;
 }

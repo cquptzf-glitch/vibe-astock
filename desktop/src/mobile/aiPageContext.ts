@@ -7,6 +7,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import type { EmotionData, EmotionStock } from "./emotionData";
+import type { HistoryData, WeeklyData } from "./HistoryPanels";
 import type { MobilePage } from "./mobileRoutes";
 
 export interface AiPageContext { title: string; text: string; at: number }
@@ -103,5 +104,82 @@ export function firstBoardContext(d: EmotionData, reasons?: Record<string, strin
   ];
   if (fb.stocks.length > shown.length) lines.push(`…另有 ${fb.stocks.length - shown.length} 只未列出。`);
   if (!reasons || Object.keys(reasons).length === 0) lines.push("涨停原因这次没取到或没有覆盖,不要凭印象补原因。");
+  return lines.join("\n");
+}
+
+/** 连板天梯页:最高板在前逐层一行;股票总数最多列 40 只 */
+export function ladderContext(d: EmotionData): string | null {
+  const l = d.ladder;
+  if (!l.available) return null;
+  const lines = [`复盘日 ${d.date}。全部涨停 ${l.total_limit_up} 只,最高 ${l.highest} 板,连板 ${l.consec_count} 只${l.prev_available ? "" : "(前一交易日数据没取到,晋级率不可用)"}。`];
+  let left = 40;
+  const levels = [...l.levels].sort((a, b) => b.boards - a.boards);
+  for (const level of levels) {
+    const shown = level.stocks.slice(0, Math.max(0, left));
+    left -= shown.length;
+    const rateText = level.rate == null ? "晋级率不可用" : `晋级 ${level.promoted ?? "—"}/${level.base ?? "—"}(${rate(level.rate)})`;
+    lines.push(`${level.boards === 1 ? "首板" : `${level.boards}板`} ${level.stocks.length} 只,${rateText}:` + (shown.length ? shown.map((s) => `${s.name} ${s.code} | ${s.sector || "—"} | 首封 ${s.first_seal ? s.first_seal.slice(0, 5) : "—"} | 炸板 ${s.broken_times}`).join(";") : "(未列出)"));
+    if (shown.length < level.stocks.length) lines.push(`…该层另有 ${level.stocks.length - shown.length} 只未列出。`);
+  }
+  return lines.join("\n");
+}
+
+/** 题材页:题材逐个一行,最多 20 个 */
+export function themesContext(d: EmotionData): string | null {
+  const t = d.themes;
+  if (!t.available) return null;
+  const shown = t.themes.slice(0, 20);
+  const lines = [`复盘日 ${d.date}。涨停分布在 ${t.theme_count} 个行业,集中度 ${rate(t.concentration)}(按东财所属行业归类)。`];
+  for (const th of shown) {
+    const cont = th.continuation_rate == null ? "" : `,昨日涨停延续 ${rate(th.continuation_rate)}`;
+    lines.push(`${th.sector}:涨停 ${th.limit_up}(首板 ${th.first_boards}、连板 ${th.consec_boards}),最高 ${th.highest} 板,炸板 ${th.broken}${cont}`);
+  }
+  if (t.themes.length > shown.length) lines.push(`…另有 ${t.themes.length - shown.length} 个行业未列出。`);
+  return lines.join("\n");
+}
+
+const fmtMetric = (value: number | null | undefined, kind: "count" | "rate" | "pct", unit: string) =>
+  value == null || !Number.isFinite(value) ? "—" : kind === "rate" ? rate(value) : kind === "pct" ? pct(value) : `${Number.isInteger(value) ? value : value.toFixed(1)}${unit ? ` ${unit}` : ""}`;
+
+/** 近 5 天页:逐日读数 + 行业轮动 + 龙头谱系(都是公开行情读数;本页不含也不会带上「我的交易」) */
+export function weeklyContext(d: WeeklyData): string | null {
+  if (!d.days.length) return null;
+  const lines = [`截至 ${d.date},近 ${d.days.length} 个交易日(从早到晚):`];
+  for (const day of d.days) {
+    const leaders = day.leaders.slice(0, 3).map((l) => `${l.name}${l.boards}板`).join("、");
+    lines.push(`${day.date}${day.settled === false ? "(未收盘)" : ""} | 涨停 ${day.limit_up ?? "—"} | 最高 ${day.highest_board ?? "—"} 板 | 炸板率 ${rate(day.broken_rate)} | 昨日涨停今日均涨跌 ${pct(day.money_effect)} | 1进2晋级率 ${rate(day.promotion_1to2)} | 龙头 ${leaders || "—"}${day.status !== "ok" && day.note ? ` | 说明:${day.note}` : ""}`);
+  }
+  const themes = d.rotation.themes.slice(0, 8);
+  if (themes.length) {
+    lines.push("行业轮动(按东财行业):");
+    for (const t of themes) lines.push(`${t.sector}:今日涨停 ${t.today},近期活跃 ${t.active_days} 天,进前三 ${t.top3_days} 天,连续 ${t.streak} 天${t.streak_partial ? "(窗口内数据不全)" : ""}`);
+  }
+  const lineage = d.lineage.slice(0, 8);
+  if (lineage.length) {
+    lines.push("龙头谱系(窗口内出现过的高板):");
+    for (const l of lineage) lines.push(`${l.name} ${l.code} | ${l.sector || "—"} | ${l.appear_date} 时 ${l.boards_then} 板${l.is_current_top ? "(现在仍是最高)" : ""} | 之后累计 ${pct(l.cum_return_since)}`);
+  }
+  if (d.gaps.length) lines.push(`数据缺口:${d.gaps.join(";")}。`);
+  lines.push("口径:只描述已经发生的盘面现象。");
+  return lines.join("\n");
+}
+
+/** 情绪历史页:各项读数在窗口内的位置(分位)与相对前一日的变化;样本不足的原样写 */
+export function historyContext(d: HistoryData): string | null {
+  if (!d.series.length) return null;
+  const lines = [`截至 ${d.date},统计窗口 ${d.days} 天,实际有数据 ${d.series.filter((x) => x.status !== "missing").length} 天。`];
+  if (d.context.available) {
+    lines.push(`读数位置(样本 ${d.context.sample_days} 天,至少需要 ${d.context.min_samples} 天才给分位):`);
+    for (const it of d.context.items) lines.push(`${it.label}:${fmtMetric(it.value, it.kind, it.unit)},分位 ${it.percentile == null ? "—" : `${Math.round(it.percentile * 100)}%`}${it.extreme ? `(${it.extreme})` : ""},窗口内 ${fmtMetric(it.hist_min, it.kind, it.unit)} ~ ${fmtMetric(it.hist_max, it.kind, it.unit)},中位 ${fmtMetric(it.hist_median, it.kind, it.unit)}`);
+  } else {
+    lines.push(`读数位置:暂不可用(${d.context.reason})。`);
+  }
+  if (d.diff.available) {
+    lines.push(`相对 ${d.diff.prev_date} 的变化:` + (d.diff.changes.length ? d.diff.changes.map((c) => `${c.label} ${fmtMetric(c.prev, c.kind, "")}→${fmtMetric(c.cur, c.kind, "")}`).join(";") : "没有变化") + `(${d.diff.unchanged_count} 项持平)`);
+  } else {
+    lines.push(`相对前一日的变化:暂不可用(${d.diff.reason})。`);
+  }
+  if (d.gaps.length) lines.push(`数据缺口:${d.gaps.join(";")}。`);
+  lines.push("口径:只描述已经发生的盘面现象。");
   return lines.join("\n");
 }

@@ -1525,3 +1525,10 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - **回测涨跌停**:`simulate` 多一个 `limit_pct: Option<f64>`(`build_result` 按 `board_limit(code)` 逐只给),开盘价相对前一收盘的涨幅 ≥ 限幅 − 0.1% 就买不进,≤ −限幅 + 0.1% 就卖不出,信号留到下一根;请求 `limit_check`(默认 true)。结果里 `metrics.blocked_buys/blocked_sells`、`per_symbol` 同名字段。K 线是前复权,涨跌幅用复权价的比值近似。
 - **取数重试**:`discovery::get_bytes` = 全局 `Semaphore(8)` + 最多 2 次退避重试(只重试发送错误、读取错误、429、5xx);仍用 `error_for_status` 保留 `reqwest::Error`,`failure()` 才能继续写出「数据源返回 HTTP xxx」;多次失败后用 `context` 加「已重试 N 次仍失败」(anyhow 的 downcast 能穿过 context)。`core-rust/Cargo.toml` 新增直接依赖 `tokio`(time、sync;已在锁文件里)。测试在 `discovery::retry_tests`(本地 TcpListener 模拟 503/502/200、404、连续 500)。**其他自己直接 `client.get` 的地方(不经 `get_bytes`)没有重试**。
 - **路由分包**:`MobileApp.tsx` 里 `lazyPanel(() => import("./X"), "X")` 包住首页之外的页面(包括 Journal*、Portfolio、Backtest、Settings、AI、Library 等),`Suspense` 在 `<main>` 里;首页的情绪速览、盯盘、个股、行情、消息仍是静态导入。注意:新增页面要么静态导入要么用 `lazyPanel`,具名导出的类型由 `M[K]` 推出。冒烟(Edge)全绿,说明 Playwright 的等待足够覆盖懒加载。
+
+### 候选池、更多页面问 AI、连板天梯分享图(0.1.33)
+
+- **候选池**:判断和排序拆到 `desktop/src/mobile/candidateView.ts`(纯函数,`evaluate` / `sortCandidates` / `parsePresets` / `upsertPreset`),`CandidatePanel` 只负责取行情和画界面。以前条件在取行情时就判完了,现在行情只取一次、条件变化走 `useMemo`。语义:满足全部=有一项不符合就不符合,否则缺数据=待补数据;满足任一=有一项符合就符合,否则缺数据=待补数据;没启用条件=全部符合。组合存 `localStorage["vibe.candidate.presets"]`(读回时坏的整条丢掉,最多 10 条,满了拒绝而不是挤掉旧的)。自选池的分组来自 `/mobile/watchlist` 每项的 `group`;持仓池(读 `/mobile/journal/review`)只在本机,不进 AI。
+- **问 AI 扩展**:`aiPageContext.ts` 新增 `ladderContext` / `themesContext` / `weeklyContext` / `historyContext`(类型从 `HistoryPanels` 做 type-only 导入,避免循环依赖)。周报上下文只取 `/mobile/shortline/weekly` 的公开读数;测试里断言文字不含「我的交易」「持仓」。
+- **分享卡**:`ShareCard.tsx` 抽出 `drawRowsCard(title, subtitle, rows, dark)`(值太长时 36px 逐步缩到 20px),`renderCard`(情绪)、`renderLadderCard` 是它的包装;`ShareCardBox` 是通用的预览/分享区块,`EmotionShareCard` / `LadderShareCard` 只是传不同参数。冒烟依赖的「生成 … 的分享图」按钮名和预览 alt 格式没变。
+- **关于用 Haiku 子代理做迁移**:试过一次,`Agent` 工具传 `model: "haiku"` 在本环境被映射到不存在的模型(`step-5-preview`,HTTP 404 model_not_found),任务启动即失败、没有改动任何文件,所以**没有创建项目子代理**,这轮和之前一样由主会话直接实现。以后换了可用的小模型再评估;当时的评估:机械的、规格明确且有测试把关的页面迁移可以下放,数据口径、红线(个人数据不进 AI)、跨层设计和排查不要下放。

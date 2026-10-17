@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { WebSelect, DateField } from "./controls";
 import { CalendarDays, ChevronRight, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
-import { emotionContext, firstBoardContext, useRegisterAiPage } from "./aiPageContext";
+import { emotionContext, firstBoardContext, ladderContext, themesContext, useRegisterAiPage } from "./aiPageContext";
 import { fmtPercent, fmtYuan } from "./discoveryData";
 import {
   chinaToday, emotionPath, fmtRate, useCachedResource, useEmotion,
@@ -9,7 +9,7 @@ import {
 } from "./emotionData";
 import type { MobilePage } from "./mobileRoutes";
 import { PrevBrokenCard } from "./PrevBroken";
-import { EmotionShareCard } from "./ShareCard";
+import { EmotionShareCard, LadderShareCard } from "./ShareCard";
 import { ThemeTreeCard, useThemeTree } from "./ThemeTree";
 import "./emotion.css";
 
@@ -242,13 +242,17 @@ export function LadderView({ data, onOpenSymbol, showFirst = false }: { data: Em
   </div>;
 }
 
-export function LadderPanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
+export function LadderPanel({ onOpenSymbol, onAskAi }: { onOpenSymbol: Open; onAskAi?: (question: string) => void }) {
   const state = useEmotionPage();
   const [showFirst, setShowFirst] = useState(false);
+  const aiText = useMemo(() => (state.data ? ladderContext(state.data) : null), [state.data]);
+  useRegisterAiPage("连板天梯", aiText);
   return <section className="mobile-section emo-page">
     <EmotionHeader title="连板天梯" detail="每层晋级、没接上的票与反包标记" state={state} />
+    {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页的连板天梯,说说各层的晋级情况、断档和没接上的票;只描述已发生的现象,不要给买卖建议。")}><Sparkles size={13} />问 AI:解读这条连板梯队</button>}
     <label className="discovery-check"><input type="checkbox" checked={showFirst} onChange={(e) => setShowFirst(e.target.checked)} />同时显示首板层</label>
     {state.data && <LadderView data={state.data} onOpenSymbol={onOpenSymbol} showFirst={showFirst} />}
+    {state.data && state.data.ladder.available && <LadderShareCard data={state.data} />}
   </section>;
 }
 
@@ -467,10 +471,13 @@ export function ThemesView({ data, onOpenSymbol }: { data: EmotionData; onOpenSy
   </div>;
 }
 
-export function ThemesPanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
+export function ThemesPanel({ onOpenSymbol, onAskAi }: { onOpenSymbol: Open; onAskAi?: (question: string) => void }) {
   const state = useEmotionPage();
+  const aiText = useMemo(() => (state.data ? themesContext(state.data) : null), [state.data]);
+  useRegisterAiPage("行业题材", aiText);
   return <section className="mobile-section emo-page">
     <EmotionHeader title="行业题材" detail="题材事件树、行业梯队、跨日延续、发酵节奏与关键事件" state={state} />
+    {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页的行业分布,梳理今天涨停集中在哪些行业、哪些有跨日延续;只描述已发生的现象,不要给买卖建议。")}><Sparkles size={13} />问 AI:梳理今天的题材</button>}
     {state.data && <ThemeTreeCard date={state.data.date} onOpenSymbol={onOpenSymbol} />}
     {state.data && <ThemesView data={state.data} onOpenSymbol={onOpenSymbol} />}
   </section>;

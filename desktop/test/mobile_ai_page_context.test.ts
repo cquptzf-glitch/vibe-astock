@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { withRenderer } from "./helpers/render.ts";
 
+const historyFixture = JSON.parse(readFileSync(new URL("./fixtures/mobile-history-2026-10-16.json", import.meta.url), "utf8"));
 const emotion = JSON.parse(readFileSync(new URL("./fixtures/mobile-emotion-2026-10-16.json", import.meta.url), "utf8")).emotion;
 
 test("今日情绪页文字:只写页面上有的读数,取不到的写原因", async () => {
@@ -31,6 +32,45 @@ test("首板名单页文字:逐只一行、带涨停原因;超过 40 只写明;�
     assert.ok(!text.includes("不要凭印象补原因"), "有原因覆盖时不加这句");
     assert.ok(firstBoardContext(d, {}).includes("不要凭印象补原因"), "没有原因覆盖时叮嘱不要编");
     assert.ok(firstBoardContext(d).includes("不要凭印象补原因"));
+  });
+});
+
+test("连板天梯与题材页文字:不可用返回 null,正常带关键数字,超过上限写明未列出", async () => {
+  await withRenderer(async (r) => {
+    const { ladderContext, themesContext } = await r.load("/src/mobile/aiPageContext.ts");
+    assert.equal(ladderContext({ ...emotion, ladder: { available: false, reason: "x" } }), null);
+    assert.equal(themesContext({ ...emotion, themes: { available: false, reason: "x" } }), null);
+    const ladder = ladderContext(emotion);
+    assert.ok(ladder.includes(emotion.date) && ladder.includes("最高") && ladder.includes("板"), ladder);
+    const mk = (i: number) => ({ code: String(600000 + i), name: "股" + i, board: "10cm", boards: 3, label: "", rebound: false, ret: 10, close: 10, amount: 1, float_cap: 1, turnover: 1, seal_fund: 1, first_seal: "09:30:00", last_seal: "09:30:00", broken_times: 1, sector: "机器人" });
+    const many = { ...emotion, ladder: { available: true, total_limit_up: 80, highest: 3, consec_count: 50, prev_available: false, prev_note: "", levels: [{ boards: 3, stocks: Array.from({ length: 50 }, (_, i) => mk(i)), fell: [], base: null, promoted: null, rate: null }] } };
+    const text = ladderContext(many);
+    assert.ok(text.includes("该层另有 10 只未列出") && text.includes("晋级率不可用") && text.includes("前一交易日数据没取到"), text);
+    const th = themesContext(emotion);
+    assert.ok(th.includes("集中度") && th.includes("涨停"), th);
+    const row = (i: number) => ({ sector: "行业" + i, limit_up: 3, first_boards: 2, consec_boards: 1, highest: 2, broken: 0, broken_rate: null, first_seal: null, last_seal: null, prev_limit_up: null, continued: null, continuation_rate: null, names: [] });
+    const manyThemes = themesContext({ ...emotion, themes: { available: true, themes: Array.from({ length: 25 }, (_, i) => row(i)), theme_count: 25, concentration: null, timeline: [], faded: [], prev_available: false } });
+    assert.ok(manyThemes.includes("另有 5 个行业未列出") && manyThemes.includes("集中度 —"), manyThemes);
+  });
+});
+
+test("近 5 天与情绪历史页文字:逐日一行、取不到写 —、缺口和不可用原样写;不含「我的交易」", async () => {
+  await withRenderer(async (r) => {
+    const { weeklyContext, historyContext } = await r.load("/src/mobile/aiPageContext.ts");
+    const weekly = weeklyContext(historyFixture.weekly);
+    assert.ok(weekly.includes("近 " + historyFixture.weekly.days.length + " 个交易日") && weekly.includes("涨停") && weekly.includes("行业轮动"), weekly);
+    assert.ok(!weekly.includes("我的交易") && !weekly.includes("持仓"), "个人交易不进上下文");
+    assert.equal(weeklyContext({ ...historyFixture.weekly, days: [] }), null);
+    const gappy = structuredClone(historyFixture.weekly);
+    gappy.days[0].limit_up = null;
+    gappy.gaps = ["10-13 没取到"];
+    const g = weeklyContext(gappy);
+    assert.ok(g.includes("涨停 —") && g.includes("数据缺口:10-13 没取到"), g);
+    const hist = historyContext(historyFixture.history);
+    assert.ok(hist.includes("统计窗口") && hist.includes("分位"), hist);
+    const noCtx = historyContext({ ...historyFixture.history, context: { available: false, reason: "样本不足" }, diff: { available: false, reason: "没有前一日" } });
+    assert.ok(noCtx.includes("读数位置:暂不可用(样本不足)") && noCtx.includes("相对前一日的变化:暂不可用(没有前一日)"), noCtx);
+    assert.equal(historyContext({ ...historyFixture.history, series: [] }), null);
   });
 });
 

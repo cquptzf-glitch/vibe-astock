@@ -42,6 +42,28 @@ test("分享卡片区块默认只给「生成」按钮;没有 canvas 的环境�
   });
 });
 
+test("连板天梯分享卡:只取 2 板以上的层、高板在前、最多 6 层;数据不可用时没有行也画不出图;不含个人数据", async () => {
+  await withRenderer(async (r) => {
+    const { ladderRows, renderLadderCard, LadderShareCard } = await r.load("/src/mobile/ShareCard.tsx");
+    const rows = ladderRows(emotion) as { label: string; value: string }[];
+    assert.ok(rows.length >= 2 && rows[0].label === "涨停 / 最高板", JSON.stringify(rows));
+    const boards = rows.slice(1).map((x) => Number(x.label.split(" ")[0]));
+    assert.deepEqual(boards, [...boards].sort((a, b) => b - a), "高板在前");
+    assert.ok(boards.every((b) => b >= 2) && boards.length <= 6);
+    const mk = (n: number, count: number) => ({ boards: n, stocks: Array.from({ length: count }, (_, i) => ({ name: "股" + n + "_" + i })), fell: [], base: null, promoted: null, rate: null });
+    const many = { ...emotion, ladder: { available: true, total_limit_up: 90, highest: 9, consec_count: 30, prev_available: true, prev_note: "", levels: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => mk(n, n === 9 ? 5 : 1)) } };
+    const r2 = ladderRows(many) as { label: string; value: string }[];
+    assert.equal(r2.length, 7, "汇总行 + 6 层(首板层不画)");
+    assert.equal(r2[1].label, "9 板 · 5 只");
+    assert.ok(r2[1].value.endsWith(" 等") && r2[1].value.split("、").length === 3, r2[1].value);
+    assert.deepEqual(ladderRows({ ...emotion, ladder: { available: false, reason: "x" } }), []);
+    assert.equal(renderLadderCard({ ...emotion, ladder: { available: false, reason: "x" } }), null);
+    assert.equal(renderLadderCard(emotion), null, "没有 canvas 的环境画不出图");
+    const text = flat(r.html(LadderShareCard, { data: emotion }));
+    assert.ok(text.includes(sq("图片分享卡")) && text.includes(sq(`生成 ${emotion.date} 的分享图`)));
+  });
+});
+
 test("分享成 .md 文件:标题、分类/股票/日期一行、正文;中文能转成 base64 并还原", async () => {
   await withRenderer(async (r) => {
     const { documentMarkdown } = await r.load("/src/mobile/LibraryPanel.tsx");
