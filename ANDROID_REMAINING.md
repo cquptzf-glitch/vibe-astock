@@ -1,6 +1,10 @@
 # Android 未完成功能清单
 
-当前版本：Android 0.1.30 预览版（本轮提交后由 Android CI 发布，CI 与 APK 结果以本段稍后补记为准，没补记就是还没核对）。0.1.30：**先进先出成本法**（设置里 `cost_method`，`journal_risk::settle` 按批次结转，买入费用跟着批次走；schema v12、备份 v10）与**自选批量按名称添加**（`splitAddTokens` / `pickByName`，名称不唯一不替用户猜）。本地通过：Rust 228 项 + 1 项 parity、前端 526 项（agent_error 缺 ajv）、前端构建通过。
+当前版本：Android 0.1.31 预览版（本轮提交后由 Android CI 发布，CI 与 APK 结果以本段稍后补记为准，没补记就是还没核对）。0.1.31：**回测升级**——手续费/印花税/过户费/滑点、100 股整手、三种策略（均线交叉 / 通道突破 / RSI）、止损、最多 5 只的等权组合、固定小格参数实验、年化/夏普/成交明细；Rust 层拆成纯计算 `simulate` + `build_result`（有手算对账的测试，不碰网络）。**没验证**：对真实行情跑一遍（`live_backtest_probe` 是 ignored 联网测试，本机连东财日线被对端关闭 TLS，没跑通，K 线取数代码本次没动，原因没查）；没有涨跌停/停牌模拟。本地通过：Rust 236 项 + 1 项 parity、前端 529 项（agent_error 缺 ajv）、tsc 与构建。
+
+上一个版本 0.1.30：**先进先出成本法**（设置里 `cost_method`，`journal_risk::settle` 按批次结转，买入费用跟着批次走；schema v12、备份 v10）与**自选批量按名称添加**（`splitAddTokens` / `pickByName`，名称不唯一不替用户猜）。本地通过：Rust 228 项 + 1 项 parity、前端 526 项（agent_error 缺 ajv）、前端构建通过。
+
+0.1.30 已发布：[Android 0.1.30 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.30)（标签固定在 e8774c09da1afece7dec88e8a8ab22ac9738ee13；Android CI [#39029266108](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39029266108) 的 build-apk 与 publish-preview 成功，跨平台验证 [#39029266063](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39029266063) 六组全部成功；ARM64 APK 25,723,859 bytes，SHA256 a5d063a1790abdcb40f5ba5ba4fee286eb29b51e26f92ee42e0dd180172b7dbd，仍为 debug-signed 预览版；未做真机验收）。
 
 上一发布版本：已发布 [Android 0.1.29 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.29)（标签固定在 4c089e09d9a5791dae31731a413f489d830ef502；Android CI [#39028351378](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39028351378) 的 build-apk 与 publish-preview 成功，跨平台验证 [#39028351359](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39028351359) 六组全部成功；ARM64 APK 25,709,051 bytes，SHA256 363cf6a6ce03e3ec17c4d489fc63e823cefa610e33379cc9114d718878e07ba8，仍为 debug-signed 预览版；未做真机验收）。0.1.29：**AI 对话**——流式输出（`ai_chat::send_stream` 读 SSE，`AppCore::ai_chat_stream` 登记请求号、命令层用 Tauri 事件 `ai-chat-delta` 推增量）、停止按钮（`POST /mobile/ai/chat/cancel` 中止 future，取消的这一轮不保存）、多会话（`mobile_ai_threads` + 消息表 `thread_id`，新建 / 重命名 / 删除 / 清空，默认对话不可删，最多 50 个）；schema v11、备份 v9。**没验证**：真实模型的 SSE 兼容性（各厂商的流式格式细节不同，只按 OpenAI 兼容的 `data: {choices:[{delta:{content}}]}` 解析，推理内容字段 `reasoning_content` 跳过）、真机上 Tauri 事件通道。本地通过：Rust 225 项 + 1 项 parity、前端 524 项（agent_error 缺 ajv）、Edge 冒烟 162 张截图、src-tauri 本机 cargo check 通过。
 
@@ -34,7 +38,7 @@
 - **盘中异动与信号筛选**：全市场逐笔/分钟急拉急跌、批量条件扫描、自选信号聚合。0.1.22 的异动流只盯「持仓 + 自选 + 昨日梯队 + 昨日成交额前十 + 500 亿以上大票」，且只在 App 前台开着盯盘页/竞价页时才取行情与判断（切后台即停）；不等同全市场异动。量价观察仅覆盖单个股票日线。
 - **估值与研究**：历史 PE/PB、历史分位、完整财务三表/同比、真正一致预期、证据链研究工作流。公司资料、利润表摘要、公告、逐篇研报 EPS 已有基础实现。
 - **AI**：（流式输出、停止、多会话已在 0.1.29 完成）确定性工具调用、Deep Research Lite、多角度辩论及报告归档。当前基础聊天与复盘分析已存在；不得把个人成交/持仓/金额发送给模型。
-- **完整回测**：手续费、印花税、滑点、更多策略、多标的组合、参数实验与桌面研究回测工作流。当前 Rust Lite 仅有单标的 SMA 交叉模型。
+- **完整回测**：（手续费/印花税/滑点、整手、三种策略、止损、等权多标的、固定小格参数实验已在 0.1.31 完成）仍缺：涨跌停/停牌模拟、再平衡与仓位管理、自动寻优与样本外检验、桌面研究回测工作流（Python 引擎的 benchmark/月度/回撤表等）、自然语言回测入口。
 - **候选池与日历深化**：候选规则组合/分组与成熟排序，完整交易所日历、财报/公告事件自动采集及事件提醒联动。当前基础候选和本地事件 CRUD 已存在。
 - **交易与复盘深化**：（先进先出成本法已在 0.1.30 完成：设置里二选一，影响已实现盈亏、逐日盈亏与剩余成本）AI 周报、图片复盘分享卡。（成交导入预览已在 0.1.24 完成：表格导入，期初持仓/送转行不支持；情绪周期与明日验证战绩已在 0.1.19/0.1.20 完成；费率/规矩/账户规模设置在 0.1.22 完成。）
 - **自选与内容库深化**：（自选分组/标签/自定义排序已在 0.1.24 完成）笔记/报告/收件箱的自动归档、丰富检索与桌面工作流对齐。当前本地文档 CRUD/备份已存在。

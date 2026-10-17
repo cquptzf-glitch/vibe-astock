@@ -35,3 +35,16 @@
   .backtest-form > button { grid-column:1 / -1; }
   .backtest-metrics { grid-template-columns:repeat(2,1fr); }
 }
+.backtest-form .wide { grid-column:1 / -1; }
+.backtest-form label.check { flex-direction:row; align-items:center; gap:7px; font-size:11px; }
+.backtest-form label.check input { width:auto; }
+.backtest-hint { margin:0; color: var(--mobile-muted); font-size:10px; line-height:1.5; }
+.backtest-block { margin-top:11px; border:1px solid var(--mobile-border); border-radius:14px; background: var(--mobile-card,var(--mobile-soft)); padding:11px 12px; }
+.backtest-block h2 { margin:0 0 7px; font-size:12px; }
+.backtest-block table { width:100%; border-collapse:collapse; font-size:10.5px; font-variant-numeric:tabular-nums; }
+.backtest-block th { color: var(--mobile-muted); font-weight:500; text-align:left; padding:3px 4px 5px 0; }
+.backtest-block td { padding:5px 4px 5px 0; border-top:1px solid color-mix(in srgb, var(--mobile-border) 60%, transparent); vertical-align:top; }
+.backtest-block td.up { color: var(--mobile-accent); }
+.backtest-block td.down { color: var(--mobile-down); }
+.backtest-block td small { color: var(--mobile-muted); }
+.backtest-block tr.current td { font-weight:700; }

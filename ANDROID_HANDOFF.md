@@ -1511,3 +1511,10 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - **成本法**:`mobile_journal_settings.cost_method`(NULL / 'average' = 移动加权平均,'fifo' = 先进先出),`migrate_11_to_12` 幂等(先查列再补);备份 v10 在设置行里带 `cost_method`(`#[serde(default)]`,旧备份恢复为移动加权平均)。结算函数 `journal_risk::settle` 本来就拿着 `Fees`,所以把 `fifo: bool` 放进 `Fees`(`settings_of` 从行里填),不用改十几处 `rows_of(.., &settings.fees)` 的调用;各测试里的零费率常量补了 `fifo: false`。FIFO 分支:买入入 `VecDeque<Lot>`(剩余股数、买入价、未结转的买入费),卖出从队首扣,`leg_cost` / `leg_buy_fee` / `leg_gain` 三个量两种方法共用后面的累计;移动加权平均分支的算式保持原样(`(price - unit) * n`),避免浮点差异。设置接口 `POST /mobile/journal/settings {cost_method: "average"|"fifo"|null}`,视图里有 `cost_method` 与 `cost_methods`。
 - **迁移派发改成循环**:`schema::migrate` 以前每个旧版本一条分支、每加一版要改十几处,现在是 `MIGRATIONS` 数组 + 从 `version.max(1) - 1` 起依次执行;新增一版只需写 `migrate_N_to_N+1` 并追加到数组、把数组长度加一。
 - **批量添加**:`watchlistView.ts` 的 `splitAddTokens`(分隔符、去重保序)与 `pickByName`(名称完全一致优先 → 只搜到一只 → 否则列候选,不猜);`WatchlistPanel.addCodes` 六位数字当代码,其余走 `/mobile/symbol-search`(只含沪深北 A 股),逐个串行查,查到的批量加入,没加成的原样留在输入框并写明原因。
+
+### 回测升级(0.1.31)
+
+- `core-rust/src/backtest.rs` 重写:`Strategy` 枚举(`SmaCross` / `Donchian` / `Rsi`)只负责每根开盘时的「想进场 / 想出场」(只看到前一根及以前的收盘;RSI 预先算好 Wilder 序列),`simulate` 是纯函数(K 线 + 策略 + `Costs` + 本金 + 止损 → 逐日权益、成交、费用、滑点成本),`build_result` 做多标的对齐与出参,`run` 只负责取数和参数解析。费用复用 `journal_settings::Fees::estimate`(`fifo` 字段在这里没用);默认 `DEFAULT_FEES`,请求里 `fees` 可为 `"default"` / `"none"` / 四项对象。
+- 请求体新增:`strategy`、`entry/exit`、`period/buy/sell`、`fees`、`slippage_bps`、`stop_loss_pct`、`symbols`(≤5)、`experiment`(仅单只);出参兼容旧字段(`strategy.fast/slow` 仍在),新增 `costs`、`per_symbol`、`trades`、`experiment`、`metrics.{annualized_return_pct,sharpe,total_fees,slippage_cost}`。
+- 测试里有手算对账(买 9000 股 @11、卖 @8、默认费率:买入费 25.74 + 卖出费 54.72,净亏 27,080.46)、止损标签、不足一手跳过、参数校验、多标的日期对齐、K 线不足逐只报错、Wilder RSI 教科书例子(≈70.53)。联网探测 `live_backtest_probe`(ignored)本机连东财被关 TLS,没跑通。
+- 前端 `BacktestPanel.tsx` 导出 `buildRequest` / `ResultView`(SSR 测试用),策略与参数表在 `STRATEGIES`;回测页仍是表单入口(桌面版「只有 Agent 对话入口」的约定指桌面回测页,手机端 Lite 沿用表单,自然语言回测仍在待办)。
