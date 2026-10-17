@@ -19,6 +19,12 @@ mod industry_signals;
 mod intraday;
 mod news;
 mod journal;
+mod journal_attribution;
+mod journal_env;
+mod journal_excursion;
+mod journal_inbox;
+mod journal_modes;
+mod journal_problems;
 mod journal_mutation;
 mod journal_review;
 mod journal_risk;
@@ -254,6 +260,29 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(500, "journal_risk", error.to_string())),
             },
+            ("GET", "/mobile/journal/modes") => match journal_modes::view(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(500, "journal_modes", error.to_string())),
+            },
+            ("POST", "/mobile/journal/modes") => match journal_modes::act(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "journal_modes", error.to_string())),
+            },
+            ("GET", "/mobile/journal/excursion") => Ok(discovery_response(journal_excursion::view(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/journal/environment") => Ok(discovery_response(journal_env::view(&self.client, &self.db_path).await)),
+            ("GET", "/mobile/journal/attribution") => Ok(discovery_response(journal_attribution::view(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/journal/problems") => match journal_problems::view(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(500, "journal_problems", error.to_string())),
+            },
+            ("POST", "/mobile/journal/problems") => match journal_problems::act(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "journal_problems", error.to_string())),
+            },
+            ("GET", "/mobile/journal/inbox") => match journal_inbox::view(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(500, "journal_inbox", error.to_string())),
+            },
             ("GET", "/mobile/journal/settings") => match journal_settings::view(&self.db_path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(500, "journal_settings", error.to_string())),
@@ -475,6 +504,9 @@ mod discovery_contract_tests {
             "/mobile/shortline/samples?refresh=2",
             "/mobile/review/market?date=2026-02-30",
             "/mobile/review/market?date=2999-01-01",
+            "/mobile/journal/excursion?mode=live",
+            "/mobile/journal/attribution?date=2999-01-01",
+            "/mobile/journal/attribution?date=2026-02-30",
         ] {
             let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
             assert_eq!(response.status,400,"{path}: {}",response.body);

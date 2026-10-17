@@ -37,7 +37,7 @@ const DAYS_MAX: usize = 90;
 /// 取到的交易日少于这么多就不出统计
 const MIN_DAYS: usize = 5;
 /// 入场日情绪分少于这么多天就不分环境:三等分要每档至少两天
-const MIN_REGIME_DAYS: usize = 6;
+pub(crate) const MIN_REGIME_DAYS: usize = 6;
 const CONCURRENCY: usize = 3;
 /// 「早封」「尾盘封」的界线(HHMMSS,比的是前一天的**最后**封板时间)
 const EARLY_SEAL: &str = "100000";
@@ -46,7 +46,7 @@ const MAIN_SECTOR_TOP: usize = 2;
 const SOURCE: &str = "东财昨日涨停表现池(每天一次,已收盘的日子存本机)+ 入场日情绪读数(和情绪历史共用)";
 const CAVEAT: &str = "样本 = 前一天收盘还封在涨停板上的票(事后名单)。包含一字板等未必买得进的票,没排除排队买不到的情况;冲板没封住的不在样本里。\
 收益按前一天收盘到当天收盘、等权计算,没有成交模拟,不能推出真实收益或打法期望。这是市场现象统计,不是策略回测。";
-const REGIMES: [&str; 4] = ["情绪强", "情绪中", "情绪弱", "环境未覆盖"];
+pub(crate) const REGIMES: [&str; 4] = ["情绪强", "情绪中", "情绪弱", "环境未覆盖"];
 /// 首板按最后封板时间分档(HHMMSS 上界,含)。晚 = 封得晚,或中途炸开过又回封
 const SEAL_BUCKETS: [(&str, &str); 5] = [
     ("开盘秒板", "093500"),

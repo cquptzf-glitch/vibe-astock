@@ -1,0 +1,183 @@
+{
+  "available": true,
+  "cells": {
+    "right_lose": [
+      {
+        "date": "2026-09-23",
+        "decided": 4,
+        "hit": 3,
+        "pnl": -90.0,
+        "right": true,
+        "set_date": "2026-09-22",
+        "trades": 2,
+        "unplanned": 2
+      },
+      {
+        "date": "2026-10-12",
+        "decided": 3,
+        "hit": 2,
+        "pnl": -75.0,
+        "right": true,
+        "set_date": "2026-10-09",
+        "trades": 1,
+        "unplanned": 0
+      }
+    ],
+    "right_win": [
+      {
+        "date": "2026-09-21",
+        "decided": 3,
+        "hit": 3,
+        "pnl": 600.0,
+        "right": true,
+        "set_date": "2026-09-18",
+        "trades": 2,
+        "unplanned": 1
+      },
+      {
+        "date": "2026-09-25",
+        "decided": 3,
+        "hit": 2,
+        "pnl": 240.0,
+        "right": true,
+        "set_date": "2026-09-24",
+        "trades": 1,
+        "unplanned": 0
+      },
+      {
+        "date": "2026-09-29",
+        "decided": 3,
+        "hit": 3,
+        "pnl": 225.0,
+        "right": true,
+        "set_date": "2026-09-28",
+        "trades": 2,
+        "unplanned": 1
+      },
+      {
+        "date": "2026-10-14",
+        "decided": 3,
+        "hit": 2,
+        "pnl": 350.0,
+        "right": true,
+        "set_date": "2026-10-13",
+        "trades": 1,
+        "unplanned": 0
+      }
+    ],
+    "wrong_lose": [
+      {
+        "date": "2026-09-22",
+        "decided": 3,
+        "hit": 1,
+        "pnl": -260.0,
+        "right": false,
+        "set_date": "2026-09-21",
+        "trades": 1,
+        "unplanned": 0
+      },
+      {
+        "date": "2026-10-09",
+        "decided": 4,
+        "hit": 1,
+        "pnl": -460.0,
+        "right": false,
+        "set_date": "2026-09-29",
+        "trades": 2,
+        "unplanned": 1
+      },
+      {
+        "date": "2026-10-13",
+        "decided": 3,
+        "hit": 0,
+        "pnl": -210.0,
+        "right": false,
+        "set_date": "2026-10-12",
+        "trades": 1,
+        "unplanned": 0
+      }
+    ],
+    "wrong_win": [
+      {
+        "date": "2026-09-24",
+        "decided": 3,
+        "hit": 0,
+        "pnl": 310.0,
+        "right": false,
+        "set_date": "2026-09-23",
+        "trades": 1,
+        "unplanned": 0
+      },
+      {
+        "date": "2026-10-15",
+        "decided": 4,
+        "hit": 1,
+        "pnl": 140.0,
+        "right": false,
+        "set_date": "2026-10-14",
+        "trades": 2,
+        "unplanned": 2
+      }
+    ]
+  },
+  "date": "2026-10-16",
+  "days_counted": 11,
+  "enough_samples": true,
+  "gaps": [
+    "2 个交易日没取到读数(东财池子只留约一个月,更早又没缓存过的日子取不到),不进统计"
+  ],
+  "generated_at": "2026-10-17T02:00:00Z",
+  "min_days": 8,
+  "note": "按入场日对齐:那天的操作依据是前一晚写给下一场的验证条件。判定了的条件过半成立算判对、不到一半算判错,正好一半的日子不算;盈亏为 0 的日子不进任何一格。",
+  "quadrant_labels": {
+    "right_lose": "判对 + 亏钱",
+    "right_win": "判对 + 赚钱",
+    "wrong_lose": "判错 + 亏钱",
+    "wrong_win": "判错 + 赚钱"
+  },
+  "quadrants": {
+    "right_lose": {
+      "days": 2,
+      "days_list": [
+        "2026-09-23",
+        "2026-10-12"
+      ],
+      "pnl": -165.0
+    },
+    "right_win": {
+      "days": 4,
+      "days_list": [
+        "2026-09-21",
+        "2026-09-25",
+        "2026-09-29",
+        "2026-10-14"
+      ],
+      "pnl": 1415.0
+    },
+    "wrong_lose": {
+      "days": 3,
+      "days_list": [
+        "2026-09-22",
+        "2026-10-09",
+        "2026-10-13"
+      ],
+      "pnl": -930.0
+    },
+    "wrong_win": {
+      "days": 2,
+      "days_list": [
+        "2026-09-24",
+        "2026-10-15"
+      ],
+      "pnl": 450.0
+    }
+  },
+  "skipped_no_amount": 1,
+  "skipped_no_read": 1,
+  "skipped_undecided": 1,
+  "source": "明日验证的对账结果(东财涨停 / 炸板 / 跌停 / 昨日涨停池,已收盘的日子存本机)",
+  "window": {
+    "from": "2026-09-18",
+    "to": "2026-10-16"
+  }
+}

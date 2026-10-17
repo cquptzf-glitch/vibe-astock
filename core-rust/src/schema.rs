@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 6;
+pub const CURRENT_SCHEMA_VERSION: i64 = 7;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -61,7 +61,7 @@ const REQUIRED_V5_TABLES: [&str; 11] = [
     "mobile_shortline_days",
 ];
 
-const REQUIRED_TABLES: [&str; 17] = [
+const REQUIRED_V6_TABLES: [&str; 17] = [
     "watchlist",
     "journal_entries",
     "journal_fills",
@@ -79,6 +79,30 @@ const REQUIRED_TABLES: [&str; 17] = [
     "mobile_intraday_status",
     "mobile_samples_days",
     "mobile_journal_settings",
+];
+
+/// v7 在 v6 之上新增:交易日志模式卡(用户数据,进备份)
+const REQUIRED_TABLES: &[&str] = &[
+    "watchlist",
+    "journal_entries",
+    "journal_fills",
+    "mobile_daily_reviews",
+    "mobile_ai_config",
+    "mobile_ai_messages",
+    "mobile_documents",
+    "mobile_calendar_events",
+    "mobile_reminders",
+    "mobile_verifications",
+    "mobile_shortline_days",
+    "mobile_watch_alerts",
+    "mobile_watch_turnover",
+    "mobile_intraday_snapshots",
+    "mobile_intraday_status",
+    "mobile_samples_days",
+    "mobile_journal_settings",
+    "mobile_journal_modes",
+    "mobile_journal_bars",
+    "mobile_journal_env_days",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -101,6 +125,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
+            migrate_6_to_7(&conn)?;
         }
         1 => {
             migrate_1_to_2(&conn)?;
@@ -108,23 +133,31 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
+            migrate_6_to_7(&conn)?;
         }
         2 => {
             migrate_2_to_3(&conn)?;
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
+            migrate_6_to_7(&conn)?;
         }
         3 => {
             migrate_3_to_4(&conn)?;
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
+            migrate_6_to_7(&conn)?;
         }
         4 => {
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
+            migrate_6_to_7(&conn)?;
         }
-        5 => migrate_5_to_6(&conn)?,
+        5 => {
+            migrate_5_to_6(&conn)?;
+            migrate_6_to_7(&conn)?;
+        }
+        6 => migrate_6_to_7(&conn)?,
         CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
         other => {
             return Err(anyhow!(
@@ -300,8 +333,41 @@ fn migrate_5_to_6(conn: &Connection) -> Result<()> {
             updated_at TEXT NOT NULL
         );",
     )?;
-    verify_tables(conn, &REQUIRED_TABLES)?;
+    verify_tables(conn, &REQUIRED_V6_TABLES)?;
     conn.pragma_update(None, "user_version", 6)?;
+    Ok(())
+}
+
+/// 交易日志模式卡(用户自己写的打法与各版本,进备份 v7)。版本放在 versions 里(JSON 数组),
+/// 开新版本只追加、旧版本不动;生效日、打法、五段文字都在版本里。
+/// 最大浮盈浮亏的逐笔日线缓存(公开行情,按「代码 + 买入日 + 卖出日」存,取到永久保留;不进备份,丢了会重取)。
+/// 入场环境分组用的逐日涨停 / 炸板池成员缓存(公开行情,已收盘且两张池都取到的日子才存;不进备份)。
+fn migrate_6_to_7(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mobile_journal_modes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            playbook TEXT NOT NULL,
+            versions TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS mobile_journal_bars (
+            symbol TEXT NOT NULL,
+            start_day TEXT NOT NULL,
+            end_day TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            fetched_at TEXT NOT NULL,
+            PRIMARY KEY(symbol, start_day, end_day)
+        );
+        CREATE TABLE IF NOT EXISTS mobile_journal_env_days (
+            date TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            fetched_at TEXT NOT NULL
+        );",
+    )?;
+    verify_tables(conn, REQUIRED_TABLES)?;
+    conn.pragma_update(None, "user_version", 7)?;
     Ok(())
 }
 
@@ -384,7 +450,7 @@ mod tests {
 
     #[test]
     fn upgrades_every_supported_schema_to_current() {
-        for version in [1_i64, 2, 3, 4, 5] {
+        for version in [1_i64, 2, 3, 4, 5, 6] {
             let path = temp_db(&format!("schema-{version}"));
             let conn = Connection::open(&path).unwrap();
             create_legacy_tables(&conn);
@@ -399,6 +465,9 @@ mod tests {
             }
             if version >= 5 {
                 migrate_4_to_5(&conn).unwrap();
+            }
+            if version >= 6 {
+                migrate_5_to_6(&conn).unwrap();
             }
             conn.pragma_update(None, "user_version", version).unwrap();
             drop(conn);

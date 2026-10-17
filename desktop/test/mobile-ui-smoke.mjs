@@ -20,6 +20,11 @@ watchFixture.alerts = [
 ];
 const samplesFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-samples-2026-10-16.json", "utf8"));
 const journalRiskFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-risk-synthetic.json", "utf8"));
+const journalModesFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-modes-synthetic.json", "utf8"));
+const journalExcursionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-excursion-synthetic.json", "utf8"));
+const journalEnvFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-env-synthetic.json", "utf8"));
+const journalAttributionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-attribution-synthetic.json", "utf8"));
+const journalProblemsFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-problems-synthetic.json", "utf8"));
 const marketPanelFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-market-panel-2026-10-16.json", "utf8"));
 const intradayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-intraday-2026-10-17.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
@@ -59,6 +64,12 @@ const responses = {
   "/mobile/intraday": intradayFixture,
   "/mobile/review/market": marketPanelFixture,
   "/mobile/journal/risk": journalRiskFixture,
+  "/mobile/journal/modes": journalModesFixture,
+  "/mobile/journal/problems": journalProblemsFixture,
+  "/mobile/journal/attribution": journalAttributionFixture,
+  "/mobile/journal/environment": journalEnvFixture,
+  "/mobile/journal/inbox": journalExcursionFixture.inbox,
+  "/mobile/journal/excursion": journalExcursionFixture.excursion,
   "/mobile/shortline/samples": samplesFixture,
 };
 const quote = { symbol: "600519", market: "SH", status: "ok", primary_source: "tencent", extra: { name: "贵州茅台", quote_date: "2026-10-16" }, evidence: [["price", 1329, "元"], ["change_pct", 1.22, "%"], ["pe_ttm", 19.81, "倍"], ["pb", 7.1, "倍"], ["turnover_pct", .31, "%"], ["total_market_cap", 16692.24, "亿元"]].map(([field, value, unit]) => ({ field, value, unit })) };
@@ -210,6 +221,40 @@ try {
       assert.equal(await page.getByLabel("单笔最大亏损", { exact: true }).inputValue(), "4");
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-risk.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "模式卡", exact: true }).click();
+      await page.getByRole("heading", { name: "模式卡", exact: true }).waitFor();
+      await page.getByText("收紧封板时间", { exact: false }).first().waitFor();
+      await page.getByRole("button", { name: "新建模式卡", exact: false }).click();
+      await page.getByLabel("模式名", { exact: true }).waitFor();
+      assert.equal(await page.getByLabel("什么情况下做", { exact: true }).inputValue(), "", "new cards are never prefilled");
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-modes.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "复查", exact: true }).click();
+      await page.getByRole("heading", { name: "复查", exact: true }).waitFor();
+      await page.getByRole("list", { name: "复查清单" }).waitFor();
+      await page.getByRole("table", { name: "逐笔最大浮盈浮亏" }).waitFor();
+      await page.getByText("日线看不出最高点发生在盘中买入之前还是之后", { exact: false }).first().waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-excursion.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "入场环境", exact: true }).click();
+      await page.getByRole("heading", { name: "入场环境", exact: true }).waitFor();
+      await page.getByRole("table", { name: "按当时板位" }).waitFor();
+      await page.getByRole("table", { name: "逐笔入场环境" }).waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-env.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "看错还是没执行好", exact: true }).click();
+      await page.getByRole("heading", { name: "看错了,还是没执行好", exact: true, level: 1 }).waitFor();
+      await page.getByRole("group", { name: "四格" }).waitFor();
+      await page.getByText("判错 + 赚钱 · 运气", { exact: false }).first().waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-attribution.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "问题记录", exact: true }).click();
+      await page.getByRole("heading", { name: "问题记录", exact: true, level: 1 }).waitFor();
+      await page.getByText("卖在买之前", { exact: false }).first().waitFor();
+      await page.getByRole("button", { name: "改 卖出 2026-10-13", exact: true }).first().click();
+      await page.getByLabel("成交价", { exact: true }).first().waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-problems.png"), fullPage: true });
       await page.locator(".group-tabs").getByRole("tab", { name: "明日验证", exact: true }).click();
       await page.getByText("写给下一场的条件", { exact: true }).waitFor();
       await page.getByRole("button", { name: "加一条", exact: false }).click();
@@ -220,8 +265,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 78, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, market panel; 78 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 108, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel; 108 screenshots.");
 } finally {
   await browser.close();
 }
