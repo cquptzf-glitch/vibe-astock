@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { WebSelect } from "./controls";
-import { ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Save, Share2, Trash2 } from "lucide-react";
+import { shareFile, textToBase64 } from "./nativeShare";
+import { ReportImport } from "./ReportImport";
+
+/** 分享成 .md 文件的内容:标题、分类 / 股票 / 日期一行、正文;文件名只用 ASCII(原生那边会把别的字符换成下划线) */
+export function documentMarkdown(item: Pick<DocumentItem, "title" | "category" | "symbol" | "updated_at" | "body">): string {
+  const meta = [item.category, item.symbol, item.updated_at.slice(0, 10)].filter(Boolean).join(" · ");
+  return `# ${item.title}
+
+${meta ? `> ${meta}
+
+` : ""}${item.body || "(无正文)"}
+`;
+}
 
 export interface DocumentItem {
   id: number;
@@ -133,6 +146,13 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
     }
   }
 
+  async function shareAsFile(item: DocumentItem) {
+    setError("");
+    try {
+      await shareFile({ name: `vibe-astock-${item.kind}-${item.id}.md`, mime: "text/markdown", base64: textToBase64(documentMarkdown(item)), title: item.title, chooserTitle: "分享为 Markdown 文件" });
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  }
+
   async function remove(id: number) {
     setError("");
     try {
@@ -182,6 +202,7 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
         </button>
       </div>
       {error && <div className="mobile-error">{error}</div>}
+      {kind === "report" && <ReportImport onSaved={() => void load(kind)} />}
 
       <div className="library-toolbar">
         <button type="button" className="library-editor-toggle" aria-expanded={editorOpen} onClick={() => (editorOpen && !editingId ? setEditorOpen(false) : editingId ? resetEditor() : setEditorOpen(true))}>
@@ -237,6 +258,7 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
             <div className="mobile-library-row-actions">
               <button type="button" onClick={() => setOpenId(openId === item.id ? null : item.id)}>{openId === item.id ? <><ChevronUp size={14} />收起</> : <><ChevronDown size={14} />全文</>}</button>
               <button type="button" onClick={() => edit(item)}><Pencil size={14} />编辑</button>
+              <button type="button" onClick={() => void shareAsFile(item)} aria-label={`分享 ${item.title} 为文件`}><Share2 size={14} />分享</button>
               {item.kind === "inbox" && (
                 <button type="button" onClick={() => void toggleRead(item)}>{item.status === "read" ? "标未读" : "标已读"}</button>
               )}

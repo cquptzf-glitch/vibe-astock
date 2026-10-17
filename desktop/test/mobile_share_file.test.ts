@@ -1,0 +1,55 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+import { textOf, withRenderer } from "./helpers/render.ts";
+
+const emotion = JSON.parse(readFileSync(new URL("./fixtures/mobile-emotion-2026-10-16.json", import.meta.url), "utf8")).emotion;
+const flat = (html: string) => textOf(html).replace(/\s+/g, "");
+const sq = (value: string) => value.replace(/\s+/g, "");
+
+test("分享卡的行:只取数据里已有的读数,没有的写 —,不含自选和持仓;不可用的块不出现", async () => {
+  await withRenderer(async (r) => {
+    const { cardRows, CARD_FOOTER, CARD_WIDTH } = await r.load("/src/mobile/ShareCard.tsx");
+    const rows = cardRows(emotion) as { label: string; value: string }[];
+    const get = (label: string) => rows.find((x) => x.label === label)?.value;
+    assert.equal(get("涨停"), String(emotion.summary.limit_up));
+    assert.equal(get("跌停"), String(emotion.summary.limit_down));
+    assert.equal(get("最高板"), `${emotion.summary.highest} 板`);
+    assert.match(get("炸板率") ?? "", /^\d+(\.\d)?%$/);
+    assert.ok(get("昨日涨停翻红率") && get("整体晋级率"));
+    assert.ok(!rows.some((x) => /自选|持仓|成本|盈亏/.test(x.label)));
+    const thin = structuredClone(emotion);
+    thin.money_effect = { available: false, reason: "x" };
+    thin.promotion = { available: false, reason: "y" };
+    thin.summary.broken_rate = null;
+    thin.summary.highest = 0;
+    const thinRows = cardRows(thin) as { label: string; value: string }[];
+    assert.equal(thinRows.length, 5, "不可用的两块不进卡片");
+    assert.equal(thinRows.find((x) => x.label === "炸板率")?.value, "—");
+    assert.equal(thinRows.find((x) => x.label === "最高板")?.value, "—");
+    assert.ok(CARD_FOOTER.includes("不构成买卖建议") && CARD_WIDTH === 720);
+  });
+});
+
+test("分享卡片区块默认只给「生成」按钮;没有 canvas 的环境画不出图返回 null", async () => {
+  await withRenderer(async (r) => {
+    const { EmotionShareCard, renderCard } = await r.load("/src/mobile/ShareCard.tsx");
+    const html = r.html(EmotionShareCard, { data: emotion });
+    const text = flat(html);
+    assert.ok(text.includes(sq("图片分享卡")) && text.includes(sq(`生成 ${emotion.date} 的分享图`)) && text.includes("只含市场读数,不含自选与持仓".replace(/\s+/g, "")));
+    assert.ok(!html.includes("<img"));
+    assert.equal(renderCard(emotion), null);
+  });
+});
+
+test("分享成 .md 文件:标题、分类/股票/日期一行、正文;中文能转成 base64 并还原", async () => {
+  await withRenderer(async (r) => {
+    const { documentMarkdown } = await r.load("/src/mobile/LibraryPanel.tsx");
+    const md = documentMarkdown({ title: "样本研报", category: "光模块", symbol: "300308", updated_at: "2026-10-16T09:00:00Z", body: "第一行\n第二行" });
+    assert.equal(md, "# 样本研报\n\n> 光模块 · 300308 · 2026-10-16\n\n第一行\n第二行\n");
+    assert.equal(documentMarkdown({ title: "t", category: "", symbol: null, updated_at: "2026-10-16T09:00:00Z", body: "" }), "# t\n\n> 2026-10-16\n\n(无正文)\n");
+    const { textToBase64 } = await r.load("/src/mobile/nativeShare.ts");
+    const b64 = textToBase64(md);
+    assert.equal(Buffer.from(b64, "base64").toString("utf8"), md);
+  });
+});

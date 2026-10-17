@@ -49,6 +49,22 @@ type AiResult = {
   generated_at: string;
 };
 
+const ARCHIVE_KEY = "vibe.ai.review.archive";
+/** 默认开:AI 复盘跑完自动存一份到「研究记录」(本机笔记,可以改、可以删) */
+export function readArchivePref(): boolean {
+  try { return window.localStorage.getItem(ARCHIVE_KEY) !== "0"; } catch { return true; }
+}
+/** AI 复盘结果 → 研究记录里的一篇笔记:标题带日期,正文是模型回答加一段来源说明(模型、发送范围、时间) */
+export function reviewNote(result: Pick<AiResult, "response" | "model" | "scope" | "include_positions" | "sent_characters" | "generated_at">): { title: string; body: string; category: string } {
+  const day = result.generated_at.slice(0, 10);
+  const footer = `
+
+---
+来源:AI 交易复盘 · 模型 ${result.model} · 发送范围 ${result.scope}${result.include_positions ? "(含未平仓明细)" : ""} · 发送 ${result.sent_characters} 个提示字符 · ${result.generated_at.slice(0, 16).replace("T", " ")}
+模型生成的内容,可能有误,仅作复盘参考,不构成买卖建议。`;
+  return { title: `AI 复盘 ${day}`, body: result.response.trim() + footer, category: "AI 复盘" };
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
@@ -69,6 +85,7 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
   const [model, setModel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [vision, setVision] = useState(false);
+  const [archive, setArchive] = useState(readArchivePref);
   const [includePositions, setIncludePositions] = useState(false);
   const [focus, setFocus] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -200,7 +217,15 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
         body: JSON.stringify({ include_positions: includePositions, focus: focus.trim() }),
       });
       setResult(next);
-      setMessage(`已发送 ${next.sent_characters.toLocaleString("zh-CN")} 个提示字符到你配置的模型 API。`);
+      let archived = "";
+      if (archive) {
+        try {
+          const note = reviewNote(next);
+          await api("/mobile/documents", { method: "POST", body: JSON.stringify({ kind: "note", ...note, symbol: null, status: "active", source: "ai_review" }) });
+          archived = "已自动存到「研究记录」。";
+        } catch (e) { archived = `自动归档没成功:${e instanceof Error ? e.message : String(e)}`; }
+      }
+      setMessage(`已发送 ${next.sent_characters.toLocaleString("zh-CN")} 个提示字符到你配置的模型 API。${archived}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -293,6 +318,13 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
           <div><ShieldCheck size={16} /><strong>发送范围</strong></div>
           <span>默认最小化</span>
         </div>
+        <label className="ai-review-check">
+          <input type="checkbox" checked={archive} onChange={(event) => { setArchive(event.target.checked); try { window.localStorage.setItem(ARCHIVE_KEY, event.target.checked ? "1" : "0"); } catch { /* 可选 */ } }} />
+          <span>
+            <strong>复盘结果自动存到「研究记录」</strong>
+            <small>跑完后自动存一份笔记(分类「AI 复盘」,带模型、发送范围和时间),在本机,可以改、可以删。</small>
+          </span>
+        </label>
         <div className="ai-review-scope">
           <div>
             <strong>默认发送</strong>

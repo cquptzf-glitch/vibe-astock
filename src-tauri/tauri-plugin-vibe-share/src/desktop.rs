@@ -21,4 +21,15 @@ impl<R: Runtime> VibeShare<R> {
     ) -> crate::Result<()> {
         Err(crate::Error::Unsupported)
     }
+
+    pub fn share_file(
+        &self,
+        _title: Option<&str>,
+        _name: &str,
+        _mime: &str,
+        _data_base64: &str,
+        _chooser_title: Option<&str>,
+    ) -> crate::Result<()> {
+        Err(crate::Error::Unsupported)
+    }
 }

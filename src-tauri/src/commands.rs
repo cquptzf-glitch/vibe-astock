@@ -14,6 +14,15 @@ pub struct ShareTextCommand {
     pub chooser_title: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ShareFileCommand {
+    pub title: Option<String>,
+    pub name: String,
+    pub mime: String,
+    pub data_base64: String,
+    pub chooser_title: Option<String>,
+}
+
 fn response_error(status: u16, code: &str, message: impl Into<String>) -> MobileApiResponse {
     MobileApiResponse {
         status,
@@ -77,6 +86,30 @@ pub fn share_text(app: AppHandle, request: ShareTextCommand) -> Result<Value, St
         .share_text(title, text, chooser_title)
         .map_err(|error| format!("打开系统分享失败: {error}"))?;
 
+    Ok(json!({ "ok": true }))
+}
+
+#[tauri::command]
+pub fn share_file(app: AppHandle, request: ShareFileCommand) -> Result<Value, String> {
+    let title = request.title.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let chooser_title = request.chooser_title.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let name = request.name.trim();
+    if name.is_empty() || name.chars().count() > 120 {
+        return Err("文件名为空或过长".to_string());
+    }
+    if !matches!(request.mime.as_str(), "image/png" | "image/jpeg" | "text/markdown" | "text/plain" | "application/json") {
+        return Err("不支持分享这种文件类型".to_string());
+    }
+    // base64 约 4/3 倍:8 MiB 的文件 ≈ 11.2 MB 字符
+    if request.data_base64.is_empty() || request.data_base64.len() > 11_500_000 {
+        return Err("文件为空或超过 8 MB".to_string());
+    }
+    if title.is_some_and(|value| value.chars().count() > 300) {
+        return Err("分享标题过长".to_string());
+    }
+    app.vibe_share()
+        .share_file(title, name, &request.mime, &request.data_base64, chooser_title)
+        .map_err(|error| format!("打开系统分享失败: {error}"))?;
     Ok(json!({ "ok": true }))
 }
 

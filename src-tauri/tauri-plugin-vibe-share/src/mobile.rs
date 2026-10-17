@@ -14,6 +14,16 @@ struct ShareTextRequest<'a> {
     chooser_title: Option<&'a str>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ShareFileRequest<'a> {
+    title: Option<&'a str>,
+    name: &'a str,
+    mime: &'a str,
+    data_base64: &'a str,
+    chooser_title: Option<&'a str>,
+}
+
 #[derive(Deserialize)]
 struct ShareResponse {
     ok: bool,
@@ -41,6 +51,28 @@ impl<R: Runtime> VibeShare<R> {
             ShareTextRequest {
                 title,
                 text,
+                chooser_title,
+            },
+        )?;
+        let _ = response.ok;
+        Ok(())
+    }
+
+    pub fn share_file(
+        &self,
+        title: Option<&str>,
+        name: &str,
+        mime: &str,
+        data_base64: &str,
+        chooser_title: Option<&str>,
+    ) -> crate::Result<()> {
+        let response: ShareResponse = self.0.run_mobile_plugin(
+            "shareFile",
+            ShareFileRequest {
+                title,
+                name,
+                mime,
+                data_base64,
                 chooser_title,
             },
         )?;

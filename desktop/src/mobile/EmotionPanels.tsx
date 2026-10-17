@@ -8,6 +8,7 @@ import {
 } from "./emotionData";
 import type { MobilePage } from "./mobileRoutes";
 import { PrevBrokenCard } from "./PrevBroken";
+import { EmotionShareCard } from "./ShareCard";
 import { ThemeTreeCard, useThemeTree } from "./ThemeTree";
 import "./emotion.css";
 
@@ -183,6 +184,7 @@ export function EmotionTodayView({ data, cycle, onNavigate }: { data: EmotionDat
     </Card>}
     <div className="emo-quick">{QUICK.map((item) => <button type="button" key={item.page} onClick={() => onNavigate(item.page)}>
       <span><strong>{item.title}</strong><small>{item.detail(data)}</small></span><ChevronRight size={16} /></button>)}</div>
+    <EmotionShareCard data={data} />
     <p className="emo-foot">{data.source_note} 只描述已经发生的盘面现象，不构成买卖建议。</p>
   </div>;
 }

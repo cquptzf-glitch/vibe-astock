@@ -158,6 +158,15 @@ try {
       await page.getByText("收盘摘要", { exact: true }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-messages.png"), fullPage: true });
+      // 研报文件导入:选文本文件 → 预览 → 取消
+      await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
+      await page.locator(".directory-grid button", { hasText: "保存、查阅与检索报告正文" }).click();
+      await page.getByRole("button", { name: "从文件导入研报", exact: false }).click();
+      await page.locator('.report-import input[type=file]').setInputFiles({ name: "样本报告.md", mimeType: "text/markdown", buffer: Buffer.from("# 样本报告 这是合成的测试正文。", "utf8") });
+      await page.getByLabel("研报导入预览").waitFor();
+      assert.equal(await page.getByLabel("研报标题", { exact: true }).inputValue(), "样本报告");
+      await assertWidth();
+      await page.getByRole("button", { name: "取消", exact: true }).click();
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^首页/ }).click();
       await page.locator(".mo-wrap").waitFor();
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "设置", exact: true }).click();
@@ -297,6 +306,10 @@ try {
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "复盘", exact: true }).click();
       await page.getByRole("heading", { name: "今日情绪", exact: true }).waitFor();
       await page.getByText("连续两日走强", { exact: true }).waitFor();
+      // 图片分享卡:画出预览(不触发原生分享)
+      await page.getByRole("button", { name: /^生成 .* 的分享图$/ }).click();
+      await page.getByRole("img", { name: /情绪复盘分享图预览/ }).waitFor();
+      assert.ok(await page.getByRole("img", { name: /情绪复盘分享图预览/ }).evaluate((img) => img.naturalWidth === 720), "分享图宽 720");
       const tabTops = await page.locator(".group-tabs [role=tab]").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top));
       assert.ok(tabTops.length >= 9 && Math.max(...tabTops) - Math.min(...tabTops) < 2, "review sub-tabs must stay in one scrollable row");
       await assertWidth();
