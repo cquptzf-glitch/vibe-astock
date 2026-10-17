@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300" viewBox="0 0 960 300" role="img" aria-labelledby="title description">
+<title id="title">GitHub 仓库访问量变化趋势</title>
+<desc id="description">等待配置 GitHub 访问统计读取权限。尚未采集数据，不显示虚构访问量。</desc>
+<style>:root{--bg:#fff;--fg:#1f2937;--muted:#596579;--border:#d8e0eb}@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9daabd;--border:#30363d}}text{font-family:system-ui,-apple-system,"Segoe UI","Noto Sans SC",sans-serif;fill:var(--fg)}.muted{fill:var(--muted)}</style>
+<rect x=".5" y=".5" width="959" height="299" rx="14" fill="var(--bg)" stroke="var(--border)"/>
+<text x="24" y="37" font-size="21" font-weight="700">仓库访问趋势</text>
+<text x="24" y="60" class="muted" font-size="12">GitHub Traffic · 每日浏览量与独立访客 · 持续归档历史</text>
+<text x="480" y="141" text-anchor="middle" font-size="21" font-weight="600">等待 GitHub 访问数据</text>
+<text x="480" y="177" text-anchor="middle" class="muted" font-size="14">配置仓库 Secret：TRAFFIC_TOKEN，然后运行 Repository traffic</text>
+<text x="480" y="209" text-anchor="middle" class="muted" font-size="12">启用后每 6 小时自动更新；此处不会显示虚构数据。</text>
+<text x="24" y="276" class="muted" font-size="11">数据与权限说明：docs/repository-traffic.md · GitHub 官方 API 需要 Administration: read 权限</text>
+</svg>
