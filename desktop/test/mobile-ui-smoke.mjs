@@ -59,7 +59,10 @@ const responses = {
   "/mobile/research/announcements": { items: [], count: 0 },
   "/mobile/research/estimates": { reports: [], note: "测试样本", status: "partial" },
   "/mobile/stock/observations": { status: "ok", date: "2026-10-16", bars: 65, close: 1329, ma5: 1298.17, ma10: 1280.2, ma20: 1266, ma60: 1291, return5: 5.22, return20: 1.8, return60: 10.2, ma20_bias_pct: 4.97, ma_cross: "本根未发生 MA5/MA20 交叉", range_observation: "收盘高于此前20根最高价", prior20_high: 1317.76, prior20_low: 1228.1, volume_ratio_prev5: 1.1, same_day: false, stale: false, note: "冻结样本，仅用于界面检查", source: "eastmoney" },
-  "/mobile/ai/config": { configured: false, model: "", base_url: "", key_present: false },
+  "/mobile/ai/config": { configured: true, model: "vision-sample", base_url: "https://example.invalid/v1", key_present: true, vision: true },
+  "/mobile/ai/recognize": { status: "ok", target: "watch", model: "vision-sample", images: ["shot.png"], probe: false, warnings: [], note: "这是模型读图的结果,可能读错数字或名称。", drafts: [
+    { code: "300750", name: "样本电池", shares: 100, cost: 250, uncertain: [], candidates: [], official_name: "样本电池" },
+    { code: null, name: "样本银行", shares: null, cost: null, uncertain: ["没有读到代码,只有名称"], candidates: [{ symbol: "000001", name: "样本银行" }], official_name: null }] },
   "/mobile/ai/chat": { messages: [], count: 0 },
   "/mobile/shortline/emotion": emotionFixture.emotion,
   "/mobile/shortline/cycle": emotionFixture.cycle,
@@ -148,6 +151,13 @@ try {
       assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-settings.png"), fullPage: true });
+      // 备份口令(可选加密)与统一清除:点清除只弹出自绘确认框,取消后什么都不发生
+      await page.getByLabel("备份口令", { exact: true }).waitFor();
+      await page.getByRole("button", { name: "清除全部本地数据", exact: true }).click();
+      await page.getByRole("alertdialog").waitFor();
+      assert.match(await page.getByRole("alertdialog").innerText(), /Android Keystore 里的 API Key/);
+      await page.getByRole("button", { name: "取消", exact: true }).click();
+      await page.getByRole("alertdialog").waitFor({ state: "detached" });
       await page.locator(".appearance-refresh .wc-select").click();
       await page.getByRole("option", { name: "每 30 秒", exact: true }).click();
       await layerGone("选完下拉选项");
@@ -235,6 +245,17 @@ try {
       await page.getByRole("tab", { name: /^全部/ }).click();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-watchlist.png"), fullPage: true });
+      // 截图识别(AI):选图 → 识别 → 草稿逐条核对 → 写入
+      await page.getByRole("button", { name: "从截图识别(自选)", exact: false }).click();
+      await page.locator('.screenshot-import input[type=file]').setInputFiles({ name: "shot.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64") });
+      await page.getByRole("button", { name: "识别", exact: true }).click();
+      await page.getByRole("list", { name: "识别草稿" }).waitFor();
+      await page.getByLabel("草稿 1 已核对", { exact: true }).check();
+      await page.getByRole("button", { name: "写入 1 条到自选", exact: false }).waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-screenshot-import.png"), fullPage: true });
+      await page.getByRole("button", { name: "写入 1 条到自选", exact: false }).click();
+      await page.getByText("已写入 1 条", { exact: false }).waitFor();
       await page.locator(".group-tabs").getByRole("tab", { name: "我的持仓", exact: true }).click();
       await page.getByRole("region", { name: "已实现盈亏与现金分红" }).waitFor();
       await page.getByText("已实现盈亏", { exact: true }).first().waitFor();
@@ -369,8 +390,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 150, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 150 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 156, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 156 screenshots.");
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
   const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);

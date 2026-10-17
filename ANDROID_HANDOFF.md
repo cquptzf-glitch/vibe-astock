@@ -1468,3 +1468,11 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - `portfolio_replay.rs`(`GET /mobile/portfolio/replay`):与桌面版同一组五段 A 股预设;每只一次取最多 4000 根前复权日线(东财 `lmt`)再按窗口切片;窗口两端价格要在 7 个日历天内,否则写原因进缺口;有价格的 < 50% 市值不给组合数字;指数用东财 `1.000300` 不复权日线。**这三块没有对真实上游端到端跑过**(东财这台机器上当时连不通),计算部分有合成数据的单元测试和夹具(`mobile-portfolio-{perf,xray,replay}-synthetic.json`,由各模块里被 ignore 的 `dump_synthetic_fixture` 生成)。
 - 前端 `PortfolioAnalysis.tsx`:三张卡片都是点「开始」才取数(`useRun` 在模块内存里记 30 分钟);提醒线存 localStorage `vibe.portfolio.xray.thresholds`,非法值当没设。
 - 0.1.24 的发布过程:前三次推送的 CI 冒烟都因「选完下拉选项后面板没收起」失败,只在 CI 出现、本机复现不了;第四次(`0b1535d`,把 `Sheet` 用 portal 渲染到 `.mobile-app` 根下)通过并发布。根因未证实,见 ANDROID_REMAINING.md。
+
+### 截图识别(AI)、加密备份、清除全部数据(0.1.26)
+
+- **AI 截图识别**(`ai_vision.rs`、`ScreenshotImport.tsx`、`aiPresets.ts`):`POST /mobile/ai/recognize {images:[{name,mime,data(base64)}], target:"watch"|"position", probe?}`,命令层 `commands.rs` 给这条路由注入 `__secure_api_key`(和聊天、AI 复盘同一套)。只有 `mobile_ai_config.vision = 1` 才发图(`probe:true` 的「测试图片识别」例外,且跳过搜索核对);请求是 OpenAI 兼容多模态(`content` 数组里 `text` + `image_url` data URL,`temperature: 0`);系统提示只许转写看得见的内容。回答里取 JSON(整段 / 代码块 / 前后有废话都认),代码取 6 位数字,数量成本非正数丢弃并写进待核对;再用 `search::symbols` 核对代码对应名称(`names_agree`:去空白、星号后互相包含),只有名称的给前 3 个候选。前端把图缩到长边 1600 转 JPEG;草稿可改、要勾「已对照截图核对」才进写入队列;写入自选走 `POST /mobile/watchlist`,持仓走 `POST /mobile/journal {action:"record"}`(一笔买入,费用 0,note「截图识别(期初持仓)」),已有持仓/已在自选的代码拒收。单元测试里有本地 TCP 模拟服务验证请求形状和错误提示。
+- **schema v9**:`migrate_8_to_9` 给 `mobile_ai_config` 补 `vision`(先查列,幂等);`ai_config::init` 的建表语句也带这一列。AI 模型配置不进备份,所以备份格式不变。
+- **加密备份**(`backupCrypto.ts`,WebCrypto):外壳 `{format:"vibe_astock_mobile_backup_encrypted", version:1, kdf:{PBKDF2,SHA-256,iterations,salt}, cipher:{AES-GCM,iv}, data}`,AAD = format 字符串;迭代次数限 10 万–200 万(防止被改成巨大值);恢复路径先 `isEncryptedBackup` 再解密,其余流程不变。依赖 `crypto.subtle`(需要安全上下文;Tauri 的 `*.localhost` 源按 Chromium 规则算安全上下文,**真机未验证**,缺失时报「当前环境不支持加密」)。
+- **清除全部本地数据**(`data_clear.rs`):`POST /mobile/data/clear {confirm:true, phrase:"清除全部本地数据"}`,逐表 DELETE(表清单取自 `sqlite_master`)+ `sqlite_sequence` + VACUUM,保留 user_version;`src-tauri/src/commands.rs` 在 200 之后删 Keystore 里的 API Key 并 `sync_reminders`(取消已排提醒),返回体里带 `keystore_cleared`/`reminders_cancelled`。命令层这段只能靠 CI 编译,本机编不了 src-tauri。前端两次 `askConfirm` 后清 localStorage/sessionStorage 并 reload。
+- 0.1.25 已发布(c25a92d,APK 25,565,781 字节)。

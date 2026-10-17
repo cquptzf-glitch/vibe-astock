@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { shareText } from "./nativeShare";
 import { PortfolioAnalysis } from "./PortfolioAnalysis";
+import { ScreenshotImport } from "./ScreenshotImport";
 import { PortfolioIncome } from "./PortfolioIncome";
 import "./portfolio.css";
 
@@ -268,6 +269,7 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
         </>
       )}
 
+      <ScreenshotImport target="position" existing={positions.map((p) => p.symbol)} onSaved={() => void refresh()} />
       <PortfolioIncome />
       <PortfolioAnalysis />
     </section>

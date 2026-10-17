@@ -10,6 +10,8 @@ pub(crate) struct AiConfig {
     pub base_url: String,
     pub model: String,
     pub updated_at: String,
+    /// 用户标记「这个模型能看图」。不标就不会把截图发给模型;标了也不代表一定能用,页面有「测试图片识别」
+    pub vision: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -26,7 +28,8 @@ pub(crate) fn init(db_path: &Path) -> Result<()> {
             base_url TEXT NOT NULL DEFAULT '',
             model TEXT NOT NULL DEFAULT '',
             api_key TEXT NOT NULL DEFAULT '',
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            vision INTEGER NOT NULL DEFAULT 0
         );",
     )?;
     Ok(())
@@ -52,6 +55,11 @@ pub(crate) fn save(db_path: &Path, body: &Value, key_present: bool) -> Result<Va
         Some(_) => return Err(anyhow!("model 必须是字符串")),
         None => current.as_ref().map(|value| value.model.clone()).unwrap_or_default(),
     };
+    let vision = match body.get("vision") {
+        Some(Value::Bool(value)) => *value,
+        Some(_) => return Err(anyhow!("vision 必须是布尔值")),
+        None => current.as_ref().map(|value| value.vision).unwrap_or(false),
+    };
     if base_url.is_empty() {
         return Err(anyhow!("请填写模型 API Base URL"));
     }
@@ -62,14 +70,15 @@ pub(crate) fn save(db_path: &Path, body: &Value, key_present: bool) -> Result<Va
     let updated_at = Utc::now().to_rfc3339();
     let conn = open(db_path)?;
     conn.execute(
-        "INSERT INTO mobile_ai_config(id, base_url, model, api_key, updated_at)
-         VALUES (1, ?1, ?2, '', ?3)
+        "INSERT INTO mobile_ai_config(id, base_url, model, api_key, updated_at, vision)
+         VALUES (1, ?1, ?2, '', ?3, ?4)
          ON CONFLICT(id) DO UPDATE SET
            base_url = excluded.base_url,
            model = excluded.model,
            api_key = '',
-           updated_at = excluded.updated_at",
-        params![base_url, model, updated_at],
+           updated_at = excluded.updated_at,
+           vision = excluded.vision",
+        params![base_url, model, updated_at, vision as i64],
     )?;
     view(db_path, key_present)
 }
@@ -83,13 +92,14 @@ pub(crate) fn clear(db_path: &Path) -> Result<Value> {
 pub(crate) fn load(db_path: &Path) -> Result<Option<AiConfig>> {
     let conn = open(db_path)?;
     conn.query_row(
-        "SELECT base_url, model, updated_at FROM mobile_ai_config WHERE id = 1",
+        "SELECT base_url, model, updated_at, vision FROM mobile_ai_config WHERE id = 1",
         [],
         |row| {
             Ok(AiConfig {
                 base_url: row.get(0)?,
                 model: row.get(1)?,
                 updated_at: row.get(2)?,
+                vision: row.get::<_, i64>(3)? != 0,
             })
         },
     )
@@ -138,6 +148,7 @@ fn public_config(config: &AiConfig, key_present: bool) -> Value {
         "protocol": "openai_compatible_chat_completions",
         "base_url": config.base_url,
         "model": config.model,
+        "vision": config.vision,
         "key_present": key_present,
         "configured": !config.base_url.is_empty() && !config.model.is_empty(),
         "updated_at": config.updated_at,
@@ -151,6 +162,7 @@ fn empty_config(key_present: bool) -> Value {
         "protocol": "openai_compatible_chat_completions",
         "base_url": "",
         "model": "",
+        "vision": false,
         "key_present": key_present,
         "configured": false,
         "updated_at": null,
@@ -254,6 +266,21 @@ mod tests {
 
         clear_legacy_key(&path).expect("scrub legacy key");
         assert!(legacy_credential(&path).expect("reload legacy").is_none());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn vision_switch_defaults_off_persists_and_is_kept_when_other_fields_change() {
+        let path = std::env::temp_dir().join(format!("vibe-ai-vision-{}.sqlite3", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        init(&path).unwrap();
+        assert_eq!(view(&path, false).unwrap()["vision"], false, "没配置时是关的");
+        let saved = save(&path, &json!({"base_url": "https://example.com/v1", "model": "m1"}), false).unwrap();
+        assert_eq!(saved["vision"], false, "不填就是关,不替用户打开");
+        assert_eq!(save(&path, &json!({"vision": true}), false).unwrap()["vision"], true);
+        assert_eq!(save(&path, &json!({"model": "m2"}), false).unwrap()["vision"], true, "只改模型名不动开关");
+        assert!(save(&path, &json!({"vision": "yes"}), false).unwrap_err().to_string().contains("布尔值"));
+        assert_eq!(save(&path, &json!({"vision": false}), false).unwrap()["vision"], false);
+        assert_eq!(load(&path).unwrap().unwrap().vision, false);
         let _ = std::fs::remove_file(path);
     }
 }

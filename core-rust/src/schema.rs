@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 8;
+pub const CURRENT_SCHEMA_VERSION: i64 = 9;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -131,6 +131,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
+            migrate_8_to_9(&conn)?;
         }
         1 => {
             migrate_1_to_2(&conn)?;
@@ -140,6 +141,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
+            migrate_8_to_9(&conn)?;
         }
         2 => {
             migrate_2_to_3(&conn)?;
@@ -148,6 +150,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
+            migrate_8_to_9(&conn)?;
         }
         3 => {
             migrate_3_to_4(&conn)?;
@@ -155,23 +158,31 @@ pub fn migrate(db_path: &Path) -> Result<()> {
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
+            migrate_8_to_9(&conn)?;
         }
         4 => {
             migrate_4_to_5(&conn)?;
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
+            migrate_8_to_9(&conn)?;
         }
         5 => {
             migrate_5_to_6(&conn)?;
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
+            migrate_8_to_9(&conn)?;
         }
         6 => {
             migrate_6_to_7(&conn)?;
             migrate_7_to_8(&conn)?;
+            migrate_8_to_9(&conn)?;
         }
-        7 => migrate_7_to_8(&conn)?,
+        7 => {
+            migrate_7_to_8(&conn)?;
+            migrate_8_to_9(&conn)?;
+        }
+        8 => migrate_8_to_9(&conn)?,
         CURRENT_SCHEMA_VERSION => verify_tables(&conn, &REQUIRED_TABLES)?,
         other => {
             return Err(anyhow!(
@@ -438,6 +449,20 @@ fn migrate_7_to_8(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// 模型配置多一个「支持图片识别」开关(用户自己标;不标就不会把截图发给模型)。幂等:先查列再补。
+fn migrate_8_to_9(conn: &Connection) -> Result<()> {
+    let have: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('mobile_ai_config')")?
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    if !have.iter().any(|name| name == "vision") {
+        conn.execute("ALTER TABLE mobile_ai_config ADD COLUMN vision INTEGER NOT NULL DEFAULT 0", [])?;
+    }
+    verify_tables(conn, REQUIRED_TABLES)?;
+    conn.pragma_update(None, "user_version", 9)?;
+    Ok(())
+}
+
 fn verify_tables(conn: &Connection, required: &[&str]) -> Result<()> {
     let missing = missing_tables(conn, required)?;
     if missing.is_empty() {
@@ -517,7 +542,7 @@ mod tests {
 
     #[test]
     fn upgrades_every_supported_schema_to_current() {
-        for version in [1_i64, 2, 3, 4, 5, 6, 7] {
+        for version in [1_i64, 2, 3, 4, 5, 6, 7, 8] {
             let path = temp_db(&format!("schema-{version}"));
             let conn = Connection::open(&path).unwrap();
             create_legacy_tables(&conn);
@@ -538,6 +563,9 @@ mod tests {
             }
             if version >= 7 {
                 migrate_6_to_7(&conn).unwrap();
+            }
+            if version >= 8 {
+                migrate_7_to_8(&conn).unwrap();
             }
             conn.pragma_update(None, "user_version", version).unwrap();
             drop(conn);

@@ -7,9 +7,11 @@ import {
   RefreshCw,
   ShieldCheck,
   Smartphone,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { checkPassphrase, decryptBackup, encryptBackup, isEncryptedBackup } from "./backupCrypto";
 import { askConfirm } from "./controls";
 
 import "./settings.css";
@@ -133,6 +135,8 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
   const [notificationSupported, setNotificationSupported] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("unknown");
   const [backupBusy, setBackupBusy] = useState<"" | "export" | "import">("");
+  const [passphrase, setPassphrase] = useState("");
+  const [clearing, setClearing] = useState(false);
   const [showModelSettings, setShowModelSettings] = useState(false);
 
   async function refreshNotification() {
@@ -226,19 +230,52 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
     setError("");
     setMessage("");
     try {
+      const encrypt = passphrase.length > 0;
+      if (encrypt) {
+        const problem = checkPassphrase(passphrase);
+        if (problem) throw new Error(problem);
+      }
       const backup = await api<BackupEnvelope>("/mobile/backup/export");
       const date = new Date().toISOString().slice(0, 10);
       const path = await plugin.dialog.save({
-        defaultPath: `vibe-astock-backup-${date}.json`,
+        defaultPath: `vibe-astock-backup-${date}${encrypt ? ".enc" : ""}.json`,
         filters: [{ name: "Vibe AStock JSON Backup", extensions: ["json"] }],
       });
       if (!path) return;
-      await plugin.fs.writeTextFile(path, JSON.stringify(backup, null, 2));
-      setMessage("本地业务数据备份已导出。API Key、Keystore 密钥和模型配置未写入备份文件。");
+      const plain = JSON.stringify(backup, null, 2);
+      await plugin.fs.writeTextFile(path, encrypt ? await encryptBackup(plain, passphrase) : plain);
+      setMessage(encrypt
+        ? "已导出加密备份(口令加密,忘了口令就解不开)。API Key、Keystore 密钥和模型配置未写入备份文件。"
+        : "本地业务数据备份已导出(未加密)。API Key、Keystore 密钥和模型配置未写入备份文件。");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBackupBusy("");
+    }
+  }
+
+  /** 统一清除全部本地数据:两次确认 → SQLite 全清(Core)+ Keystore 里的 API Key + 提醒调度(命令层)→ 清浏览器里的本机偏好 → 重新加载 */
+  async function clearAllData() {
+    if (!(await askConfirm("清除这台手机上 Vibe AStock 的全部本地数据?\n\n包括自选、交易日志与成交、分红、日复盘、AI 聊天与模型配置、资料库、日历、提醒、各类缓存,以及 Android Keystore 里的 API Key。\n\n建议先「导出备份」。"))) return;
+    if (!(await askConfirm("最后确认:清除后无法恢复,除非你有备份文件。真的要清除吗?"))) return;
+    setClearing(true);
+    setError("");
+    setMessage("");
+    try {
+      const out = await api<{ rows_removed: number; keystore_cleared?: boolean; keystore_error?: string; reminders_cancelled?: boolean }>("/mobile/data/clear", {
+        method: "POST",
+        body: JSON.stringify({ confirm: true, phrase: "清除全部本地数据" }),
+      });
+      try { window.localStorage.clear(); window.sessionStorage.clear(); } catch { /* 存储不可用就跳过 */ }
+      if (out.keystore_cleared === false) {
+        setError(`本地数据已清空(${out.rows_removed} 行),但 Keystore 里的 API Key 没清掉:${out.keystore_error ?? "未知原因"}。可以在「AI」页清除模型配置。`);
+        setClearing(false);
+        return;
+      }
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setClearing(false);
     }
   }
 
@@ -260,7 +297,12 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
       if (!selected) return;
       const path = Array.isArray(selected) ? selected[0] : selected;
       if (!path) return;
-      const text = await plugin.fs.readTextFile(path);
+      let text = await plugin.fs.readTextFile(path);
+      if (text.length > 48 * 1024 * 1024) throw new Error("备份文件过大，最大允许 32 MiB。");
+      if (isEncryptedBackup(text)) {
+        if (!passphrase) throw new Error("这是加密备份:先在「备份口令」里填导出时用的口令,再点「从备份恢复」。");
+        text = await decryptBackup(text, passphrase);
+      }
       if (text.length > 32 * 1024 * 1024) throw new Error("备份文件过大，最大允许 32 MiB。");
       const backup = JSON.parse(text) as BackupEnvelope;
       const preview = await api<BackupPreview>("/mobile/backup/validate", {
@@ -355,9 +397,23 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
           </section>
 
           <section className="settings-block">
+            <div className="settings-heading"><Trash2 size={16} /><strong>清除全部本地数据</strong><span>不可恢复</span></div>
+            <div className="settings-notification-body">
+              <p>一次清空这台手机上的全部本地数据:自选、交易日志与成交、分红、日复盘、AI 聊天与模型配置、资料库、日历、提醒、行情缓存,以及 Android Keystore 里的 API Key,并取消已排的提醒。要先留一份,请先导出备份。</p>
+              <div className="settings-actions">
+                <button className="danger" onClick={() => void clearAllData()} disabled={clearing}><Trash2 size={14} /> {clearing ? "正在清除…" : "清除全部本地数据"}</button>
+              </div>
+            </div>
+          </section>
+
+          <section className="settings-block">
             <div className="settings-heading"><HardDrive size={16} /><strong>备份与恢复</strong><span>{fileSupported ? "系统文件选择器" : "不可用"}</span></div>
             <div className="settings-notification-body">
               <p>导出版本化 JSON 备份：自选、交易日志、成交明细、市场日复盘和 AI 聊天历史。API Key、Android Keystore 密钥及模型配置始终排除；恢复也不会修改当前设备的模型凭据。</p>
+              <label className="settings-passphrase">
+                <span>备份口令(选填:填了就加密导出;恢复加密备份时必填)</span>
+                <input type="password" autoComplete="off" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} aria-label="备份口令" placeholder="至少 8 个字符;不保存、不上传,忘了就解不开" />
+              </label>
               <div className="settings-actions">
                 <button onClick={() => void exportBackup()} disabled={!fileSupported || Boolean(backupBusy)}>
                   <Download size={14} /> {backupBusy === "export" ? "正在导出…" : "导出备份"}

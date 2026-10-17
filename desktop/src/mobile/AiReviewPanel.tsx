@@ -10,12 +10,15 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { AI_PRESETS, presetOf, PROBE_CODE, renderProbeImage } from "./aiPresets";
+import { WebSelect } from "./controls";
 import "./ai-review.css";
 
 type AiConfig = {
   protocol: string;
   base_url: string;
   model: string;
+  vision: boolean;
   key_present: boolean;
   configured: boolean;
   updated_at: string | null;
@@ -65,6 +68,7 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [vision, setVision] = useState(false);
   const [includePositions, setIncludePositions] = useState(false);
   const [focus, setFocus] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -78,7 +82,45 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
     setConfig(next);
     setBaseUrl(next.base_url);
     setModel(next.model);
+    setVision(Boolean(next.vision));
     return next;
+  }
+
+  /** 选一个常用厂商:只把地址和模型名填进表单(不保存);换了地址要重新填 Key,所以顺手提醒 */
+  function applyPreset(id: string) {
+    const preset = AI_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    setBaseUrl(preset.base_url);
+    setModel(preset.model || model);
+    setMessage(`已填入 ${preset.name} 的地址${preset.model ? "和默认模型" : ""}。换了厂商要重新填 API Key,填好后点「保存配置」。`);
+  }
+
+  /** 测试图片识别:用本机画的一张小图问模型,读出 600519 才算能读图;成功就把「支持图片识别」打开并保存 */
+  async function probeVision() {
+    const image = renderProbeImage();
+    if (!image) { setError("当前环境画不出测试图,请手动打开「支持图片识别」再到截图导入里试。"); return; }
+    setLoading(true);
+    setError("");
+    setMessage("");
+    try {
+      const out = await api<{ drafts: { code: string | null }[] }>("/mobile/ai/recognize", {
+        method: "POST",
+        body: JSON.stringify({ images: [{ name: "probe.png", mime: image.mime, data: image.data }], target: "position", probe: true }),
+      });
+      if (out.drafts.some((d) => d.code === PROBE_CODE)) {
+        const next = await api<AiConfig>("/mobile/ai/config", { method: "POST", body: JSON.stringify({ vision: true }) });
+        setConfig(next);
+        setVision(true);
+        setMessage("测试通过:模型读出了测试图里的代码。已打开「支持图片识别」。");
+      } else {
+        setVision(false);
+        setError("模型回答了,但没读出测试图里的代码 600519:这个模型可能不能看图(或看得不准)。换一个多模态模型再测,或先别打开这个开关。");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -95,6 +137,7 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
         body: JSON.stringify({
           base_url: baseUrl.trim(),
           model: model.trim(),
+          vision,
           ...(apiKey.trim() ? { api_key: apiKey.trim() } : {}),
         }),
       });
@@ -165,7 +208,7 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
     }
   }
 
-  const dirty = baseUrl.trim() !== (config?.base_url ?? "") || model.trim() !== (config?.model ?? "") || Boolean(apiKey.trim());
+  const dirty = baseUrl.trim() !== (config?.base_url ?? "") || model.trim() !== (config?.model ?? "") || Boolean(apiKey.trim()) || vision !== Boolean(config?.vision);
 
   return (
     <section className="ai-review">
@@ -189,6 +232,13 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
           <span className={config?.configured ? "ready" : ""}>{config?.configured ? "已配置" : "未配置"}</span>
         </div>
         <label>
+          <span>常用厂商(选一个自动填地址和模型)</span>
+          <WebSelect aria-label="常用厂商" value={presetOf(baseUrl)?.id ?? "custom"} onChange={(event) => applyPreset(event.target.value)}>
+            <option value="custom">自定义 / 其它 OpenAI 兼容接口</option>
+            {AI_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </WebSelect>
+        </label>
+        <label>
           <span>API Base URL</span>
           <input
             inputMode="url"
@@ -211,6 +261,13 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
             placeholder={config?.key_present ? "已安全保存；留空保持不变" : "可选；无鉴权的本地兼容接口可留空"}
           />
         </label>
+        <label className="ai-review-check">
+          <input type="checkbox" checked={vision} onChange={(event) => setVision(event.target.checked)} />
+          <span>
+            <strong>支持图片识别(多模态)</strong>
+            <small>打开后,自选 / 持仓的「从截图识别」才会把你选的截图发给这个模型。同一厂商的不同模型差别很大,是不是多模态以厂商文档为准;不确定就点下面的「测试图片识别」。</small>
+          </span>
+        </label>
         <div className="ai-review-config-meta">
           <ShieldCheck size={14} />
           <span>
@@ -220,6 +277,9 @@ export function AiReviewPanel({ settingsOnly = false }: { settingsOnly?: boolean
         <div className="ai-review-actions">
           <button className="primary" onClick={() => void saveConfig()} disabled={loading || !baseUrl.trim() || !model.trim() || (!dirty && Boolean(config))}>
             <Save size={15} /> 保存配置
+          </button>
+          <button onClick={() => void probeVision()} disabled={loading || !config?.configured || dirty} title={dirty ? "先保存配置,测试用的是已保存的配置" : undefined}>
+            <Eye size={15} /> 测试图片识别
           </button>
           <button onClick={() => void clearConfig()} disabled={loading || !config?.configured}>
             <Trash2 size={15} /> 清除配置

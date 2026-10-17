@@ -100,6 +100,26 @@ pub async fn mobile_api(
         };
     }
 
+    // 统一清除全部本地数据:SQLite 由 Core 清;这里再删 Android Keystore 里的 API Key,并按清空后的规则重新同步提醒调度(取消所有已排的提醒)
+    if route == "/mobile/data/clear" && method == "POST" {
+        let mut response = state.handle(request).await;
+        if response.status == 200 {
+            let key_result = secure_ai::delete(&app);
+            let sync_result = sync_reminders(&app, &state);
+            if let Some(object) = response.body.as_object_mut() {
+                object.insert("keystore_cleared".to_string(), Value::Bool(key_result.is_ok()));
+                object.insert("reminders_cancelled".to_string(), Value::Bool(sync_result.is_ok()));
+                if let Err(error) = &key_result {
+                    object.insert("keystore_error".to_string(), Value::String(error.to_string()));
+                }
+                if let Err(error) = &sync_result {
+                    object.insert("reminders_error".to_string(), Value::String(error.to_string()));
+                }
+            }
+        }
+        return Ok(response);
+    }
+
     if (route == "/mobile/reminders" && (method == "POST" || method == "DELETE"))
         || (route == "/mobile/backup/import" && method == "POST")
     {
@@ -209,7 +229,7 @@ pub async fn mobile_api(
         return Ok(state.handle(request).await);
     }
 
-    if method == "POST" && (route == "/mobile/ai/review" || route == "/mobile/ai/chat") {
+    if method == "POST" && (route == "/mobile/ai/review" || route == "/mobile/ai/chat" || route == "/mobile/ai/recognize") {
         let key = match secure_ai::key_for_current_provider(&app, &state) {
             Ok(value) => value,
             Err(error) => return Ok(response_error(500, "secure_storage", error)),

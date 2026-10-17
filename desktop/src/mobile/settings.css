@@ -241,3 +241,7 @@
     padding-left: 22px;
   }
 }
+
+.settings-passphrase { display: grid; gap: 4px; margin: 6px 0; font-size: 12px; color: var(--mobile-muted); }
+.mobile-app .settings-passphrase input { min-height: 34px; padding: 0 9px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 13px; min-width: 0; }
+.mobile-app .settings-actions button.danger { border-color: color-mix(in srgb, var(--mobile-up) 45%, var(--mobile-border)); color: var(--mobile-up); }

@@ -4,12 +4,14 @@ mod stock_context;
 mod ai_chat;
 mod ai_config;
 mod ai_review;
+mod ai_vision;
 mod backup;
 mod backtest;
 mod boards;
 mod calendar;
 mod chart;
 mod daily_review;
+mod data_clear;
 mod data_summary;
 mod documents;
 mod emotion;
@@ -252,6 +254,10 @@ impl AppCore {
             ("POST", "/mobile/watchlist") => {
                 Ok(MobileApiResponse::ok(storage::upsert(&self.db_path, &request.body)?))
             }
+            ("POST", "/mobile/data/clear") => match data_clear::run(&self.db_path, &request.body) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(400, "data_clear", error.to_string())),
+            },
             ("GET", "/mobile/portfolio/perf") => Ok(discovery_response(portfolio_perf::view(&self.client, &self.db_path).await)),
             ("GET", "/mobile/portfolio/replay") => Ok(discovery_response(portfolio_replay::view(&self.client, &self.db_path).await)),
             ("GET", "/mobile/portfolio/xray") => Ok(discovery_response(portfolio_xray::view(&self.client, &self.db_path).await)),
@@ -361,6 +367,12 @@ impl AppCore {
                     Ok(MobileApiResponse::error(502, "ai_chat_upstream", message))
                 }
                 Err(ai_chat::ChatError::Internal(error)) => Err(error),
+            },
+            ("POST", "/mobile/ai/recognize") => match ai_vision::recognize(&self.client, &self.db_path, &request.body).await {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(ai_vision::VisionError::BadRequest(message)) => Ok(MobileApiResponse::error(400, "ai_vision", message)),
+                Err(ai_vision::VisionError::Upstream(message)) => Ok(MobileApiResponse::error(502, "ai_vision_upstream", message)),
+                Err(ai_vision::VisionError::Internal(error)) => Err(error),
             },
             ("POST", "/mobile/ai/review/preview") => match ai_review::preview(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),

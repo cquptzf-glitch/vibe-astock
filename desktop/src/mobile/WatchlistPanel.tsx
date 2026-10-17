@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { askConfirm, WebSelect } from "./controls";
 import { fmtNumber, fmtPercent, fmtYuan } from "./discoveryData";
 import { usePresentation } from "./presentation";
+import { ScreenshotImport } from "./ScreenshotImport";
 import { useForegroundRefresh } from "./useForegroundRefresh";
 import {
   filterByGroup, groupsOf, moveVisible, NO_GROUP, parseTags, pbText, peText, SORT_LABELS, sortRows,
@@ -175,6 +176,7 @@ export function WatchlistBoard({ onOpenSymbol, onChanged }: { onOpenSymbol: (sym
       <input value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="输入代码添加,如 600519 000001" aria-label="添加自选代码" onKeyDown={(e) => { if (e.key === "Enter") void addCodes(); }} />
       <button type="button" disabled={busy || !adding.trim()} onClick={() => void addCodes()}><Plus size={14} /> 添加</button>
     </div>
+    <ScreenshotImport target="watch" existing={rows.map((r) => r.symbol)} onSaved={() => { void refresh(); onChanged(); }} />
     {!editing && message && <p className="intra-warn" role="alert">{message}</p>}
     {data && <p className="wl-note">{new Date(data.fetched_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} 更新 · 市盈率为 TTM,亏损显示「亏损」且排序时和没有数据一起排最后{data.missing.length > 0 ? ` · ${data.missing.length} 只没取到报价` : ""} · 只列已有读数,不构成买卖建议。</p>}
   </section>;
