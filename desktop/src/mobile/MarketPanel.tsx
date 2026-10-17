@@ -22,13 +22,14 @@ export interface TrendRow {
 export interface AmountData { date: string; last: number; partial: boolean; prev: number | null; ma20: number | null; ma60: number | null; vs_ma20: number | null; vs_ma60: number | null; rows: { date: string; total: number }[]; source: string }
 export interface MarginData { date: string; balance: number; chg5: number | null; chg20: number | null; net_buy5: number | null; float_pct: number | null; financing_balance: number | null; rows: { date: string; balance: number }[]; note: string }
 export interface BondData { date: string; y3m: number | null; y1: number | null; y3: number | null; y5: number | null; y10: number | null; y30: number | null; curve: string; note: string }
+export interface ValuationData { date: string; pe: number | null; pe_calc: number | null; dy: number | null; dy_calc: number | null; y10: number | null; dy_spread: number | null; ey: number | null; ey_spread: number | null; stale_days: number | null; note: string }
 export interface FlowRow { code: string; name: string; change_pct: number | null; net: number | null; inflow: number | null; outflow: number | null; leader: string; leader_pct: number | null }
 export interface TurnoverRow { rank: number; code: string; name: string; price: number | null; pct: number | null; amount: number | null; mcap: number | null }
 export interface DragonRow { code: string; name: string; reason: string; change_pct: number | null; net_buy_wan: number | null; buy_wan: number | null; sell_wan: number | null }
 export interface MarketPanelData {
   date: string; settled: boolean; partial: boolean; today: string; notes: string[]; source: string;
   trend: Maybe<{ partial: boolean; rows: TrendRow[]; failed: { code: string; name: string; error: string }[]; above: Record<"ma20" | "ma60" | "ma250", { above: number; total: number }> }>;
-  amount: Maybe<AmountData>; margin: Maybe<MarginData>; bond: Maybe<BondData>; valuation: Maybe<Record<string, never>>;
+  amount: Maybe<AmountData>; margin: Maybe<MarginData>; bond: Maybe<BondData>; valuation: Maybe<ValuationData>;
   global: Maybe<{ rows: { symbol: string; name: string; area: string; price: number | null; pct: number | null; time: string | null; available: boolean }[]; note: string }>;
   board_flow: Maybe<{ total: number; top: FlowRow[]; bottom: FlowRow[]; matches_review_day: boolean; source: string; note: string }>;
   turnover: Maybe<{ rows: TurnoverRow[]; matches_review_day: boolean; source: string; note: string }>;
@@ -65,6 +66,7 @@ export function StateGrid({ d, emotion }: { d: MarketPanelData; emotion: Emotion
   const t = d.trend.available ? d.trend : null;
   const m = d.margin.available ? d.margin : null;
   const bond = d.bond.available ? d.bond : null;
+  const val = d.valuation.available ? d.valuation : null;
   const share = x && x.up != null && x.down != null && x.up + x.down > 0 ? x.up / (x.up + x.down + (x.flat ?? 0)) : null;
   const above = (k: "ma20" | "ma60" | "ma250") => (t ? `${t.above[k].above}/${t.above[k].total}` : "—");
   return <div className="emo-stats emo-stats-4" aria-label="市场状态">
@@ -77,7 +79,9 @@ export function StateGrid({ d, emotion }: { d: MarketPanelData; emotion: Emotion
     <Cell k="昨日涨停今日" v={me ? fmtPercent(me.avg) : "—"} tone={tone(me?.avg)} sub={me ? `平均涨跌 · 翻红 ${fmtRate(me.positive_rate)} · 晋级 ${fmtRate(promo?.rate)}` : "没取到"} />
     <Cell k="站上 20 日线的指数" v={above("ma20")} sub={`站上 60 日线 ${above("ma60")} · 250 日线 ${above("ma250")}`} />
     <Cell k={`两融余额${m ? ` · ${m.date.slice(5)}` : ""}`} v={m ? fmtYuan(m.balance) : "—"} sub={m ? <>比 5 个交易日前 <b className={tone(m.chg5)}>{signedYi(m.chg5)}</b></> : "没取到"} />
-    <Cell k={`10 年国债${bond ? ` · ${bond.date.slice(5)}` : ""}`} v={bond?.y10 != null ? `${bond.y10}%` : "—"} sub="沪深 300 市盈率 / 股息率暂无(见下)" />
+    {val ? <Cell k={`沪深300${` · ${val.date.slice(5)}`}`} v={val.pe != null ? `${val.pe} 倍` : "—"}
+      sub={<>股息率 {val.dy ?? "—"}% · 10 年国债 {val.y10 ?? bond?.y10 ?? "—"}%</>} />
+      : <Cell k={`10 年国债${bond ? ` · ${bond.date.slice(5)}` : ""}`} v={bond?.y10 != null ? `${bond.y10}%` : "—"} sub="沪深 300 估值这次没取到(见中长线)" />}
   </div>;
 }
 
@@ -131,7 +135,13 @@ export function MarketPanelView({ data: d, emotion, onOpenSymbol }: { data: Mark
         <p className="watch-hint">{m.note}</p></> : <Gap reason={d.margin.available ? "" : d.margin.reason} />}
       <h3 className="watch-sub">国债收益率与沪深 300 估值</h3>
       {d.bond.available ? <p className="smp-line"><span>{d.bond.date.slice(5)} 10 年 <b>{d.bond.y10 ?? "—"}%</b></span><span>1 年 {d.bond.y1 ?? "—"}%</span><span>3 年 {d.bond.y3 ?? "—"}%</span><span>5 年 {d.bond.y5 ?? "—"}%</span><span>30 年 {d.bond.y30 ?? "—"}%</span></p> : <Gap reason={d.bond.reason} />}
-      {!d.valuation.available && <p className="watch-hint" role="status">{d.valuation.reason}。</p>}
+      {d.valuation.available
+        ? <><p className="smp-line"><span>{d.valuation.date.slice(5)} 沪深 300 市盈率 <b>{d.valuation.pe ?? "—"} 倍</b>(计算用股本 {d.valuation.pe_calc ?? "—"})</span><span>股息率 <b>{d.valuation.dy ?? "—"}%</b>(计算用股本 {d.valuation.dy_calc ?? "—"}%)</span>
+          <span>10 年国债 {d.valuation.y10 ?? "—"}%</span></p>
+          <p className="smp-line"><span>股息率 − 国债 <b className={tone(d.valuation.dy_spread)}>{d.valuation.dy_spread == null ? "—" : `${d.valuation.dy_spread > 0 ? "+" : ""}${d.valuation.dy_spread}`}</b> 个百分点</span>
+            <span>盈利收益率(100 ÷ 市盈率){d.valuation.ey ?? "—"}% − 国债 <b className={tone(d.valuation.ey_spread)}>{d.valuation.ey_spread == null ? "—" : `${d.valuation.ey_spread > 0 ? "+" : ""}${d.valuation.ey_spread}`}</b> 个百分点</span></p>
+          <p className="watch-hint">{d.valuation.note}{d.valuation.stale_days ? `。估值文件最新一条是 ${d.valuation.stale_days} 天前的` : ""}</p></>
+        : <p className="watch-hint" role="status">沪深 300 估值这次没取到:{d.valuation.reason}。</p>}
     </Card>
     <Card title="全球市场" icon={<Globe size={15} />} hint="美股收盘与港股最新读数;红涨绿跌">
       {d.global.available ? <div className="watch-list" aria-label="全球指数">{d.global.rows.map((r) => <div key={r.symbol} className="watch-row mp-static">

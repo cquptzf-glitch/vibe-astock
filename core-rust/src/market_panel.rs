@@ -10,14 +10,15 @@
 //!   - 两融 T 日数据 T+1 才发布,最新一条通常是上一个交易日。
 //!   - 行业资金、成交额居前、涨跌分布只给「当天此刻」:看过去的复盘日时它们不是同一天,页面按 `matches_review_day` 标出来。
 //!   - 行业资金用新浪口径(东财列表接口成片取不到):流入 − 流出,和东财「主力净额」不是一个口径,别互相比。
-//! 没接的:沪深 300 的市盈率 / 股息率 —— 中证官网只给 xls 文件,手机端还没有 xls 解析,明说没有,不拿别的口径顶替。
+//! 沪深 300 的市盈率 / 股息率来自中证官网的 xls 指标文件(纯 Rust 的 calamine 解析,表头对不上整份拒绝);
+//! 总股本口径为主、计算用股本口径另给,两种不混用;不含市净率。
 
 use crate::{
     discovery::{self, DiscoveryError},
     emotion, market, watch,
 };
 use anyhow::{anyhow, Result};
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -378,6 +379,112 @@ async fn bond_block(client: &Client, end: &str) -> Value {
     }
 }
 
+// ---------------------------------------------------------------- 沪深 300 估值(中证官网 xls)
+
+const CSI_VALUATION: &str = "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/indicator/000300indicator.xls";
+const VAL_COLUMNS: [&str; 6] = ["日期Date", "指数代码IndexCode", "市盈率1（总股本）P/E1", "市盈率2（计算用股本）P/E2", "股息率1（总股本）D/P1", "股息率2（计算用股本）D/P2"];
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ValRow {
+    pub date: String,
+    pub pe_total: Option<f64>,
+    pub pe_calc: Option<f64>,
+    pub dy_total: Option<f64>,
+    pub dy_calc: Option<f64>,
+}
+
+fn cell_text(cell: &calamine::Data) -> String {
+    use calamine::Data;
+    match cell {
+        Data::String(s) => s.trim().to_string(),
+        Data::Float(f) if f.fract() == 0.0 => format!("{}", *f as i64),
+        Data::Float(f) => f.to_string(),
+        Data::Int(i) => i.to_string(),
+        Data::DateTime(dt) => excel_serial_date(dt.as_f64()).unwrap_or_default(),
+        Data::DateTimeIso(s) => s.chars().take(10).collect(),
+        _ => String::new(),
+    }
+}
+
+fn excel_serial_date(serial: f64) -> Option<String> {
+    let base = NaiveDate::from_ymd_opt(1899, 12, 30)?;
+    base.checked_add_signed(chrono::Duration::days(serial.floor() as i64)).map(|d| d.format("%Y-%m-%d").to_string())
+}
+
+fn cell_date(cell: &calamine::Data) -> Option<String> {
+    let t = cell_text(cell);
+    let digits: String = t.chars().filter(char::is_ascii_digit).collect();
+    if digits.len() == 8 {
+        return Some(format!("{}-{}-{}", &digits[0..4], &digits[4..6], &digits[6..8]));
+    }
+    // 5 位序列号(Excel 日期):排除正常 8 位日期
+    t.parse::<f64>().ok().filter(|v| (20_000.0..80_000.0).contains(v)).and_then(excel_serial_date)
+}
+
+fn cell_number(cell: &calamine::Data) -> Option<f64> {
+    use calamine::Data;
+    match cell {
+        Data::Float(f) => Some(*f),
+        Data::Int(i) => Some(*i as f64),
+        Data::String(s) => s.trim().parse().ok(),
+        _ => None,
+    }
+    .filter(|v| v.is_finite())
+}
+
+/// 中证指数估值文件(xls)→ 逐日 PE / 股息率。表头对不上整份拒绝,返回的指数代码不是 000300 也拒绝;两种股本口径分列、不混用,不含 PB
+pub(crate) fn parse_csindex_xls(bytes: &[u8]) -> Result<Vec<ValRow>> {
+    use calamine::{open_workbook_from_rs, Reader, Xls};
+    let mut wb: Xls<_> = open_workbook_from_rs(std::io::Cursor::new(bytes.to_vec())).map_err(|e| anyhow!("中证估值文件打不开({e})"))?;
+    let range = wb.worksheet_range_at(0).ok_or_else(|| anyhow!("中证估值文件没有工作表"))?.map_err(|e| anyhow!("中证估值文件读不出({e})"))?;
+    let mut rows = range.rows();
+    // 表头里的空白不稳定(「指数代码Index Code」「指数代码IndexCode」都出现过),规整空白后再匹配
+    let squash = |t: &str| t.split_whitespace().collect::<String>();
+    let header: Vec<String> = rows.next().ok_or_else(|| anyhow!("中证估值文件是空的"))?.iter().map(|c| squash(&cell_text(c))).collect();
+    let idx: Vec<usize> = VAL_COLUMNS.iter().map(|name| header.iter().position(|h| *h == squash(name)).ok_or_else(|| anyhow!("中证估值文件缺列「{name}」,表头可能变了"))).collect::<Result<_>>()?;
+    let mut out = Vec::new();
+    for row in rows {
+        let Some(date) = row.get(idx[0]).and_then(cell_date) else { continue };
+        let code = row.get(idx[1]).map(cell_text).unwrap_or_default();
+        if code.trim_start_matches('0') != "300" {
+            return Err(anyhow!("中证估值文件返回了不同的指数({code})"));
+        }
+        let n = |i: usize| row.get(idx[i]).and_then(cell_number);
+        out.push(ValRow { date, pe_total: n(2), pe_calc: n(3), dy_total: n(4), dy_calc: n(5) });
+    }
+    if out.is_empty() {
+        return Err(anyhow!("中证估值文件没有数据行"));
+    }
+    out.sort_by(|a, b| a.date.cmp(&b.date));
+    Ok(out)
+}
+
+/// 复盘日及以前最近一条;股息率 − 国债收益率、盈利收益率(100/PE)− 国债收益率都按总股本口径算,只是收益率的差,不是估值判断
+pub(crate) fn valuation_view(rows: &[ValRow], end: &str, y10: Option<f64>) -> Value {
+    let Some(r) = rows.iter().rev().find(|r| r.date.as_str() <= end) else { return fail(format!("中证估值文件里没有 {end} 及以前的数据")) };
+    let ey = r.pe_total.filter(|pe| *pe > 0.0).map(|pe| 100.0 / pe);
+    json!({
+        "available": true, "date": r.date, "pe": r.pe_total, "pe_calc": r.pe_calc, "dy": r.dy_total, "dy_calc": r.dy_calc, "y10": y10,
+        "dy_spread": r.dy_total.zip(y10).map(|(d, y)| r2(d - y)), "ey_spread": ey.zip(y10).map(|(e, y)| r2(e - y)), "ey": ey.map(r2),
+        "stale_days": NaiveDate::parse_from_str(end, "%Y-%m-%d").ok().zip(NaiveDate::parse_from_str(&r.date, "%Y-%m-%d").ok()).map(|(e, d)| (e - d).num_days()),
+        "note": "市盈率、股息率来自中证官网(总股本口径,另给计算用股本口径);10 年国债来自中债。只是收益率的差,不是估值判断;不含市净率",
+    })
+}
+
+async fn valuation_block(client: &Client, end: &str, y10: Option<f64>) -> Value {
+    let bytes = async {
+        let r = client.get(CSI_VALUATION).timeout(Duration::from_secs(20)).send().await?.error_for_status()?;
+        if r.content_length().is_some_and(|n| n > 4 * 1024 * 1024) {
+            return Err(anyhow!("中证估值文件超过 4 MiB"));
+        }
+        Ok(r.bytes().await?)
+    }.await;
+    match bytes.and_then(|b| parse_csindex_xls(&b)) {
+        Ok(rows) => valuation_view(&rows, end, y10),
+        Err(e) => fail(format!("沪深 300 估值没取到:{}", emotion::error_message("中证官网", &e))),
+    }
+}
+
 // ---------------------------------------------------------------- 全球指数
 
 /// 腾讯行情里的美股 / 港股指数:名称、点位、昨收、涨跌幅(%)、行情时间
@@ -540,6 +647,7 @@ pub async fn fetch(client: &Client, path: &str) -> Result<Value, DiscoveryError>
         trend_block(client, &date, partial), amount_block(client, &date, partial), margin_block(client), bond_block(client, &date),
         global_block(client), board_flow_block(client, matches_day), turnover_block(client, matches_day), dragon_block(client, &date), market::overview(client),
     );
+    let valuation = valuation_block(client, &date, bond["y10"].as_f64()).await;
     let breadth = match snapshot {
         Ok(v) => json!({"available": true, "matches_review_day": matches_day, "trading_date": v["trading_date"], "exchange": v["breadth"]["exchange"], "distribution": v["breadth"]["distribution"]}),
         Err(e) => fail(format!("涨跌分布没取到:{}", emotion::error_message("市场概览", &e))),
@@ -554,7 +662,7 @@ pub async fn fetch(client: &Client, path: &str) -> Result<Value, DiscoveryError>
     Ok(json!({
         "date": date, "settled": settled, "partial": partial, "today": today, "generated_at": Utc::now().to_rfc3339(), "year": now.0.year(),
         "trend": trend, "amount": amount, "margin": margin, "bond": bond, "global": global, "board_flow": flow, "turnover": turnover, "dragon": dragon, "breadth": breadth,
-        "valuation": fail("沪深 300 市盈率 / 股息率:中证官网只给 xls 文件,手机端还没有 xls 解析,这一项暂无,不拿别的口径顶替"),
+        "valuation": valuation,
         "notes": notes,
         "source": "腾讯指数日线 / 东财日线、两融、龙虎榜 / 中债 / 新浪资金流与成交额榜 / 腾讯全球指数",
     }))
@@ -711,5 +819,61 @@ mod tests {
         assert_eq!(r.status, 200);
         drop(app);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// 下载并解析真实的中证估值文件:cargo test --locked market_panel::tests::live_valuation_probe -- --ignored --nocapture
+    #[tokio::test]
+    #[ignore]
+    async fn live_valuation_probe() {
+        let client = Client::builder().timeout(Duration::from_secs(25)).build().unwrap();
+        let bytes = client.get(CSI_VALUATION).send().await.unwrap().error_for_status().unwrap().bytes().await.unwrap();
+        println!("xls bytes {}", bytes.len());
+        if let Ok(out) = std::env::var("VIBE_CSI_XLS") {
+            std::fs::write(out, &bytes).unwrap();
+        }
+        {
+            use calamine::{open_workbook_from_rs, Reader, Xls};
+            let mut wb: Xls<_> = open_workbook_from_rs(std::io::Cursor::new(bytes.to_vec())).unwrap();
+            println!("sheets {:?}", wb.sheet_names());
+            let range = wb.worksheet_range_at(0).unwrap().unwrap();
+            for row in range.rows().take(3) {
+                println!("ROW {:?}", row.iter().map(|c| format!("{c:?}")).collect::<Vec<_>>());
+            }
+        }
+        let rows = parse_csindex_xls(&bytes).unwrap();
+        println!("rows {} first {:?} last {:?}", rows.len(), rows.first(), rows.last());
+        let v = valuation_view(&rows, &rows.last().unwrap().date, Some(1.65));
+        println!("view {v}");
+        assert!(rows.len() > 5);
+    }
+
+    const CSI_XLS: &[u8] = include_bytes!("../tests/fixtures/csindex_000300_indicator.xls");
+
+    #[test]
+    fn csindex_xls_parses_real_file_and_view_respects_the_review_day() {
+        let rows = parse_csindex_xls(CSI_XLS).unwrap();
+        assert!(rows.len() >= 10 && rows.windows(2).all(|w| w[0].date < w[1].date), "按日期升序");
+        let last = rows.iter().find(|r| r.date == "2026-10-16").expect("2026-10-16");
+        assert_eq!((last.pe_total, last.pe_calc, last.dy_total, last.dy_calc), (Some(14.05), Some(15.66), Some(2.8), Some(2.6)));
+        let v = valuation_view(&rows, "2026-10-16", Some(1.648));
+        assert_eq!((v["pe"].clone(), v["dy"].clone(), v["dy_spread"].clone(), v["stale_days"].clone()), (json!(14.05), json!(2.8), json!(1.15), json!(0)));
+        assert_eq!(v["ey"], 7.12, "盈利收益率 = 100 / PE");
+        assert_eq!(v["ey_spread"], 5.47);
+        // 复盘日在文件之前取不到:说清楚,不拿最新的顶替;周末取不到当天时用最近一个交易日,并标出隔了几天
+        let early = valuation_view(&rows, "2000-01-01", None);
+        assert_eq!(early["available"], false);
+        assert!(early["reason"].as_str().unwrap().contains("没有 2000-01-01 及以前的数据"));
+        let sat = valuation_view(&rows, "2026-10-17", Some(1.648));
+        assert_eq!((sat["date"].clone(), sat["stale_days"].clone()), (json!("2026-10-16"), json!(1)));
+        assert_eq!(valuation_view(&rows, "2026-10-16", None)["dy_spread"], Value::Null, "国债收益率没取到就不算差");
+    }
+
+    #[test]
+    fn csindex_xls_rejects_garbage_and_wrong_headers() {
+        assert!(parse_csindex_xls(b"not an excel file").unwrap_err().to_string().contains("打不开"));
+        assert!(parse_csindex_xls(&[]).is_err());
+        let mut corrupted = CSI_XLS.to_vec();
+        corrupted.truncate(CSI_XLS.len() / 3);
+        assert!(parse_csindex_xls(&corrupted).is_err(), "截断的文件不当成数据");
     }
 }

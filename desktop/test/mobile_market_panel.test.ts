@@ -16,7 +16,7 @@ test("市场状态八格:成交额与 20/60 日均的比、短线格子复用情
     const { MarketPanelView } = await r.load("/src/mobile/MarketPanel.tsx");
     const text = flat(r.html(MarketPanelView, { data: panel, emotion, onOpenSymbol: open }));
     for (const part of ["市场状态", "两市成交额 · 10-16", "15,554.14 亿", "比 20 日均-9.8%", "60 日均-24.07%", "涨停 / 跌停", "61", "连板高度11 板", "昨日涨停今日", "站上 20 日线的指数0/8", "站上 60 日线 0/8", "250 日线 0/8",
-      "两融余额 · 10-15", "25,031.92 亿", "10 年国债 · 10-16", "1.648%", "沪深 300 市盈率 / 股息率暂无"]) {
+      "两融余额 · 10-15", "25,031.92 亿", "沪深300 · 10-16", "14.05 倍", "股息率 2.8% · 10 年国债 1.648%"]) {
       assert.ok(text.includes(sq(part)), part);
     }
   });
@@ -71,10 +71,20 @@ test("全球市场、行业资金(新浪口径说明)、成交额居前 20、龙
   });
 });
 
-test("沪深 300 估值没接的原因写在页面上,不拿别的口径顶替", async () => {
+test("沪深 300 估值:市盈率 / 股息率(总股本口径,另列计算用股本)与国债收益率的差;取不到时说明原因、第 8 格回到国债", async () => {
   await withRenderer(async (r) => {
     const { MarketPanelView } = await r.load("/src/mobile/MarketPanel.tsx");
     const text = flat(r.html(MarketPanelView, { data: panel, emotion, onOpenSymbol: open }));
-    assert.ok(text.includes(sq("中证官网只给 xls 文件,手机端还没有 xls 解析,这一项暂无,不拿别的口径顶替")));
+    for (const part of ["沪深 300 市盈率 14.05 倍(计算用股本 15.66)", "股息率 2.8%(计算用股本 2.6%)", "股息率 − 国债 +1.15 个百分点", "盈利收益率(100 ÷ 市盈率)7.12% − 国债 +5.47 个百分点", "不是估值判断", "不含市净率"]) {
+      assert.ok(text.includes(sq(part)), part);
+    }
+    const gap = structuredClone(panel);
+    gap.valuation = { available: false, reason: "沪深 300 估值没取到:中证官网:数据源请求超时" };
+    const t2 = flat(r.html(MarketPanelView, { data: gap, emotion, onOpenSymbol: open }));
+    assert.ok(t2.includes(sq("沪深 300 估值这次没取到:沪深 300 估值没取到:中证官网")) && t2.includes(sq("10 年国债 · 10-16")) && t2.includes("1.648%"));
+    assert.ok(!t2.includes("14.05 倍"));
+    const stale = structuredClone(panel);
+    stale.valuation.stale_days = 3;
+    assert.ok(flat(r.html(MarketPanelView, { data: stale, emotion, onOpenSymbol: open })).includes(sq("估值文件最新一条是 3 天前的")));
   });
 });
