@@ -18,6 +18,7 @@ watchFixture.alerts = [
   { ts: "10:11:57", code: "002343", name: "慈文传媒", kind: "封板", change_pct: null, price: 9.33, pct: 10.02, msg: "触及涨停 9.33", sources: ["昨日5板"] },
   { ts: "10:05:12", code: "600519", name: "贵州茅台", kind: "急跌", change_pct: -1.62, price: 1308, pct: -1.6, msg: "3 分钟 -1.6%(现价 1308,今日 -1.6%)", sources: ["自选", "大票"] },
 ];
+const intradayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-intraday-2026-10-17.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
 const monitor = {
@@ -52,6 +53,7 @@ const responses = {
   "/mobile/stock/intraday": chartFixture.intraday,
   "/mobile/stock/snapshot": chartFixture.snapshot,
   "/mobile/watch/poll": watchFixture,
+  "/mobile/intraday": intradayFixture,
 };
 const quote = { symbol: "600519", market: "SH", status: "ok", primary_source: "tencent", extra: { name: "贵州茅台", quote_date: "2026-10-16" }, evidence: [["price", 1329, "元"], ["change_pct", 1.22, "%"], ["pe_ttm", 19.81, "倍"], ["pb", 7.1, "倍"], ["turnover_pct", .31, "%"], ["total_market_cap", 16692.24, "亿元"]].map(([field, value, unit]) => ({ field, value, unit })) };
 const browser = await chromium.launch({ headless: true });
@@ -161,6 +163,11 @@ try {
       assert.ok(watchTabTops.length === 5 && Math.max(...watchTabTops) - Math.min(...watchTabTops) < 2, "watch list tabs must stay in one row");
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-watch.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "竞价与盘中", exact: true }).click();
+      await page.getByRole("heading", { name: "竞价与盘中", exact: true }).waitFor();
+      await page.getByText("周末休市,没有竞价", { exact: true }).waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-intraday.png"), fullPage: true });
       // 复盘栏目:底部一级导航 → 今日情绪,栏目内子页签单行横向滚动 → 连板天梯。
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "复盘", exact: true }).click();
       await page.getByRole("heading", { name: "今日情绪", exact: true }).waitFor();
@@ -187,8 +194,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 54, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch; 54 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 60, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday; 60 screenshots.");
 } finally {
   await browser.close();
 }

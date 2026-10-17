@@ -1,0 +1,63 @@
+{
+ "auction": null,
+ "auction_reason": "周末休市,没有竞价",
+ "basis_labels": {
+  "latest": "抓取时最新价 ÷ 昨收",
+  "open": "当日开盘价 ÷ 昨收"
+ },
+ "checks": {
+  "items": [],
+  "set_date": null
+ },
+ "date": "2026-10-17",
+ "gaps": [],
+ "generated_at": "2026-10-17T01:44:00Z",
+ "slots": [
+  {
+   "reason": "周末休市",
+   "slot": "09:25",
+   "snapshot": null,
+   "state": "skipped",
+   "window_end": "09:29"
+  },
+  {
+   "reason": "周末休市",
+   "slot": "09:35",
+   "snapshot": null,
+   "state": "skipped",
+   "window_end": "09:43"
+  },
+  {
+   "reason": "周末休市",
+   "slot": "10:00",
+   "snapshot": null,
+   "state": "skipped",
+   "window_end": "10:08"
+  },
+  {
+   "reason": "周末休市",
+   "slot": "11:30",
+   "snapshot": null,
+   "state": "skipped",
+   "window_end": "11:38"
+  },
+  {
+   "reason": "周末休市",
+   "slot": "14:00",
+   "snapshot": null,
+   "state": "skipped",
+   "window_end": "14:08"
+  },
+  {
+   "reason": "周末休市",
+   "slot": "15:00",
+   "snapshot": null,
+   "state": "skipped",
+   "window_end": "15:08"
+  }
+ ],
+ "source": "腾讯实时行情(昨日涨停股此刻涨跌)+ 东财涨停 / 炸板 / 跌停池(盘中情绪);名单为上一交易日涨停池",
+ "today": true,
+ "trading_day": false,
+ "warnings": []
+}

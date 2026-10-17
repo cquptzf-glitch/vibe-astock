@@ -16,6 +16,7 @@ export const MOBILE_PATHS = {
   market: "/mobile/market",
   stock: "/mobile/stock",
   monitor: "/mobile/shortline",
+  intraday: "/mobile/shortline/intraday",
   limitUp: "/mobile/shortline/limit-up",
   risk: "/mobile/shortline/risk",
   rotation: "/mobile/discovery/rotation",

@@ -61,7 +61,7 @@ const REQUIRED_V5_TABLES: [&str; 11] = [
     "mobile_shortline_days",
 ];
 
-const REQUIRED_TABLES: [&str; 13] = [
+const REQUIRED_TABLES: [&str; 15] = [
     "watchlist",
     "journal_entries",
     "journal_fills",
@@ -75,6 +75,8 @@ const REQUIRED_TABLES: [&str; 13] = [
     "mobile_shortline_days",
     "mobile_watch_alerts",
     "mobile_watch_turnover",
+    "mobile_intraday_snapshots",
+    "mobile_intraday_status",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -242,7 +244,8 @@ fn migrate_4_to_5(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// 盯盘异动记录(公开行情事件,只留 30 天)与收盘后记下的成交额前十(公开行情缓存)。都不进备份。
+/// 盯盘异动记录(公开行情事件,只留 30 天)、收盘后记下的成交额前十(公开行情缓存)、
+/// 竞价与盘中时点快照及各时点的存取状态(机器存的公开盘面数据,只留一年)。都不进备份。
 fn migrate_5_to_6(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS mobile_watch_alerts (
@@ -263,6 +266,22 @@ fn migrate_5_to_6(conn: &Connection) -> Result<()> {
             date TEXT PRIMARY KEY,
             payload TEXT NOT NULL,
             fetched_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS mobile_intraday_snapshots (
+            date TEXT NOT NULL,
+            slot TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            captured_at TEXT NOT NULL,
+            PRIMARY KEY(date, slot)
+        );
+        CREATE TABLE IF NOT EXISTS mobile_intraday_status (
+            date TEXT NOT NULL,
+            slot TEXT NOT NULL,
+            state TEXT NOT NULL CHECK(state IN ('saved', 'failed', 'skipped')),
+            reason TEXT,
+            at TEXT NOT NULL,
+            tries INTEGER NOT NULL,
+            PRIMARY KEY(date, slot)
         );",
     )?;
     verify_tables(conn, &REQUIRED_TABLES)?;

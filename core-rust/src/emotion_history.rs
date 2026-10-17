@@ -66,7 +66,7 @@ pub(crate) fn is_metric(key: &str) -> bool {
     METRICS.iter().any(|m| m.key == key)
 }
 
-fn metric(key: &str) -> Option<&'static Metric> {
+pub(crate) fn metric(key: &str) -> Option<&'static Metric> {
     METRICS.iter().find(|m| m.key == key)
 }
 
@@ -595,7 +595,7 @@ pub(crate) struct Item {
     pub updated_at: String,
 }
 
-fn direction_label(d: &str) -> &'static str {
+pub(crate) fn direction_label(d: &str) -> &'static str {
     match d { "up" => "上升", "down" => "下降", _ => "持平" }
 }
 

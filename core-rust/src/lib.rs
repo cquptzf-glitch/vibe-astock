@@ -16,6 +16,7 @@ mod emotion;
 mod emotion_history;
 mod discovery;
 mod industry_signals;
+mod intraday;
 mod news;
 mod journal;
 mod journal_mutation;
@@ -74,6 +75,7 @@ pub struct AppCore {
     client: Client,
     db_path: PathBuf,
     watch: watch::SharedWatch,
+    intraday: intraday::SharedIntraday,
 }
 
 impl AppCore {
@@ -94,7 +96,7 @@ impl AppCore {
             .user_agent(format!("Mozilla/5.0 VibeAStock-Mobile/{APP_VERSION}"))
             .build()?;
 
-        Ok(Self { client, db_path, watch: watch::SharedWatch::default() })
+        Ok(Self { client, db_path, watch: watch::SharedWatch::default(), intraday: intraday::SharedIntraday::default() })
     }
 
     #[cfg(test)]
@@ -312,7 +314,20 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(502, "monitor", error.to_string())),
             },
-            ("POST", "/mobile/watch/poll") => Ok(discovery_response(watch::poll(&self.client, &self.db_path, &self.watch).await)),
+            ("POST", "/mobile/watch/poll") => {
+                let response = discovery_response(watch::poll(&self.client, &self.db_path, &self.watch).await);
+                // 盯盘页开着时顺带检查竞价与盘中时点(每分钟最多一次):手机上没有常驻的定时任务
+                let _ = intraday::beat(&self.client, &self.db_path, &self.intraday).await;
+                Ok(response)
+            }
+            ("GET", "/mobile/intraday") => Ok(discovery_response(intraday::view(&self.client, &self.db_path, &self.intraday, &request.path).await)),
+            ("POST", "/mobile/intraday") => {
+                if request.body.get("action").and_then(Value::as_str) == Some("beat") {
+                    let message = intraday::beat(&self.client, &self.db_path, &self.intraday).await;
+                    return Ok(MobileApiResponse::ok(json!({ "message": message })));
+                }
+                Ok(discovery_response(intraday::act(&self.client, &self.db_path, &self.intraday, &request.body).await))
+            }
             ("GET", "/mobile/watch/alerts") => Ok(discovery_response(watch::alerts(&self.db_path, &request.path))),
             ("POST", "/mobile/backtest") => match backtest::run(&self.client, &request.body).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
@@ -434,6 +449,8 @@ mod discovery_contract_tests {
             "/mobile/shortline/verify?refresh=2",
             "/mobile/watch/alerts?date=2026-02-30",
             "/mobile/watch/alerts?date=2999-01-01",
+            "/mobile/intraday?date=2999-01-01",
+            "/mobile/intraday?date=bad",
         ] {
             let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
             assert_eq!(response.status,400,"{path}: {}",response.body);

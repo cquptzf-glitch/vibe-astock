@@ -299,6 +299,8 @@ pub(crate) struct WQuote {
     pub amount_yuan: Option<f64>,
     pub limit_up: Option<f64>,
     pub limit_down: Option<f64>,
+    pub open: Option<f64>,
+    pub last_close: Option<f64>,
     /// YYYYMMDDHHMMSS;取不到为空串
     pub quote_time: String,
 }
@@ -338,6 +340,8 @@ pub(crate) fn parse_tencent(text: &str) -> HashMap<String, WQuote> {
                 amount_yuan: field_number(&fields, 37).map(|v| v * 10_000.0),
                 limit_up: field_number(&fields, 47).filter(|p| *p > 0.0),
                 limit_down: field_number(&fields, 48).filter(|p| *p > 0.0),
+                open: field_number(&fields, 5).filter(|p| *p > 0.0),
+                last_close: field_number(&fields, 4).filter(|p| *p > 0.0),
                 quote_time: if time.len() == 14 && time.bytes().all(|b| b.is_ascii_digit()) { time.to_string() } else { String::new() },
             },
         );
@@ -365,7 +369,7 @@ async fn tencent_batch(client: &Client, symbols: &[String]) -> Result<HashMap<St
 }
 
 /// 分批(每批 50 只、同时 3 批)取行情;返回 6 位代码 → 读数,和没取到的批数
-async fn fetch_quotes(client: &Client, codes: &[String]) -> (HashMap<String, WQuote>, usize, usize) {
+pub(crate) async fn fetch_quotes(client: &Client, codes: &[String]) -> (HashMap<String, WQuote>, usize, usize) {
     let mut by_symbol: HashMap<String, String> = HashMap::new();
     for code in codes {
         if let Ok(key) = normalize_stock_symbol(code) {

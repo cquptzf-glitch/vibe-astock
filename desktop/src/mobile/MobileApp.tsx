@@ -15,6 +15,7 @@ import { JournalReviewPanel } from "./JournalReviewPanel";
 import { LibraryPanel } from "./LibraryPanel";
 import { MarketOverview } from "./MarketOverview";
 import { MobileHeader, HomeShortcuts } from "./MobileHeader";
+import { IntradayPanel } from "./IntradayPanel";
 import { MonitorPanel } from "./MonitorPanel";
 import { NewsPanel } from "./NewsPanel";
 import { ReminderPanel } from "./ReminderPanel";
@@ -406,6 +407,7 @@ export function MobileApp() {
       </section>;
       case "stock": return stockBlock;
       case "monitor": return <MonitorPanel onOpenSymbol={openFromList} />;
+      case "intraday": return <IntradayPanel />;
       case "risk": return <RiskPanel onOpenSymbol={openFromList} />;
       case "watch": return watchBlock;
       case "hold": return <section className="mobile-section"><PortfolioPanel onOpenSymbol={openFromList} /></section>;

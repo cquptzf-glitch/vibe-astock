@@ -14,6 +14,7 @@ export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "market", title: "市场总览", short: "总览", detail: "六大指数、成交额、涨跌分布与自选报价", group: "overview" },
   { page: "functions", title: "全部功能", short: "全部", detail: "按工作流程浏览或搜索所有栏目", group: "overview" },
   { page: "monitor", title: "实时动态", short: "实时", detail: "盘中异动流、持仓自选、昨日梯队、大票与昨日成交额前十", group: "watch", keywords: "盯盘 异动 急拉 急跌 封板 开板 梯队" },
+  { page: "intraday", title: "竞价与盘中", short: "竞价", detail: "09:25 竞价强弱、全天 6 个时点情绪路径、昨晚验证条件的盘中读数", group: "watch", keywords: "竞价 分时 快照 时点 梯队" },
   { page: "watch", title: "我的自选", short: "自选", detail: "价格、涨跌、成交额与自选管理", group: "watch" },
   { page: "hold", title: "我的持仓", short: "持仓", detail: "成交推导的仓位、成本、浮盈亏与止损覆盖", group: "watch" },
   { page: "risk", title: "异常监控", short: "异常", detail: "异常偏离和重点监控名单、窗口与分页", group: "watch", keywords: "风险 偏离" },
