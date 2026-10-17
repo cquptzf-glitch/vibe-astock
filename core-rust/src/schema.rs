@@ -101,6 +101,7 @@ const REQUIRED_TABLES: &[&str] = &[
     "mobile_samples_days",
     "mobile_journal_settings",
     "mobile_journal_modes",
+    "mobile_journal_bars",
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
@@ -338,6 +339,7 @@ fn migrate_5_to_6(conn: &Connection) -> Result<()> {
 
 /// 交易日志模式卡(用户自己写的打法与各版本,进备份 v7)。版本放在 versions 里(JSON 数组),
 /// 开新版本只追加、旧版本不动;生效日、打法、五段文字都在版本里。
+/// 最大浮盈浮亏的逐笔日线缓存(公开行情,按「代码 + 买入日 + 卖出日」存,取到永久保留;不进备份,丢了会重取)。
 fn migrate_6_to_7(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS mobile_journal_modes (
@@ -347,6 +349,14 @@ fn migrate_6_to_7(conn: &Connection) -> Result<()> {
             versions TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS mobile_journal_bars (
+            symbol TEXT NOT NULL,
+            start_day TEXT NOT NULL,
+            end_day TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            fetched_at TEXT NOT NULL,
+            PRIMARY KEY(symbol, start_day, end_day)
         );",
     )?;
     verify_tables(conn, REQUIRED_TABLES)?;

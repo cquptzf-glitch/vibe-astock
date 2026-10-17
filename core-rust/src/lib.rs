@@ -19,6 +19,8 @@ mod industry_signals;
 mod intraday;
 mod news;
 mod journal;
+mod journal_excursion;
+mod journal_inbox;
 mod journal_modes;
 mod journal_mutation;
 mod journal_review;
@@ -263,6 +265,11 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "journal_modes", error.to_string())),
             },
+            ("GET", "/mobile/journal/excursion") => Ok(discovery_response(journal_excursion::view(&self.client, &self.db_path, &request.path).await)),
+            ("GET", "/mobile/journal/inbox") => match journal_inbox::view(&self.db_path) {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(error) => Ok(MobileApiResponse::error(500, "journal_inbox", error.to_string())),
+            },
             ("GET", "/mobile/journal/settings") => match journal_settings::view(&self.db_path) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(500, "journal_settings", error.to_string())),
@@ -484,6 +491,7 @@ mod discovery_contract_tests {
             "/mobile/shortline/samples?refresh=2",
             "/mobile/review/market?date=2026-02-30",
             "/mobile/review/market?date=2999-01-01",
+            "/mobile/journal/excursion?mode=live",
         ] {
             let response=app.handle(MobileApiRequest {path:path.into(),method:"GET".into(),body:Value::Null}).await;
             assert_eq!(response.status,400,"{path}: {}",response.body);

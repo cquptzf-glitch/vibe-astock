@@ -69,6 +69,7 @@ pub(crate) struct Entry {
     pub as_planned: Option<bool>,
     pub planned_stop: Option<f64>,
     pub planned_target: Option<f64>,
+    pub note: String,
     pub pnl_pct_manual: Option<f64>,
     pub fills: Vec<Fill>,
 }
@@ -84,6 +85,8 @@ pub(crate) struct Row {
     pub hold_days: Option<i64>,
     pub open_shares: f64,
     pub avg_cost: f64,
+    /// 这一轮最多占用的资金(不含费用):每次买入后的持仓成本取最大值,不是买入总额(同桌面版 episode.amount)
+    pub peak_cost: f64,
     /// 每笔卖出发生的那天记净盈亏(分两天减仓时,单日亏损规则要能分开算)。只有清仓的交易才有
     pub realized_by_date: BTreeMap<String, f64>,
     pub index: usize,
@@ -107,11 +110,13 @@ pub(crate) fn settle(e: Entry, fees: &Fees, index: usize) -> Row {
     let mut by_date: BTreeMap<String, f64> = BTreeMap::new();
     let (mut first_buy, mut last_sell): (Option<String>, Option<String>) = (None, None);
     let mut buy_amount = 0.0;
+    let mut peak_cost = 0.0_f64;
     for f in &fills {
         if f.side == "buy" {
             let fee = f.fee.unwrap_or_else(|| fees.estimate("buy", f.price, f.shares));
             pos += f.shares;
             cost += f.price * f.shares;
+            peak_cost = peak_cost.max(cost);
             pending_fee += fee;
             buy_amount += f.price * f.shares;
             first_buy.get_or_insert_with(|| f.date.clone());
@@ -133,7 +138,7 @@ pub(crate) fn settle(e: Entry, fees: &Fees, index: usize) -> Row {
     }
     let closed = last_sell.is_some() && pos <= EPS;
     let avg_cost = if pos > EPS { cost / pos } else if buy_amount > 0.0 { r_cost / fills.iter().filter(|f| f.side == "sell").map(|f| f.shares).sum::<f64>().max(EPS) } else { 0.0 };
-    let mut row = Row { first_buy: first_buy.clone(), last_sell: last_sell.clone(), open_shares: pos.max(0.0), avg_cost, closed, index, ..Row::default() };
+    let mut row = Row { first_buy: first_buy.clone(), last_sell: last_sell.clone(), open_shares: pos.max(0.0), avg_cost, peak_cost, closed, index, ..Row::default() };
     if closed {
         let net = gross - r_fee;
         row.realized_pnl = Some(r2(net));
@@ -503,7 +508,7 @@ pub(crate) fn violations(rows: &[Row], rules: &Rules, rules_default: bool, equit
 
 // ---------------------------------------------------------------- 在险资金
 
-fn money0(v: f64) -> String {
+pub(crate) fn money0(v: f64) -> String {
     let n = v.round() as i64;
     let digits = n.abs().to_string();
     let mut out = String::new();
@@ -578,7 +583,7 @@ pub(crate) fn at_risk(rows: &[Row], rules: &Rules, rules_default: bool, equity_b
 pub(crate) fn load_entries(db: &Path) -> Result<Vec<Entry>> {
     let conn = Connection::open(db).context("open mobile journal risk sqlite")?;
     let mut stmt = conn.prepare(
-        "SELECT id, kind, symbol, name, date, playbook, as_planned, planned_stop, planned_target, pnl_pct, created_at
+        "SELECT id, kind, symbol, name, date, playbook, as_planned, planned_stop, planned_target, pnl_pct, created_at, note
          FROM journal_entries ORDER BY date DESC, id DESC",
     )?;
     let mut entries: Vec<Entry> = stmt
@@ -586,7 +591,7 @@ pub(crate) fn load_entries(db: &Path) -> Result<Vec<Entry>> {
             Ok(Entry {
                 id: r.get(0)?, kind: r.get(1)?, symbol: r.get(2)?, name: r.get(3)?, date: r.get(4)?,
                 playbook: r.get(5)?, as_planned: r.get::<_, Option<i64>>(6)?.map(|v| v != 0),
-                planned_stop: r.get(7)?, planned_target: r.get(8)?, pnl_pct_manual: r.get(9)?, created_at: r.get(10)?, fills: Vec::new(),
+                planned_stop: r.get(7)?, planned_target: r.get(8)?, pnl_pct_manual: r.get(9)?, created_at: r.get(10)?, note: r.get(11)?, fills: Vec::new(),
             })
         })?
         .collect::<std::result::Result<_, _>>()?;
