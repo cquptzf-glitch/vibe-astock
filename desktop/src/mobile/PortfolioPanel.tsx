@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { shareText } from "./nativeShare";
+import { PortfolioAnalysis } from "./PortfolioAnalysis";
 import { PortfolioIncome } from "./PortfolioIncome";
 import "./portfolio.css";
 
@@ -268,6 +269,7 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
       )}
 
       <PortfolioIncome />
+      <PortfolioAnalysis />
     </section>
   );
 }

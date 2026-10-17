@@ -1458,5 +1458,13 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - **已实现与分红**(`portfolio.rs`、`PortfolioIncome.tsx`):`GET /mobile/portfolio/summary`、`POST /mobile/portfolio/dividend`。已实现 = 手机端「交易统计」口径(清仓后才计、净额、没填费用按设置费率估);分红 `mobile_dividends` 手填、日期不能是未来、金额 > 0、同代码同日同金额不重复、上限 5000 条;成本法只有移动加权平均。
 - **表格导入**(`trade_import.rs`、`TradeImport.tsx`,`POST /mobile/journal/import/preview` 与 `/mobile/journal/import`):列名别名与 desktop `tradeCsv.ts` 一致;1–5 位纯数字代码、负数数量、未来日期等拒收;按代码、日期重放切轮(同日先买后卖);卖出超过此前买入的行写问题;与已记成交/分红完全相同的行标已记过;期初持仓与送转行不支持。导入前后各重算一遍计划,在一个事务里写(`journal::insert_record_tx` 是从手动记一笔里抽出来共用的)。前端 `decodeFile` 先 UTF-8 严格解码、失败再 GBK。
 - **schema v8**:`migrate_7_to_8` 给 watchlist 补 `grp`/`tags`/`sort_order`(先查 `pragma_table_info`,幂等)并建 `mobile_dividends`;`migrate_6_to_7` 的表清单校验改为「当前清单去掉 v8 新表」。备份 v8:`watchlist` 行加 `group`/`tags`/`sort_order`(`#[serde(default)]`),新增 `dividends`;兼容标志 `legacy_missing_watchlist_groups_are_empty`、`legacy_missing_dividends_are_empty`(schema_version ≤ 7)。
-- **CI 冒烟失败的定位办法**(0.1.24 第一次推送失败时用的):冒烟脚本 `catch` 里输出 `::error title=Mobile UI smoke failed::...`,GitHub 把它变成 check-run annotation,`GET /repos/<owner>/<repo>/check-runs/<job id>/annotations` 匿名可读(Actions 日志和 artifact 下载需要登录)。原因:选完下拉选项后立刻点同一个触发器,面板遮罩还没卸载。
+- **CI 冒烟失败的定位办法**(0.1.24 第一次推送失败时用的):冒烟脚本 `catch` 里输出 `::error title=Mobile UI smoke failed::...`,GitHub 把它变成 check-run annotation,`GET /repos/<owner>/<repo>/check-runs/<job id>/annotations` 匿名可读(Actions 日志和 artifact 下载需要登录)。现象:选完下拉选项后底部面板没有收起(根因未证实,最终把面板 portal 到 .mobile-app 根下后通过,见下方 0.1.25 一节)。
 - 验证(本机):Rust 191 项 + 1 项 parity 通过;前端 501 项中 500 项通过(agent_error 缺 ajv);Edge 与 Playwright Chromium 冒烟各跑过,144 张截图;已人工查看 360 白色自选、360 深色持仓已实现与分红、360 白色表格导入。
+
+### 持仓分析:收益表现、持仓体检、历史回放(0.1.25)
+
+- `portfolio_perf.rs`(`GET /mobile/portfolio/perf`):成交 + 分红 + 腾讯不复权日线 → TWR(每日 (期末市值 + 取出) ÷ (上日市值 + 当日投入) 连乘)、资金加权区间值、XIRR(二分法,区间 ≥ 365 天才给)、逐只盈亏、走势(≤ 150 点)、缺口(北交所 / 持有超约三年 / 第一根价格晚于第一笔成交 20 天以上)与提醒(单日断崖、费用估算)。
+- `portfolio_xray.rs`(`GET /mobile/portfolio/xray`):在手持仓(各未清仓轮合计)× 最新前复权收盘价 = 权重;对齐最近约 260 根的共同交易日,不足 60 根时把历史最短的移进缺口再试;年化波动、最大回撤、历史 VaR/CVaR、下行波动、风险贡献(wᵢ(Σw)ᵢ/σ²)、相关性、分散化比;行业取东财 `f127`(`research::profile`)。`chart::day_closes`(东财为主、腾讯兜底)与 `chart::index_closes` 是这几块共用的取价函数。
+- `portfolio_replay.rs`(`GET /mobile/portfolio/replay`):与桌面版同一组五段 A 股预设;每只一次取最多 4000 根前复权日线(东财 `lmt`)再按窗口切片;窗口两端价格要在 7 个日历天内,否则写原因进缺口;有价格的 < 50% 市值不给组合数字;指数用东财 `1.000300` 不复权日线。**这三块没有对真实上游端到端跑过**(东财这台机器上当时连不通),计算部分有合成数据的单元测试和夹具(`mobile-portfolio-{perf,xray,replay}-synthetic.json`,由各模块里被 ignore 的 `dump_synthetic_fixture` 生成)。
+- 前端 `PortfolioAnalysis.tsx`:三张卡片都是点「开始」才取数(`useRun` 在模块内存里记 30 分钟);提醒线存 localStorage `vibe.portfolio.xray.thresholds`,非法值当没设。
+- 0.1.24 的发布过程:前三次推送的 CI 冒烟都因「选完下拉选项后面板没收起」失败,只在 CI 出现、本机复现不了;第四次(`0b1535d`,把 `Sheet` 用 portal 渲染到 `.mobile-app` 根下)通过并发布。根因未证实,见 ANDROID_REMAINING.md。

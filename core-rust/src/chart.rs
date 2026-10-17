@@ -187,6 +187,28 @@ async fn tencent_kline(client: &Client, key: &SymbolKey, period: Period, qfq: bo
     }
 }
 
+/// 日线收盘价(东财为主、腾讯兜底;qfq = 前复权)。组合收益、持仓体检共用:只要日期和收盘价,不补值
+pub(crate) async fn day_closes(client: &Client, key: &SymbolKey, qfq: bool, limit: usize) -> Result<Vec<(String, f64)>> {
+    let rows = match em_kline(client, key, Period::Day, qfq, limit).await {
+        Ok(v) if !v.0.is_empty() => v.0,
+        _ => tencent_kline(client, key, Period::Day, qfq, limit).await?.0,
+    };
+    Ok(rows.into_iter().filter(|b| b.0.len() >= 10).map(|b| (b.0[..10].to_string(), b.2)).collect())
+}
+
+/// 指数日线收盘价(东财 secid 如 "1.000300";不复权)。只要日期和收盘价
+pub(crate) async fn index_closes(client: &Client, secid: &str, limit: usize) -> Result<Vec<(String, f64)>> {
+    let root = get_json(client, "https://push2his.eastmoney.com/api/qt/stock/kline/get", &[
+        ("secid", secid.to_string()), ("klt", "101".into()), ("fqt", "0".into()), ("lmt", limit.to_string()), ("end", "20500101".into()),
+        ("fields1", "f1,f2,f3".into()), ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61".into()),
+    ]).await?;
+    let lines = root["data"]["klines"].as_array().ok_or_else(|| anyhow!("东财指数 K 线缺少 klines"))?;
+    Ok(lines.iter().filter_map(Value::as_str).filter_map(|line| {
+        let f: Vec<&str> = line.split(',').collect();
+        Some((f.first()?.get(..10)?.to_string(), num(f.get(2).copied())?))
+    }).collect())
+}
+
 pub async fn kline(client: &Client, path: &str) -> Result<Value, DiscoveryError> {
     let key = symbol_param(path)?;
     let period = Period::parse(&discovery::parameter(path, "period").unwrap_or_else(|| "day".into()))

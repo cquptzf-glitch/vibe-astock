@@ -1,0 +1,32 @@
+.portfolio-analysis { display: grid; gap: 6px; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--mobile-border); border-radius: 10px; background: var(--mobile-card); min-width: 0; }
+.pa-title { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.pa-title h2 { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 14px; }
+.pa-title span { display: inline-flex; gap: 4px; }
+.mobile-app .pa-title button, .mobile-app .pa-thresholds button { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 10px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 12px; }
+.mobile-app .pa-title button:disabled { opacity: .55; }
+.pa-body { display: grid; gap: 6px; min-width: 0; }
+.pa-note, .pa-empty, .pa-line { margin: 0; color: var(--mobile-muted); font-size: 10.5px; line-height: 1.45; }
+.pa-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.pa-stats > div { display: grid; padding: 4px 6px; border-radius: 7px; background: var(--mobile-soft); min-width: 0; }
+.pa-stats span { font-size: 10px; color: var(--mobile-muted); }
+.pa-stats strong { font-size: 14px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pa-stats small { font-size: 9.5px; color: var(--mobile-muted); overflow-wrap: anywhere; }
+.pa-spark { width: 100%; height: 60px; }
+.pa-spark .zero { stroke: var(--mobile-border); stroke-width: 1; }
+.pa-spark .line { fill: none; stroke: var(--mobile-accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.pa-gaps, .pa-warn, .pa-hit, .pa-pairs { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 11px; }
+.pa-gaps li, .pa-warn li, .pa-hit li { padding: 4px 8px; border-radius: 7px; overflow-wrap: anywhere; }
+.pa-gaps li { border: 1px dashed var(--mobile-border); color: var(--mobile-muted); }
+.pa-warn li { background: color-mix(in srgb, var(--mobile-warning) 14%, transparent); color: var(--mobile-text); }
+.pa-hit li { background: color-mix(in srgb, var(--mobile-up) 14%, transparent); color: var(--mobile-text); }
+.pa-pairs li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 8px; border: 1px solid var(--mobile-border); border-radius: 7px; }
+.pa-thresholds { display: grid; gap: 6px; padding: 8px; border: 1px dashed var(--mobile-border); border-radius: 9px; background: var(--mobile-soft); }
+.pa-th-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.pa-th-grid label { display: grid; gap: 2px; font-size: 11px; color: var(--mobile-muted); }
+.mobile-app .pa-th-grid input { min-height: 30px; padding: 0 8px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); font-size: 13px; min-width: 0; }
+.portfolio-analysis .up { color: var(--mobile-up); }
+.portfolio-analysis .down { color: var(--mobile-down); }
+.pa-scenario { display: grid; gap: 4px; padding: 6px 8px; border: 1px solid var(--mobile-border); border-radius: 9px; }
+.pa-scenario h3 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px; margin: 0; font-size: 12.5px; }
+.pa-scenario h3 small { color: var(--mobile-muted); font-size: 10.5px; font-weight: 400; }
+.pa-pairs small { color: var(--mobile-muted); font-size: 10px; }

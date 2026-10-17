@@ -32,6 +32,9 @@ const structureFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobil
 const prevBrokenFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-prev-broken-2026-10-16.json", "utf8"));
 const portfolioFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-portfolio-synthetic.json", "utf8"));
 const tradeImportFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-trade-import-synthetic.json", "utf8"));
+const perfFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-portfolio-perf-synthetic.json", "utf8"));
+const xrayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-portfolio-xray-synthetic.json", "utf8"));
+const replayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-portfolio-replay-synthetic.json", "utf8"));
 const intradayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-intraday-2026-10-17.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
@@ -71,6 +74,9 @@ const responses = {
   "/mobile/review/market": marketPanelFixture,
   "/mobile/review/tiers": tiersFixture,
   "/mobile/portfolio/summary": portfolioFixture,
+  "/mobile/portfolio/perf": perfFixture,
+  "/mobile/portfolio/xray": xrayFixture,
+  "/mobile/portfolio/replay": replayFixture,
   "/mobile/journal/import/preview": tradeImportFixture,
   "/mobile/review/structure": structureFixture,
   "/mobile/shortline/theme-tree": themeTreeFixture,
@@ -236,6 +242,14 @@ try {
       await page.getByLabel("分红日期", { exact: false }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-portfolio-income.png"), fullPage: true });
+      await page.getByRole("button", { name: "开始计算", exact: true }).click();
+      await page.getByRole("img", { name: "时间加权收益走势" }).waitFor();
+      await page.getByRole("button", { name: "开始体检", exact: true }).click();
+      await page.getByRole("table", { name: "持仓权重与行业" }).waitFor();
+      await page.getByRole("button", { name: "开始回放", exact: true }).click();
+      await page.getByRole("article", { name: "2020 年 3 月全球疫情冲击" }).waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-portfolio-analysis.png"), fullPage: true });
       await page.locator(".group-tabs").getByRole("tab", { name: "实时动态", exact: true }).click();
       await page.getByRole("heading", { name: "实时动态", exact: true }).waitFor();
       await page.locator(".group-tabs").getByRole("tab", { name: "竞价与盘中", exact: true }).click();
@@ -355,8 +369,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 144, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 144 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 150, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 150 screenshots.");
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
   const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);

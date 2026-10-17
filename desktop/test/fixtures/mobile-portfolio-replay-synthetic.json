@@ -1,0 +1,223 @@
+{
+  "gaps": [
+    {
+      "symbol": "510300",
+      "why": "取不到日线:ETF 这一版取不到这么早的价格"
+    }
+  ],
+  "index_available": true,
+  "note": "按现在的持仓比例回看历史大跌期:区间涨跌 = 期末收盘 ÷ 期初收盘 − 1;最大回撤、最差单日用有价格的几只的共同交易日算,权重在有价格的几只之间重新分;当时没价格的进缺口、不当 0;有价格的不到一半市值就不给组合数字。窗口是沪深 300 在这段时间的收盘最高点到最低点。价格是前复权日线。只是回看,不是当时的真实持仓,不预测下一次,不给操作提示。",
+  "ok": true,
+  "scenarios": [
+    {
+      "covered_pct": 90.0,
+      "end": "2015-08-26",
+      "gaps": [
+        {
+          "symbol": "688001",
+          "why": "这段时间没有价格(当时可能还没上市,或数据源没有这么早的日线(东财取不到时腾讯只给最近约三年))"
+        }
+      ],
+      "id": "cn_2015",
+      "index": {
+        "label": "沪深 300",
+        "max_drawdown_pct": -0.66,
+        "return_pct": -0.11,
+        "worst_day_pct": -0.52
+      },
+      "label": "2015 年 6–8 月大跌",
+      "portfolio": {
+        "days": 57,
+        "max_drawdown_pct": -1.22,
+        "return_pct": -0.13,
+        "worst_day_pct": -1.05
+      },
+      "portfolio_reason": null,
+      "start": "2015-06-08",
+      "stocks": [
+        {
+          "contribution_pct": -0.09,
+          "name": "样本白酒",
+          "return_pct": -0.14,
+          "symbol": "600519",
+          "weight_pct": 66.67
+        },
+        {
+          "contribution_pct": -0.04,
+          "name": "样本银行",
+          "return_pct": -0.12,
+          "symbol": "000001",
+          "weight_pct": 33.33
+        }
+      ]
+    },
+    {
+      "covered_pct": 90.0,
+      "end": "2016-01-28",
+      "gaps": [
+        {
+          "symbol": "688001",
+          "why": "这段时间没有价格(当时可能还没上市,或数据源没有这么早的日线(东财取不到时腾讯只给最近约三年))"
+        }
+      ],
+      "id": "cn_2016",
+      "index": {
+        "label": "沪深 300",
+        "max_drawdown_pct": -1.33,
+        "return_pct": -0.85,
+        "worst_day_pct": -0.55
+      },
+      "label": "2016 年初熔断",
+      "portfolio": {
+        "days": 27,
+        "max_drawdown_pct": -2.07,
+        "return_pct": -1.06,
+        "worst_day_pct": -1.12
+      },
+      "portfolio_reason": null,
+      "start": "2015-12-22",
+      "stocks": [
+        {
+          "contribution_pct": -0.75,
+          "name": "样本白酒",
+          "return_pct": -1.12,
+          "symbol": "600519",
+          "weight_pct": 66.67
+        },
+        {
+          "contribution_pct": -0.31,
+          "name": "样本银行",
+          "return_pct": -0.93,
+          "symbol": "000001",
+          "weight_pct": 33.33
+        }
+      ]
+    },
+    {
+      "covered_pct": 90.0,
+      "end": "2019-01-03",
+      "gaps": [
+        {
+          "symbol": "688001",
+          "why": "这段时间没有价格(当时可能还没上市,或数据源没有这么早的日线(东财取不到时腾讯只给最近约三年))"
+        }
+      ],
+      "id": "cn_2018",
+      "index": {
+        "label": "沪深 300",
+        "max_drawdown_pct": -3.09,
+        "return_pct": 0.31,
+        "worst_day_pct": -0.75
+      },
+      "label": "2018 年下跌",
+      "portfolio": {
+        "days": 246,
+        "max_drawdown_pct": -4.83,
+        "return_pct": 0.43,
+        "worst_day_pct": -1.7
+      },
+      "portfolio_reason": null,
+      "start": "2018-01-24",
+      "stocks": [
+        {
+          "contribution_pct": 0.12,
+          "name": "样本银行",
+          "return_pct": 0.36,
+          "symbol": "000001",
+          "weight_pct": 33.33
+        },
+        {
+          "contribution_pct": 0.31,
+          "name": "样本白酒",
+          "return_pct": 0.47,
+          "symbol": "600519",
+          "weight_pct": 66.67
+        }
+      ]
+    },
+    {
+      "covered_pct": 90.0,
+      "end": "2020-03-23",
+      "gaps": [
+        {
+          "symbol": "688001",
+          "why": "这段时间没有价格(当时可能还没上市,或数据源没有这么早的日线(东财取不到时腾讯只给最近约三年))"
+        }
+      ],
+      "id": "cn_2020",
+      "index": {
+        "label": "沪深 300",
+        "max_drawdown_pct": -0.51,
+        "return_pct": 0.83,
+        "worst_day_pct": -0.51
+      },
+      "label": "2020 年 3 月全球疫情冲击",
+      "portfolio": {
+        "days": 12,
+        "max_drawdown_pct": -1.15,
+        "return_pct": 1.07,
+        "worst_day_pct": -1.15
+      },
+      "portfolio_reason": null,
+      "start": "2020-03-05",
+      "stocks": [
+        {
+          "contribution_pct": 0.31,
+          "name": "样本银行",
+          "return_pct": 0.92,
+          "symbol": "000001",
+          "weight_pct": 33.33
+        },
+        {
+          "contribution_pct": 0.76,
+          "name": "样本白酒",
+          "return_pct": 1.14,
+          "symbol": "600519",
+          "weight_pct": 66.67
+        }
+      ]
+    },
+    {
+      "covered_pct": 90.0,
+      "end": "2024-02-02",
+      "gaps": [
+        {
+          "symbol": "688001",
+          "why": "第一根价格 2022-06-01、最后一根 2024-02-02 离窗口 2021-02-10 ~ 2024-02-02 太远(上市晚于起点或中途停牌到结束)"
+        }
+      ],
+      "id": "cn_2021_24",
+      "index": {
+        "label": "沪深 300",
+        "max_drawdown_pct": -29.22,
+        "return_pct": -27.71,
+        "worst_day_pct": -0.75
+      },
+      "label": "2021–2024 年长期回撤",
+      "portfolio": {
+        "days": 777,
+        "max_drawdown_pct": -36.43,
+        "return_pct": -34.3,
+        "worst_day_pct": -1.68
+      },
+      "portfolio_reason": null,
+      "start": "2021-02-10",
+      "stocks": [
+        {
+          "contribution_pct": -24.22,
+          "name": "样本白酒",
+          "return_pct": -36.32,
+          "symbol": "600519",
+          "weight_pct": 66.67
+        },
+        {
+          "contribution_pct": -10.09,
+          "name": "样本银行",
+          "return_pct": -30.27,
+          "symbol": "000001",
+          "weight_pct": 33.33
+        }
+      ]
+    }
+  ]
+}

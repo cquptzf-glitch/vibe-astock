@@ -33,6 +33,9 @@ mod market;
 mod market_panel;
 mod monitor;
 mod portfolio;
+mod portfolio_perf;
+mod portfolio_replay;
+mod portfolio_xray;
 mod prev_broken;
 mod quote;
 mod reminders;
@@ -249,6 +252,9 @@ impl AppCore {
             ("POST", "/mobile/watchlist") => {
                 Ok(MobileApiResponse::ok(storage::upsert(&self.db_path, &request.body)?))
             }
+            ("GET", "/mobile/portfolio/perf") => Ok(discovery_response(portfolio_perf::view(&self.client, &self.db_path).await)),
+            ("GET", "/mobile/portfolio/replay") => Ok(discovery_response(portfolio_replay::view(&self.client, &self.db_path).await)),
+            ("GET", "/mobile/portfolio/xray") => Ok(discovery_response(portfolio_xray::view(&self.client, &self.db_path).await)),
             ("GET", "/mobile/portfolio/summary") => Ok(MobileApiResponse::ok(portfolio::view(&self.db_path)?)),
             ("POST", "/mobile/portfolio/dividend") => match portfolio::act(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),

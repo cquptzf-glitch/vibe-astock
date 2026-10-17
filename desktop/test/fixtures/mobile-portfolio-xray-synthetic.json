@@ -1,0 +1,127 @@
+{
+  "concentration": {
+    "effective_n": 2.98,
+    "hhi": 0.3361,
+    "industries": [
+      {
+        "industry": "行业没取到",
+        "known": false,
+        "weight_pct": 37.26
+      },
+      {
+        "industry": "白酒",
+        "known": true,
+        "weight_pct": 32.87
+      },
+      {
+        "industry": "银行",
+        "known": true,
+        "weight_pct": 29.87
+      }
+    ],
+    "positions": 3,
+    "top1_pct": 37.26,
+    "top3_pct": 100.0,
+    "top_industry_pct": 32.87,
+    "total_value": 35150.0,
+    "weights": [
+      {
+        "industry": null,
+        "name": "样本光模块",
+        "symbol": "300308",
+        "value": 13098.0,
+        "weight_pct": 37.26
+      },
+      {
+        "industry": "白酒",
+        "name": "样本白酒",
+        "symbol": "600519",
+        "value": 11554.0,
+        "weight_pct": 32.87
+      },
+      {
+        "industry": "银行",
+        "name": "样本银行",
+        "symbol": "000001",
+        "value": 10498.0,
+        "weight_pct": 29.87
+      }
+    ]
+  },
+  "gaps": [
+    {
+      "symbol": "920575",
+      "why": "取不到日线:北交所东财日线没有返回"
+    },
+    {
+      "symbol": "688001",
+      "why": "日线历史太短(20 根),和其它持仓对齐后不足 60 个共同交易日,这只没参与风险计算"
+    }
+  ],
+  "note": "按现在的持仓比例(数量 × 最新收盘价)回看最近约一年的前复权日线:波动、最大回撤、历史 VaR 都是这段历史里已经发生的数字,不是预测;行业取东财所属行业。只给数字和缺口,不出综合分、不评好坏;超线只对照你自己设的提醒线。",
+  "ok": true,
+  "risk": {
+    "annual_vol_pct": 42.46,
+    "assets": [
+      {
+        "name": "样本光模块",
+        "risk_share_pct": 59.77,
+        "symbol": "300308",
+        "vol_pct": 68.12,
+        "weight_pct": 37.26
+      },
+      {
+        "name": "样本白酒",
+        "risk_share_pct": 27.2,
+        "symbol": "600519",
+        "vol_pct": 35.14,
+        "weight_pct": 32.87
+      },
+      {
+        "name": "样本银行",
+        "risk_share_pct": 13.03,
+        "symbol": "000001",
+        "vol_pct": 18.54,
+        "weight_pct": 29.87
+      }
+    ],
+    "avg_pair_corr": 1.0,
+    "best_day_pct": 3.08,
+    "cvar95_pct": 2.81,
+    "diversification_ratio": 1.0,
+    "downside_dev_pct": 28.83,
+    "max_drawdown_pct": -2.83,
+    "top_pairs": [
+      {
+        "a": "600519",
+        "a_name": "样本白酒",
+        "b": "000001",
+        "b_name": "样本银行",
+        "corr": 1.0
+      },
+      {
+        "a": "600519",
+        "a_name": "样本白酒",
+        "b": "300308",
+        "b_name": "样本光模块",
+        "corr": 1.0
+      },
+      {
+        "a": "000001",
+        "a_name": "样本银行",
+        "b": "300308",
+        "b_name": "样本光模块",
+        "corr": 1.0
+      }
+    ],
+    "var95_pct": 2.78,
+    "var99_pct": 2.83,
+    "window": {
+      "from": "2025-01-21",
+      "returns": 259,
+      "to": "2025-10-07"
+    },
+    "worst_day_pct": -2.83
+  },
+  "risk_reason": null
+}
