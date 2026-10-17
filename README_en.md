@@ -26,6 +26,7 @@
   <a href="#upgrading-from-v1x">Upgrading</a> ·
   <a href="#security-and-privacy">Privacy</a> ·
   <a href="#development-and-tests">Development</a> ·
+  <a href="#repository-traffic">Traffic</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
@@ -727,6 +728,14 @@ and does not provide investment decisions, buy or sell recommendations, or posit
 limit-up samples describe a market phenomenon, not a strategy backtest. Public data, the app's calculations, your own records, and AI interpretations can all be wrong;
 a citation does not make an inference correct, and past results do not predict future performance. Investing involves risk; users are responsible for verification,
 decisions, and compliance with each data source's terms.
+
+## Repository traffic
+
+[![Daily GitHub page views, unique visitors and repository traffic trends](https://raw.githubusercontent.com/cquptzf-glitch/vibe-astock/traffic-data/traffic.svg)](https://github.com/cquptzf-glitch/vibe-astock/tree/traffic-data)
+
+The chart uses GitHub's official Traffic API: daily views and visitors over the last 30 days, plus API-provided 14-day view/clone totals. It refreshes every six hours and archives history on a separate branch. Missing days remain gaps; daily unique counts are never summed and presented as cross-day unique visitors.
+
+To enable collection, add the repository secret `TRAFFIC_TOKEN` with read-only Administration access to this repository, then run **Repository traffic** in Actions. Until enabled, the chart explicitly shows that data is pending. See [setup, metric definitions and privacy](docs/repository-traffic.md).
 
 ## License
 

@@ -26,6 +26,7 @@
   <a href="#从旧版v1x升级">从旧版升级</a> ·
   <a href="#安全与隐私">隐私</a> ·
   <a href="#开发与测试">开发</a> ·
+  <a href="#仓库访问趋势">访问趋势</a> ·
   <a href="CHANGELOG.md">更新日志</a>
 </p>
 
@@ -714,6 +715,14 @@ npm run build --prefix desktop
 本工具用于数据整理、研究和历史复核，只产出研究数据、分析框架、待验证条件与裁决点，不提供投资决策、买卖建议或仓位指令。
 情绪分档和周期是分析框架，不是客观事实；涨停样本是市场现象统计，不是策略回测。公开数据、程序计算、个人记录与 AI 解读都可能出错，
 引用存在不代表推论正确，历史结果不代表未来表现。投资有风险，使用者应自行核实并承担决策责任，同时遵守各数据源的使用条款。
+
+## 仓库访问趋势
+
+[![GitHub 仓库每日浏览量、独立访客与近期访问趋势](https://raw.githubusercontent.com/cquptzf-glitch/vibe-astock/traffic-data/traffic.svg)](https://github.com/cquptzf-glitch/vibe-astock/tree/traffic-data)
+
+数据来自 GitHub 官方 Traffic API：图表展示最近 30 日每日浏览量与独立访客，并显示近 14 天访问/克隆汇总；每 6 小时更新，历史记录持续保存在独立分支。每日访客不能相加当作跨日独立人数，缺失日期不会显示为零。
+
+首次启用需配置仓库 Secret `TRAFFIC_TOKEN`（本仓库 Administration 只读权限），然后手动运行 **Repository traffic** 工作流。未启用时图表会明确提示等待数据。配置步骤、数据口径及隐私说明见 [访问统计说明](docs/repository-traffic.md)。
 
 ## License
 
