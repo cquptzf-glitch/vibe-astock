@@ -27,7 +27,7 @@ const SOURCE_RETENTION_DAYS: i64 = 28;
 const MIN_SAMPLES: usize = 10;
 const HIGH: f64 = 0.85;
 const LOW: f64 = 0.15;
-const BASELINE_DAYS: usize = 60;
+pub(crate) const BASELINE_DAYS: usize = 60;
 const MIN_BASELINE_SAMPLES: usize = 12;
 const TRIVIAL_BASELINE: f64 = 0.7;
 const RARE_BASELINE: f64 = 0.3;
@@ -697,7 +697,7 @@ pub(crate) fn load_items(db: &Path) -> Result<Vec<Item>> {
 }
 
 /// 被检验的那一场:日历里 date 之后的第一个交易日。
-fn next_session(calendar: &[String], date: &str) -> Option<String> {
+pub(crate) fn next_session(calendar: &[String], date: &str) -> Option<String> {
     calendar.iter().find(|d| d.as_str() > date).cloned()
 }
 

@@ -36,6 +36,7 @@ export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "journalModes", title: "模式卡", short: "模式", detail: "把自己的打法写下来、带版本,业绩按版本分段;改动次日生效、旧版本不动", group: "review", keywords: "打法 版本 规则 首板 低吸 接力 版本比较" },
   { page: "journalExcursion", title: "复查", short: "复查", detail: "复查清单(仓位偏大、持有偏久、计划外、没写止损…)与每笔最多赚到/亏到多少:最大浮盈浮亏与捕获率", group: "review", keywords: "最大浮盈 最大浮亏 MFE MAE 捕获率 盈利回吐 异常交易 收件箱 仓位偏大 持有偏久" },
   { page: "journalEnv", title: "入场环境", short: "环境", detail: "交易按入场那天的情绪强中弱、当时板位(首板/连板/炸板/没碰涨停)分组的胜率与盈亏", group: "review", keywords: "情绪环境 板位 炸板 首板 连板 入场日 分组" },
+  { page: "journalAttribution", title: "看错还是没执行好", short: "归因", detail: "前一晚验证条件成不成立 × 那天赚没赚:判对赚、判对亏(执行问题)、判错赚(运气)、判错亏(判断问题)", group: "review", keywords: "归因 判断 执行 四象限 运气 验证条件 对账" },
   { page: "research", title: "个股深挖", short: "个股", detail: "搜索沪深北股票：行情、财务、公告、研报、资金与所属板块", group: "research", keywords: "股票 搜索 财务 公告" },
   { page: "rotation", title: "板块轮动", short: "板块", detail: "概念/行业今日与五日资金、成分股与走势", group: "research" },
   { page: "sector", title: "产业研究", short: "产业", detail: "产业链图谱与研究线索", group: "research" },

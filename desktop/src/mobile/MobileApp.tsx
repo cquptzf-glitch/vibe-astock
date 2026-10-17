@@ -17,6 +17,7 @@ import { MarketOverview } from "./MarketOverview";
 import { MobileHeader, HomeShortcuts } from "./MobileHeader";
 import { IntradayPanel } from "./IntradayPanel";
 import { MarketPanel } from "./MarketPanel";
+import { JournalAttributionPanel } from "./JournalAttributionPanel";
 import { JournalEnvPanel } from "./JournalEnvPanel";
 import { JournalExcursionPanel } from "./JournalExcursionPanel";
 import { JournalModesPanel } from "./JournalModesPanel";
@@ -434,6 +435,7 @@ export function MobileApp() {
       case "journalModes": return <JournalModesPanel />;
       case "journalExcursion": return <JournalExcursionPanel />;
       case "journalEnv": return <JournalEnvPanel />;
+      case "journalAttribution": return <JournalAttributionPanel />;
       case "review": return <JournalReviewPanel onOpenSymbol={openFromList} />;
       case "rotation": return <RotationPanel onOpenBoard={(board) => navigate({ page: "board", board })} />;
       case "board": return <BoardDetailPanel key={route.board} code={route.board!} onOpenSymbol={openFromList} />;
