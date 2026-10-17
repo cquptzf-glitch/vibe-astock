@@ -32,6 +32,7 @@ mod journal_settings;
 mod market;
 mod market_panel;
 mod monitor;
+mod prev_broken;
 mod quote;
 mod reminders;
 mod research;
@@ -399,6 +400,7 @@ impl AppCore {
             ("POST", "/mobile/review/structure") => Ok(discovery_response(structure::act(&self.db_path, &request.body))),
             ("GET", "/mobile/review/tiers") => Ok(discovery_response(review_tiers::fetch(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/review/market") => Ok(discovery_response(market_panel::fetch(&self.client, &request.path).await)),
+            ("GET", "/mobile/shortline/prev-broken") => Ok(discovery_response(prev_broken::fetch(&self.client, &request.path).await)),
             ("GET", "/mobile/shortline/theme-tree") => Ok(discovery_response(theme_tree::fetch(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/shortline/samples") => Ok(discovery_response(samples::fetch(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::verify(&self.client, &self.db_path, &request.path).await)),
@@ -510,6 +512,7 @@ mod discovery_contract_tests {
             "/mobile/shortline/samples?date=2026-02-30",
             "/mobile/shortline/samples?refresh=2",
             "/mobile/shortline/theme-tree?top=2",
+            "/mobile/shortline/prev-broken?date=2026-02-30",
             "/mobile/shortline/theme-tree?date=2026-02-30",
             "/mobile/review/market?date=2026-02-30",
             "/mobile/review/tiers?date=2026-02-30",

@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-16",
+  "note": "昨日炸板股不在东财「昨日涨停表现」定稿记录里,所以用前一交易日炸板池名单加实时行情算;只在行情快照就是复盘日时才算得了。",
+  "partial": false,
+  "prev_date": "2026-10-15",
+  "result": {
+    "available": true,
+    "avg": -5.84,
+    "coverage_rate": 1.0,
+    "feedback_row": {
+      "tier": "昨日炸板",
+      "合计": 7,
+      "小跌": 3,
+      "收红": 0,
+      "晋级涨停": 0,
+      "晋级率": 0.0,
+      "跌停": 1,
+      "跌超5%": 3
+    },
+    "limit_up_again": 0,
+    "loss5": 4,
+    "median": -5.36,
+    "missing": 0,
+    "positive_rate": 0.0,
+    "result_order": [
+      "晋级涨停",
+      "收红",
+      "小跌",
+      "跌超5%",
+      "跌停"
+    ],
+    "rows": [
+      {
+        "broken_times": 2,
+        "code": "688648",
+        "name": "中邮科技",
+        "pct": -3.46,
+        "result": "小跌",
+        "sector": "专用设备"
+      },
+      {
+        "broken_times": 1,
+        "code": "000692",
+        "name": "惠天热电",
+        "pct": -3.59,
+        "result": "小跌",
+        "sector": "电力"
+      },
+      {
+        "broken_times": 2,
+        "code": "603533",
+        "name": "掌阅科技",
+        "pct": -4.76,
+        "result": "小跌",
+        "sector": "数字媒体"
+      },
+      {
+        "broken_times": 1,
+        "code": "000710",
+        "name": "贝瑞基因",
+        "pct": -5.36,
+        "result": "跌超5%",
+        "sector": "医疗服务"
+      },
+      {
+        "broken_times": 1,
+        "code": "301025",
+        "name": "读客文化",
+        "pct": -5.46,
+        "result": "跌超5%",
+        "sector": "出版"
+      },
+      {
+        "broken_times": 8,
+        "code": "000892",
+        "name": "欢瑞世纪",
+        "pct": -8.26,
+        "result": "跌超5%",
+        "sector": "影视院线"
+      },
+      {
+        "broken_times": 2,
+        "code": "603258",
+        "name": "电魂网络",
+        "pct": -9.99,
+        "result": "跌停",
+        "sector": "游戏Ⅱ"
+      }
+    ],
+    "sample": 7,
+    "total": 7
+  },
+  "settled": true,
+  "source": "前一交易日东财炸板池 + 腾讯实时行情(复盘日当天的涨跌)"
+}

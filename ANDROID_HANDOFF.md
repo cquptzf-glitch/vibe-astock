@@ -1404,7 +1404,7 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 
 下一步建议：① 补发布前隐私扫描后 push、看 CI、发 0.1.22 预览版（需主人确认）；② 交易日志剩余：模式卡（版本化）、MFE/MAE 复查与复查清单、按情绪环境/当时板位分组、「看错还是没执行好」四象限、问题记录修复；③ 情绪复盘的 AI 复盘/周报/结构变化；④ 市场面板补沪深 300 估值（需要 xls 解析）；⑤ 隐私模式（金额/股数/价位遮罩、权益曲线不画）。
 
-### 交易日志分析页补全：模式卡、复查、入场环境、归因、问题记录（0.1.22 之后，已合并并 push，未发布）
+### 交易日志分析页补全：模式卡、复查、入场环境、归因、问题记录（0.1.22 之后合并，随 0.1.23 发布）
 
 任务：把桌面版交易日志还没迁的分析页补到手机端。五个功能各一个提交（开发在分支 `claude/strange-brattain-b0a759`，基线 `2d92a32`；之后已用一次合并提交合进 `android-mvp` 并 push，文档冲突已手工解决），都是复盘栏目里的子页签：
 
@@ -1425,3 +1425,20 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - 浏览器：Playwright 1.56.1 + 本机 Edge 跑 `desktop/test/mobile-ui-smoke.mjs`，6 组视口/主题、108 张截图通过（新增模式卡含新建编辑器、复查、入场环境、归因、问题记录含展开成交编辑）；已人工查看 360 深色模式卡、360 白色复查、390 深色归因、360 白色问题记录。本机跑法：`npm run preview --prefix desktop -- --host 127.0.0.1 --port 4173` 起静态页，把冒烟脚本里的 `chromium.launch({ headless: true })` 换成带 `channel: "msedge"` 的副本，`VIBE_UI_RUNTIME` 指向装了 playwright 的目录（本机是 `C:/Users/<用户>/node_modules/playwright`）。worktree 里没有 `desktop/node_modules` 时用目录联接指到主工作区的。
 
 **合并与发布状态**：仓库主人明确指示「直接合并 + push，不要扫描」，所以这批提交已合并并 push，**没有重做发布前隐私扫描**（扫描方法与口径见上一节「0.1.22」）；Cargo 版本号仍是 0.1.22，没有发布新 Release（已存在的标签 `android-mvp-v0.1.22` 指向 2d92a32，CI 不会覆盖）。要发布这批改动：升版本号（`core-rust/Cargo.toml`、`src-tauri/Cargo.toml`、`core-rust/Cargo.lock`）、写 `docs/android/releases/<版本>.md`、补隐私扫描、得到仓库主人对新建 Release 的授权。仍未做：真机验收。模式卡与交易分析页同样没有隐私模式遮罩（全局隐私模式未做）。
+
+### 复盘补全：题材事件树、涨停分档、结构变化、沪深 300 估值、昨日炸板股修复（0.1.23）
+
+仓库主人 2026-10-17 的长期指示：实现 ANDROID_REMAINING.md 里的全部功能；每轮升版本、写发布说明、提交、push 由 CI 发预览版；不再做发布前隐私扫描（密钥/个人成交不入库、不进 AI、夹具只用公开行情或合成数据继续有效）。已写进 AGENTS.md 6.4/6.5 与 ANDROID_REMAINING.md「发布约定」。Agent 做不了的两项会一直留在清单里：真机验收、正式签名/AAB（需要仓库主人的发布密钥）。
+
+本轮（Round A）新增，全部在复盘栏目里：
+
+- **题材事件树**（`theme_tree.rs`、`ThemeTree.tsx`，`GET /mobile/shortline/theme-tree?date=&top=`）：同花顺涨停池（`data.10jqka.com.cn/dataapi/limit_up/limit_up_pool`）逐页取、逐行核对日期，原因串拆成事件题材后聚合；状态只由已发生读数推出。缓存表 `mobile_ths_reasons`（公开数据，不进备份）。首板名单每只带涨停原因（取不到的票不显示原因，页脚写覆盖情况）。
+- **涨停分档**（`review_tiers.rs`、`ReviewTiers.tsx`，`GET /mobile/review/tiers`）：放在市场面板。
+- **结构变化**（`structure.rs`、`StructurePanel.tsx`，`GET/POST /mobile/review/structure`）：最近 10 vs 之前 20 个交易日涨停结构逐项比中位数（计数类相对 ≥ 35%，占比类绝对 ≥ 10 个点，窗口至少 5 天）；四张池子的上游字段清单漂移；人工登记制度事件（`mobile_regime_events`，进备份，标题 ≤ 60 字、说明 ≤ 300 字、最多 1000 条）。`emotion.rs` 因此拆出 `fetch_pool_root` / `raw_fields`。
+- **沪深 300 估值**（`market_panel.rs`，`calamine 0.36` 解析中证 `000300indicator.xls`，夹具 `core-rust/tests/fixtures/csindex_000300_indicator.xls`）：市盈率、股息率与 10 年国债收益率的股债利差；表头先压空白再匹配（真实表头是「指数代码Index Code」）；取不到写原因。
+- **昨日炸板股修复**（`prev_broken.rs`、`PrevBroken.tsx`，`GET /mobile/shortline/prev-broken?date=`）：前一交易日炸板池 + `watch::fetch_quotes` 腾讯实时行情，行情时间必须是复盘日才计入，涨停价/跌停价上分别记「晋级涨停」「跌停」，其余按涨跌幅分收红/小跌/跌超5%；行情快照不属于复盘日整块写原因；盘中标此刻读数。⚠️ 桌面版 `prev_broken_recovery` 的计算源码在仓库里没找到（只有类型和界面字段），口径是按界面「当天均 / 翻红」定义的，没和桌面版逐项对账，所以做成独立卡片、不并进原反馈矩阵。
+- **schema/备份**：v7 迁移 `migrate_6_to_7` 现在收了 mobile_journal_modes / _bars / _env_days、mobile_ths_reasons、mobile_structure_days、mobile_regime_events；备份格式 v7（v1–v6 可恢复，旧备份恢复后模式卡/制度事件为空）。0.1.23 发布后再加表要开 v8。
+
+验证（本机）：Rust `cargo test --locked` 179 项 + 1 项 parity 通过（20 项 ignored 为实时探测/夹具生成，本轮的 `live_theme_tree_probe`、`live_valuation_probe`、`live_prev_broken_probe` 都对真实上游跑通）；前端 `tsc`、`npm run build` 通过；`npm test` 488 项中 487 项通过（agent_error 缺 ajv）；Edge 冒烟 6 组视口/主题、126 张截图通过（新增结构变化含登记编辑器、题材事件树、昨日炸板股修复），并人工查看 360 白色昨日炸板股修复。前端夹具是对 2026-10-16 真实上游的冻结返回（东财偶发取不到，市场面板夹具由多次探测按块合并）。CI 与发布结果见 ANDROID_REMAINING.md 开头。
+
+下一步（Round B 起，见 ANDROID_REMAINING.md）：我的股票（自选估值列/分组/标签、持仓已实现与分红、收益表现与体检、CSV/截图导入）→ 我的（盘前提醒/收盘摘要消息流、研报上传、研究记录归档）→ 分享与备份 → 估值与研究 → AI 能力 → 隐私模式与后台盯盘 → 工程验收。

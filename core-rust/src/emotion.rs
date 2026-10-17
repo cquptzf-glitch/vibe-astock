@@ -4,7 +4,7 @@
 //! 口径移植自数据层 shortline_emotion.py / shortline_facts.py / shortline_boards.py:
 //! 所有读数只用东财涨停 / 炸板 / 跌停 / 昨日涨停四张池子和前一交易日涨停池,任意已收盘交易日可算。
 //! 与桌面版的差异如实标注:题材按东财所属行业归(桌面版另用同花顺涨停原因),
-//! 亏钱效应与反馈矩阵只用定稿记录(昨日炸板股不在其中),不用实时行情兜底。
+//! 亏钱效应与反馈矩阵只用定稿记录(昨日炸板股不在其中,由 prev_broken 模块用实时行情单独算)。
 use crate::discovery::{self, DiscoveryError};
 use anyhow::{anyhow, Result};
 use chrono::{FixedOffset, NaiveDate, Timelike, Utc};
@@ -677,7 +677,7 @@ pub(crate) fn build(date: &str, prev: Option<&str>, settled: bool, pools: &Pools
         "limit_up_rows": limit_up_rows,
         "broken_rows": pool_rows(&pools.zb, &prev_boards, prev_known),
         "limit_down_rows": pool_rows(&pools.dt, &prev_boards, prev_known),
-        "source_note": "题材按东财所属行业归;桌面版另用同花顺涨停原因。昨日炸板股不在定稿记录中,不计入反馈矩阵和修复读数。",
+        "source_note": "题材按东财所属行业归;桌面版另用同花顺涨停原因。昨日炸板股不在定稿记录中,单独由「昨日炸板股修复」卡片用实时行情算。",
     })
 }
 
@@ -879,9 +879,9 @@ fn loss_effect(pools: &Pools, date: &str, prev: Option<&str>) -> Value {
         "market_limit_down": pools.dt.as_ref().ok().map(Vec::len),
         "prev_broken_recovery": Value::Null,
         "note": if pools.dt.is_ok() {
-            "昨日强势股由定稿记录算;全市场跌停取复盘日东财跌停池。昨日炸板股修复未覆盖。"
+            "昨日强势股由定稿记录算;全市场跌停取复盘日东财跌停池。昨日炸板股修复见「昨日炸板股修复」卡片。"
         } else {
-            "昨日强势股由定稿记录算;复盘日跌停池未取得。昨日炸板股修复未覆盖。"
+            "昨日强势股由定稿记录算;复盘日跌停池未取得。昨日炸板股修复见「昨日炸板股修复」卡片。"
         },
     }))
 }
@@ -940,7 +940,7 @@ fn feedback(pools: &Pools, today_codes: &HashSet<&str>, date: &str, prev: Option
         "result_order": RESULT_ORDER,
         "rows": tiers,
         "details": details.into_iter().map(|(_, value)| value).collect::<Vec<_>>(),
-        "note": "涨跌幅取昨日涨停股当日定稿记录;晋级以复盘日东财涨停池成员为准。记录不含昨日炸板股。",
+        "note": "涨跌幅取昨日涨停股当日定稿记录;晋级以复盘日东财涨停池成员为准。记录不含昨日炸板股(单独算,见「昨日炸板股修复」卡片)。",
     }))
 }
 

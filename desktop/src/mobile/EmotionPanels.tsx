@@ -6,6 +6,7 @@ import {
   type CycleData, type EmotionData, type EmotionStock, type LadderLevel, type LedgerEvent, type PoolRow,
 } from "./emotionData";
 import type { MobilePage } from "./mobileRoutes";
+import { PrevBrokenCard } from "./PrevBroken";
 import { ThemeTreeCard, useThemeTree } from "./ThemeTree";
 import "./emotion.css";
 
@@ -410,6 +411,7 @@ export function MarketFactsPanel({ onOpenSymbol }: { onOpenSymbol: Open }) {
   return <section className="mobile-section emo-page">
     <EmotionHeader title="盘面事实" detail="强势股反馈、亏钱效应、封板质量与分制度" state={state} />
     {state.data && <MarketFactsView data={state.data} onOpenSymbol={onOpenSymbol} />}
+    {state.data && <PrevBrokenCard date={state.date} onOpenSymbol={onOpenSymbol} />}
   </section>;
 }
 

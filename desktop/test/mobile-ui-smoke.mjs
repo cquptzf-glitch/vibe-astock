@@ -26,6 +26,10 @@ const journalEnvFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobi
 const journalAttributionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-attribution-synthetic.json", "utf8"));
 const journalProblemsFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-problems-synthetic.json", "utf8"));
 const marketPanelFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-market-panel-2026-10-16.json", "utf8"));
+const themeTreeFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-theme-tree-2026-10-16.json", "utf8"));
+const tiersFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-review-tiers-2026-10-16.json", "utf8"));
+const structureFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-structure-2026-10-16.json", "utf8"));
+const prevBrokenFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-prev-broken-2026-10-16.json", "utf8"));
 const intradayFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-intraday-2026-10-17.json", "utf8"));
 const names = [["600519", "贵州茅台", 1329, 1.22], ["000001", "平安银行", 12.45, -.8], ["300308", "中际旭创", 154.8, 2.1], ["601318", "中国平安", 58.6, -.35], ["600036", "招商银行", 42.8, .61], ["920575", "北交所样本", null, null]];
 const watchlist = names.map(([symbol, name]) => ({ symbol, name, created_at: "2026-10-16", updated_at: "2026-10-16" }));
@@ -63,6 +67,10 @@ const responses = {
   "/mobile/watch/poll": watchFixture,
   "/mobile/intraday": intradayFixture,
   "/mobile/review/market": marketPanelFixture,
+  "/mobile/review/tiers": tiersFixture,
+  "/mobile/review/structure": structureFixture,
+  "/mobile/shortline/theme-tree": themeTreeFixture,
+  "/mobile/shortline/prev-broken": prevBrokenFixture,
   "/mobile/journal/risk": journalRiskFixture,
   "/mobile/journal/modes": journalModesFixture,
   "/mobile/journal/problems": journalProblemsFixture,
@@ -207,6 +215,24 @@ try {
       await page.getByRole("table", { name: "主要指数中长线" }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-market-panel.png"), fullPage: true });
+      await page.getByRole("region", { name: "涨停分档卡片" }).waitFor();
+      await page.locator(".group-tabs").getByRole("tab", { name: "结构变化", exact: true }).click();
+      await page.getByRole("heading", { name: "结构变化", exact: true }).waitFor();
+      await page.getByText("结构移位不等于制度变化", { exact: false }).first().waitFor();
+      await page.getByRole("button", { name: "登记", exact: false }).click();
+      await page.getByLabel("施行日期", { exact: false }).waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-structure.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "行业题材", exact: true }).click();
+      await page.getByRole("region", { name: "题材事件树卡片" }).waitFor();
+      await page.getByText("题材归因来自源站编辑", { exact: false }).first().waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-theme-tree.png"), fullPage: true });
+      await page.locator(".group-tabs").getByRole("tab", { name: "盘面事实", exact: true }).click();
+      await page.getByRole("region", { name: "昨日炸板股修复卡片" }).waitFor();
+      await page.getByRole("table", { name: "昨日炸板反馈矩阵" }).waitFor();
+      await assertWidth();
+      await page.screenshot({ path: path.join(out, width + "-" + theme + "-prev-broken.png"), fullPage: true });
       await page.locator(".group-tabs").getByRole("tab", { name: "涨停样本", exact: true }).click();
       await page.getByText("首板 · 最后封板时间曲线", { exact: false }).waitFor();
       await page.getByText("事后名单", { exact: false }).first().waitFor();
@@ -265,8 +291,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 108, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel; 108 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 126, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 126 screenshots.");
 } finally {
   await browser.close();
 }
