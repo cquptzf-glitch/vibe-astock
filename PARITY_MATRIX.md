@@ -162,3 +162,5 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 ## 0.1.37 candidate validation
 
 Local Core 310 + symbol parity 1, frontend 574, 198 Edge screenshots, ARM64 check, five distribution helper tests and live BaoStock historical ST/IPO probes pass. Android native JUnit/APK/release-AAB fixture smoke and final publication receipt pending. Existing 388 calc oracle fixtures retained. Formal signing and website verification require the actual owner identity/domain, and device acceptance remains separate.
+
+0.1.37 收尾修复：指数日历不可用时，也用已取得的逐日日状态补齐停牌日期；缺价日不成交、按最近已知收盘结转。新增对应回归测试，最终测试项数以 CI 回执为准。

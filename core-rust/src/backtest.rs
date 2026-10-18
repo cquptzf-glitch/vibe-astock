@@ -632,7 +632,11 @@ pub async fn run(client: &Client, body: &Value) -> Result<Value> {
             if let (Some(first),Some(last))=(data.first(),data.last()) {
                 let loaded=tokio::time::timeout(std::time::Duration::from_secs(25),crate::historical_metadata::fetch(key,&first.date,&last.date)).await;
                 let audit=match loaded {
-                    Ok(Ok(h))=>rules::automatic(&key.digits,&mut data,&h),
+                    Ok(Ok(h))=>{
+                        let dates:Vec<_>=h.days.keys().map(|date|(date.clone(),0.0)).collect();
+                        data=rules::complete_calendar(&data,&dates);
+                        rules::automatic(&key.digits,&mut data,&h)
+                    },
                     other=>json!({"status":"failed","reason":match other{Ok(Err(e))=>e.to_string(),_=>"历史元数据总预算超时".into()},"covered_bars":0}),
                 };
                 if historical=="required"&&audit["status"]!="ok"{return Err(anyhow!("{} 历史制度数据未完整覆盖:{}",key.digits,audit));}
@@ -649,7 +653,7 @@ pub async fn run(client: &Client, body: &Value) -> Result<Value> {
     result["market_rules"]=json!({"mode":historical,"status":if historical=="off"{"disabled"}else if history_sources.iter().all(|r|r["status"]=="ok"){"ok"}else{"partial"},"sources":history_sources,"explicit_intervals":market_rules.len(),"note":"默认现查沪深逐日ST/停牌与上市日期，失败或缺日期会单独披露；required模式缺失即拒绝。主板ST在2026-07-06前为5%、以后10%；创业板改革及注册制新股前五日按时点处理。用户明确制度区间优先。重新上市、退市整理、北交所特殊状态仍需明确区间，不能用于精确成交可达性判断。"});
     result["suspension"]["calendar_available"]=json!(calendar.is_ok());
     result["suspension"]["calendar_error"]=json!(calendar.err().map(|e|e.to_string()));
-    result["suspension"]["note"]=json!("零量及指数日历内缺失日禁止成交，最近已知收盘估值；日历缺失时仅按已有日线计算并披露缺口。起止区间以取得的真实行情为准。");
+    result["suspension"]["note"]=json!("零量、历史日状态及指数日历内缺失日禁止成交，最近已知收盘估值；两类日历均缺失时仅按已有日线计算并披露缺口。起止区间以取得的真实行情为准。");
     Ok(result)
 }
 

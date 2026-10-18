@@ -283,6 +283,26 @@ mod tests {
         assert_eq!(bars[1].limit(Some(0.1), false), Some(0.1));
     }
     #[test]
+    fn daily_state_dates_can_complete_a_suspension_without_index_calendar() {
+        let h = history(
+            "2000-01-01",
+            &[
+                ("2026-07-01", false, true),
+                ("2026-07-02", false, false),
+                ("2026-07-03", false, true),
+            ],
+            &[],
+        );
+        let dates = h.days.keys().map(|d| (d.clone(), 0.)).collect::<Vec<_>>();
+        let raw = vec![sample("2026-07-01"), sample("2026-07-03")];
+        let mut bars = complete_calendar(&raw, &dates);
+        automatic("600000", &mut bars, &h);
+        assert_eq!(bars.len(), 3);
+        assert_eq!(bars[1].date, "2026-07-02");
+        assert!(!bars[1].tradable);
+        assert_eq!(bars[1].close, bars[0].close);
+    }
+    #[test]
     fn range_rejects_future_reversed_and_noncanonical_dates() {
         for body in [
             json!({"start_date":"2099-01-01"}),
