@@ -156,6 +156,38 @@ pub fn list(db: &Path, key: &str, asof: Option<&str>) -> Result<Value> {
         json!({"schema":1,"sector":key,"as_of":cutoff,"status":if errors.is_empty()&&conflicts.is_empty(){"ok"}else{"partial"},"records":records,"errors":errors,"conflicts":conflicts,"verification":"user_curated","note":"这些数值来自用户整理，出处和摘录保留，未由程序独立核验。仅在研究中明确开启后附带。"}),
     )
 }
+/// Keep a usable, explicit source snapshot within the research evidence budget.
+/// Full observations stay in the library and backup; this is not report truncation.
+pub(crate) fn research_snapshot(db: &Path, key: &str, asof: Option<&str>) -> Result<Value> {
+    let full = list(db, key, asof)?;
+    let rows = full["records"].as_array().unwrap();
+    let mut selected = Vec::new();
+    let mut shortened = 0;
+    for original in rows {
+        if selected.len() == 20 {
+            break;
+        }
+        let mut row = original.clone();
+        let quote = row["source_excerpt"].as_str().unwrap_or("");
+        let excerpt = quote.chars().take(400).collect::<String>();
+        let trimmed = excerpt != quote;
+        row["source_excerpt"] = json!(excerpt);
+        row["excerpt_truncated"] = json!(trimmed);
+        selected.push(row);
+        if serde_json::to_vec(&selected)?.len() > 28_000 {
+            selected.pop();
+            break;
+        }
+        if trimmed {
+            shortened += 1;
+        }
+    }
+    let omitted = rows.len() - selected.len();
+    Ok(
+        json!({"schema":1,"sector":key,"as_of":full["as_of"],"verification":"user_curated","status":if full["status"]=="partial"||omitted>0||shortened>0{"partial"}else{"ok"},"records":selected,"total_available":rows.len(),"included_count":rows.len()-omitted,"omitted_count":omitted,"excerpt_truncated_count":shortened,"conflict_groups":full["conflicts"].as_array().map_or(0,Vec::len),"invalid_records":full["errors"].as_array().map_or(0,Vec::len),"selection":"按统计期倒序选取至多二十条，受二十八KiB观测预算约束；摘录至多四百字并逐条标记裁减。原始数值、单位、日期、记录ID和出处URL保留，完整记录仍在资料库及业务备份。未附带记录不得当作不存在，用户整理内容未独立核验。"}),
+    )
+}
+
 pub fn mutate(db: &Path, body: &Value) -> Result<Value> {
     if body["action"] == "delete" {
         let key = text(body, "sector", 64)?;
@@ -232,6 +264,41 @@ mod tests {
             let task = crate::research_workflow::create(app.db_path(), &body).unwrap();
             assert_eq!(task["industry_library"], expected);
         }
+    }
+    #[test]
+    fn research_snapshot_keeps_real_measurements_and_citations_when_excerpts_exceed_budget() {
+        let app = crate::AppCore::new(crate::test_http::temp_root("industry-budget")).unwrap();
+        let db = app.db_path();
+        let facts = (0..30)
+            .map(|i| {
+                let mut f = fact();
+                f["entity"] = json!(format!("合成{i}厂"));
+                f["source_excerpt"] = json!("合成原文".repeat(400));
+                f
+            })
+            .collect::<Vec<_>>();
+        mutate(db, &json!({"action":"import","schema":1,"records":facts})).unwrap();
+        let snap = research_snapshot(db, "hbm", None).unwrap();
+        assert_eq!(snap["status"], "partial");
+        assert_eq!(snap["total_available"], 30);
+        assert!(snap["included_count"].as_u64().unwrap() > 0);
+        assert!(snap["omitted_count"].as_u64().unwrap() > 0);
+        assert!(serde_json::to_vec(&snap).unwrap().len() < 35_000);
+        assert_eq!(snap["records"][0]["value"], 100.);
+        assert_eq!(snap["records"][0]["unit"], "万片/年");
+        assert_eq!(
+            snap["records"][0]["source_url"],
+            "https://example.com/public-report"
+        );
+        assert_eq!(snap["records"][0]["excerpt_truncated"], true);
+        assert_eq!(
+            list(db, "hbm", None).unwrap()["records"][0]["source_excerpt"]
+                .as_str()
+                .unwrap()
+                .chars()
+                .count(),
+            1600
+        );
     }
     fn fact() -> Value {
         json!({"sector":"hbm","metric":"capacity","entity":"合成测试厂","label":"年产能","value":100,"unit":"万片/年","currency":"none","period_end":"2026-06-30","published_date":"2026-07-01","source_name":"合成公告","source_url":"https://example.com/public-report","source_excerpt":"合成测试：年产能100万片。"})

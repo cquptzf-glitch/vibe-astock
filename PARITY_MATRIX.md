@@ -164,3 +164,8 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 Local Core 310 + symbol parity 1, frontend 574, 198 Edge screenshots, ARM64 check, five distribution helper tests and live BaoStock historical ST/IPO probes pass. Android native JUnit/APK/release-AAB fixture smoke and final publication receipt pending. Existing 388 calc oracle fixtures retained. Formal signing and website verification require the actual owner identity/domain, and device acceptance remains separate.
 
 0.1.37 收尾修复：指数日历不可用时，也用已取得的逐日日状态补齐停牌日期；缺价日不成交、按最近已知收盘结转。新增对应回归测试，最终测试项数以 CI 回执为准。
+
+
+最终提交 7e5dbab 的[跨平台 CI #39143283909](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39143283909) 六组全部成功。Linux / Node 24 日志核对：编排器 1429 项通过 / 4 跳过、前端 574 项通过、mypy 115 个源文件通过、发行帮助脚本 5 项通过、388 例 calc oracle 散列匹配、Python 311 + 583 + 783 项通过。Android APK/release-AAB 验证与发布回执仍待补记。
+
+产业快照预算修复：研究仅附带至多二十条、二十八 KiB 的观测；数值/单位/日期/ID/出处不裁改，摘录至多四百字并标记，省略条数、原有冲突数和无效记录数明确返回。完整观测仍在资料库及备份，避免长摘录使整份来源被排除；不是截断已完成报告。

@@ -345,7 +345,7 @@ async fn collect(client: &Client, db: &Path, task: &mut Value) {
             if task["industry_library"] == true {
                 sources.push((
                     "用户选择的产业资料",
-                    crate::industry_library::list(db, key, task["date"].as_str())
+                    crate::industry_library::research_snapshot(db, key, task["date"].as_str())
                         .map_err(|e| e.to_string()),
                 ));
             }
