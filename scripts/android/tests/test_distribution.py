@@ -9,7 +9,7 @@ from unittest.mock import patch
 import xml.etree.ElementTree as ET
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from configure_distribution import configure, validate_host, certificate, attr
-from verify_distribution import association_matches
+from verify_distribution import association_matches, verify_apk_certificate
 from prepare_preview_signing import prepare
 
 class DistributionTest(unittest.TestCase):
@@ -57,6 +57,19 @@ class DistributionTest(unittest.TestCase):
         self.assertIn('isDebuggable = false',source)
         configure(self.project,self.out)
         self.assertNotIn('vibeRelease',self.gradle.read_text())
+    def test_apksigner_old_and_build_tools_37_output(self):
+        digest = '12' * 32
+        for label in ['Signer #1', 'V3.0Signer:', 'V2Signer:', 'V1Signer:', 'V3.0 Signer:', 'V3.0Signer #1:']:
+            verify_apk_certificate(label + ' certificate SHA-256 digest: ' + digest + '\n', digest)
+        for output in [
+            'Source Stamp Signer: certificate SHA-256 digest: ' + digest,
+            'Signer #1 public key SHA-256 digest: ' + digest,
+            'Signer #1 certificate SHA-256 digest: ' + '34' * 32,
+            'Signer #1 certificate SHA-256 digest: ' + digest + '\nSigner #2 certificate SHA-256 digest: ' + '34' * 32,
+            'V3.0Signer: certificate SHA-256 digest: ' + digest + 'BAD',
+        ]:
+            with self.assertRaises(ValueError): verify_apk_certificate(output, digest)
+
     def test_malformed_associations_are_not_verified(self):
         for body in [None,{},[{'relation':'delegate_permission/common.handle_all_urls','target':{}}],[{'relation':['delegate_permission/common.handle_all_urls'],'target':{'namespace':'android_app','package_name':'com.vibeastock.mobile','sha256_cert_fingerprints':['bad']}}]]:
             self.assertFalse(association_matches(body,[self.fingerprint]))

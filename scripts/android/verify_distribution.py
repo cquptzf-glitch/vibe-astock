@@ -18,6 +18,19 @@ def signing_certificate() -> str:
         raise ValueError("Could not read configured signing certificate; check alias and store password")
     return certificate(hashlib.sha256(result.stdout).hexdigest())
 
+def verify_apk_certificate(output: str, expected: str) -> None:
+    # Build Tools 37 adds the verified scheme and a colon to signer labels.
+    # Match application signers only; a source stamp cannot establish identity.
+    digests = re.findall(
+        r"^(?:V(?:1|2|3\.[012])\s*)?Signer(?: #\d+)?:? certificate SHA-256 digest:\s*([a-fA-F0-9]{64})\s*$",
+        output, re.M,
+    )
+    if not digests:
+        raise ValueError("Could not parse APK application signing certificate")
+    actual = {certificate(digest) for digest in digests}
+    if actual != {certificate(expected)}:
+        raise ValueError("APK signing certificate differs from configured upgrade key: " + ", ".join(sorted(actual)))
+
 def verify(apk: Path, aab: Path, apksigner: Path, expected: str) -> dict:
     expected = certificate(expected)
     badging = subprocess.run([str(apksigner.with_name("aapt")), "dump", "badging", str(apk)], capture_output=True, text=True)
@@ -27,9 +40,7 @@ def verify(apk: Path, aab: Path, apksigner: Path, expected: str) -> dict:
     r = subprocess.run([str(apksigner), "verify", "--verbose", "--print-certs", str(apk)], capture_output=True, text=True)
     if r.returncode:
         raise ValueError("APK signature verification failed")
-    found = re.search(r"Signer #1 certificate SHA-256 digest:\s*([a-fA-F0-9]+)", r.stdout)
-    if not found or certificate(found[1]) != expected:
-        raise ValueError("APK signing certificate differs from the configured upgrade key")
+    verify_apk_certificate(r.stdout, expected)
     with zipfile.ZipFile(aab) as archive:
         if not any(name.startswith("base/lib/arm64-v8a/") and name.endswith(".so") for name in archive.namelist()):
             raise ValueError("AAB has no ARM64 native library")

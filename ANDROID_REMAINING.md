@@ -33,7 +33,10 @@
 0.1.37 待 CI 验证与发布，尚未声称 APK/AAB 构建成功。正式配置步骤见 [发行指南](docs/android/distribution.md)。
 
 
-最终提交 7e5dbab 的[跨平台 CI #39143283909](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39143283909) 六组全部成功。Linux / Node 24 日志核对：编排器 1429 项通过 / 4 跳过、前端 574 项通过、mypy 115 个源文件通过、发行帮助脚本 5 项通过、388 例 calc oracle 散列匹配、Python 311 + 583 + 783 项通过。Android APK/release-AAB 验证与发布回执仍待补记。
+先前候选提交 7e5dbab 的[跨平台 CI #39143283909](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39143283909) 六组全部成功。Linux / Node 24 日志核对：编排器 1429 项通过 / 4 跳过、前端 574 项通过、mypy 115 个源文件通过、发行帮助脚本 5 项通过、388 例 calc oracle 散列匹配、Python 311 + 583 + 783 项通过。Android APK/release-AAB 验证与发布回执仍待补记。
+
+
+候选提交 `93336e0` 的[跨平台 CI #39144585337](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39144585337) 六组全部成功；Android CI #39144585327 的 debug APK、原生 JUnit、release APK/AAB 构建完成，但新增签名解析校验失败，发布被阻止。定位为 Build Tools 37 的签名输出格式变更；已补旧/新格式解析及错证书、多签名、来源盖章不能冒充应用证书的回归测试，发行脚本六项通过，待重跑签名及发布回执。
 
 <details>
 <summary>0.1.36 及以前历史记录（当前缺口以上文为准）</summary>
