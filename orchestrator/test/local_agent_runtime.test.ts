@@ -28,8 +28,13 @@ import {
 function fixtureConfig(env: NodeJS.ProcessEnv): void {
   const bin = env.CLAUDE_BIN ?? env.CODEBUDDY_BIN ?? env.CODEX_BIN;
   if (!bin || !path.resolve(bin).startsWith(path.resolve(os.tmpdir()) + path.sep)) return;
-  fs.writeFileSync(path.join(path.dirname(bin), "fixture-flags.json"), JSON.stringify(
-    Object.fromEntries(Object.entries(env).filter(([key]) => key.startsWith("FAKE_")))));
+  const target = path.join(path.dirname(bin), "fixture-flags.json");
+  const contents = JSON.stringify(Object.fromEntries(Object.entries(env).filter(([key]) => key.startsWith("FAKE_"))));
+  // Concurrent probe children read this sidecar: never expose a truncated JSON file.
+  if (fs.existsSync(target) && fs.readFileSync(target, "utf8") === contents) return;
+  const pending = target + ".pending";
+  fs.writeFileSync(pending, contents);
+  fs.renameSync(pending, target);
 }
 const probeClaude: typeof realProbeClaude = env => { fixtureConfig(env ?? process.env); return realProbeClaude(env); };
 const probeCodeBuddy: typeof realProbeCodeBuddy = env => { fixtureConfig(env ?? process.env); return realProbeCodeBuddy(env); };

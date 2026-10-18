@@ -145,3 +145,6 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 0.1.35 已发布：[Android 0.1.35 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.35)（标签固定在 `69eb81066a3e639b34f1431e934cc19bc6df131b`；[Android CI #39098061563](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061563) 的 APK 构建、原生 Gradle 单元测试、APK 签名校验与发布全部成功；[跨平台 #39098061530](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061530) 六组全部成功）。ARM64 APK 29,104,663 bytes（27.76 MiB），SHA256 `262c6b14f16b7b6b5bf58ebce27c344639cd9f7c393de93be993d2f6557cc1ff`。仍为 debug-signed 预览版，未做真机验收。
 
 云端日志已核对：Rust 289 项 + 1 项 parity、前端 566 项、Chromium 174 张截图；Linux 编排器 1429 项通过 / 4 跳过、Python 311 + 583 + 783 项通过、mypy 115 个源文件通过。本机 Edge 同样 174 张截图通过。本节最终回执优先于前面的候选阶段“待 CI”记录；文档回执提交不改变已发布 APK 标签。
+
+
+0.1.36 首轮跨平台 CI #39123017948 的 Linux / Node 24 并发槽位测试返回 `agent_probe_failed`，Linux / Node 22 已通过。检查发现测试专用 fixture-flags.json 会被重复原地写入，而多个 CLI 探针子进程同时读它，存在读到空/不完整 JSON 的竞态；具体子进程 stderr 未由该错误保留，不能声称日志已证明唯一原因。后续测试修复改为相同内容不重写、变更原子替换；不改产品登录探针与容量逻辑。本机定向 9 项通过、1 项平台跳过，Linux 并发分支以修复后的跨平台 CI 为准。Android APK 仍从功能提交 46fbc52 构建。
