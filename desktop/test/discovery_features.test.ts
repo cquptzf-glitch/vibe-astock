@@ -4,6 +4,19 @@ import { textOf, withRenderer } from "./helpers/render.ts";
 import { publicUrl, openPublicUrl } from "../src/mobile/externalLinks.ts";
 import { createMobileNavigation, mobilePath, parseMobileRoute, type NavigationHost } from "../src/mobile/mobileRoutes.ts";
 
+test("手动刷新绕过缓存并保留证券代码、日期和中文筛选", async () => {
+  await withRenderer(async (r) => {
+    const { discoveryRequestPath }=await r.load("/src/mobile/discoveryData.ts");
+    const path="/mobile/research/statements?symbol=600519&date=2026-10-16&keyword=营收&refresh=0";
+    assert.equal(discoveryRequestPath(path,false),path);
+    const refreshed=new URL(discoveryRequestPath(path,true),"https://mobile.invalid");
+    assert.equal(refreshed.searchParams.get("symbol"),"600519");
+    assert.equal(refreshed.searchParams.get("date"),"2026-10-16");
+    assert.equal(refreshed.searchParams.get("keyword"),"营收");
+    assert.deepEqual(refreshed.searchParams.getAll("refresh"),["1"]);
+  });
+});
+
 test("资讯保留来源、部分失败、缺失时间，过滤与文本转义可见", async () => {
   await withRenderer(async (r) => {
     const { NewsResults } = await r.load("/src/mobile/NewsPanel.tsx");

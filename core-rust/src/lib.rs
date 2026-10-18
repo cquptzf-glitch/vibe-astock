@@ -235,8 +235,7 @@ impl AppCore {
             Err(error) => MobileApiResponse::error(500, "mobile_core", error.to_string()),
         };
         if let Some((key,_))=cache{
-            if result.status==200&&result.body["status"]!="failed"&&result.body.get("error").is_none(){let _=provider_cache::write(&self.db_path,&key,&result.body);}
-            else if result.status>=500{if let Some((body,_,at))=saved{return provider_cache::response(body,true,false,at,format!("取数失败,显示上次公开数据快照:{}",result.body["message"].as_str().unwrap_or("数据源不可用")));}}
+            return provider_cache::finish(&self.db_path,&key,saved,result);
         }
         result
     }

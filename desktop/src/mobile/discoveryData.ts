@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 
 export interface ProviderFailure { source: string; message: string }
 
+export function discoveryRequestPath(path: string, refresh: boolean): string {
+  if (!refresh) return path;
+  const url = new URL(path, "https://mobile.invalid");
+  url.searchParams.set("refresh", "1");
+  return url.pathname + url.search;
+}
+
 export function useDiscoveryData<T>(path: string) {
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState<{ path: string; data: T | null; loading: boolean; error: string }>({
@@ -12,7 +19,7 @@ export function useDiscoveryData<T>(path: string) {
     const controller = new AbortController();
     // 同一路径刷新时保留旧数据,避免定时刷新时整块闪空
     setState((previous) => ({ path, data: previous.path === path ? previous.data : null, loading: true, error: "" }));
-    void fetch("/api" + path, { headers: { Accept: "application/json" }, signal: controller.signal })
+    void fetch("/api" + discoveryRequestPath(path, revision > 0), { headers: { Accept: "application/json" }, signal: controller.signal })
       .then(async (response) => {
         const body = await response.json() as T & { message?: string; _cache?: { stale?: boolean; message?: string; saved_at?: string } };
         if (!response.ok) throw new Error(body.message || "数据源暂不可用，请重试");
