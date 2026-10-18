@@ -160,10 +160,13 @@ pub fn create(db: &Path, body: &Value) -> Result<Value> {
     let title = format!(
         "{} {} {}",
         names[0],
-        symbol.as_deref().unwrap_or("市场"),
+        symbol
+            .as_deref()
+            .or_else(|| sector.as_ref().and_then(|s| s["label"].as_str()))
+            .unwrap_or("市场"),
         date
     );
-    let task = json!({"mode":mode, "title":title, "question":question, "symbol":symbol, "sector":sector, "date":date,
+    let task = json!({"mode":mode, "title":title, "question":question, "symbol":symbol, "sector":sector, "date":date,"industry_library":mode=="industry"&&body["industry_library"]==true,
         "status":"active", "revision":0, "stages":names, "results":[], "evidence":[], "gaps":[],
         "created_at":Utc::now().to_rfc3339(), "error":Value::Null});
     persist(db, &task)
@@ -321,7 +324,7 @@ async fn collect(client: &Client, db: &Path, task: &mut Value) {
                 _ => "ai",
             };
             let sector_path = format!("/?industry={group}");
-            vec![
+            let mut sources = vec![
                 (
                     "产业资讯",
                     crate::news::fetch(client, &sector_path)
@@ -329,7 +332,24 @@ async fn collect(client: &Client, db: &Path, task: &mut Value) {
                         .map_err(|e| format!("{e:?}")),
                 ),
                 ("产业骨架", Ok(task["sector"].clone())),
-            ]
+            ];
+            let key = task["sector"]["key"].as_str().unwrap_or("");
+            if ["ai-computing", "hbm", "cpo", "pcb", "semiconductor"].contains(&key) {
+                let (gpu, revenue) = tokio::join!(
+                    crate::industry_signals::gpu_rent(client, "/?days=90"),
+                    crate::industry_revenue::fetch(client)
+                );
+                sources.push(("GPU产业温度计", gpu.map_err(|e| format!("{e:?}"))));
+                sources.push(("供应链月营收", revenue.map_err(|e| format!("{e:?}"))));
+            }
+            if task["industry_library"] == true {
+                sources.push((
+                    "用户选择的产业资料",
+                    crate::industry_library::list(db, key, task["date"].as_str())
+                        .map_err(|e| e.to_string()),
+                ));
+            }
+            sources
         } else if mode == "weekly" {
             vec![(
                 "近五交易日",
@@ -705,7 +725,7 @@ pub async fn advance(client: &Client, db: &Path, id: i64, body: &Value) -> Resul
             _ => "risk",
         }
     };
-    let system=format!("{}\n{}\n移动端执行契约：证据、阶段产物和版本报告由服务端保存在 SQLite；模型没有文件工具。需要 calc 时先只返回 JSON {{calculations:[{{id:本阶段唯一英文标识,function:目录函数名,args:按plan_contract绑定证据或前序计算}}]}}。服务端按依赖执行后返回真实 output；之后再写结论。每阶段至多十二节点、两轮计划；单位/币种/累计和时点口径必须与证据一致。资产负债表为期末时点，不能拆成单季。模型不得填写业务数据数字；仅目录 literal_parameters 的单位、周期等配置允许字面值。计算型数字断言用 {{label:指标名,value:真实value,calculation:真实calculation_id,path:/value或其它output内指针}}；正文照抄服务端 display 由展示层显示。未做 calc 可直接返回结论。未知、缺失和无意义的结果必须列为缺口，不得心算补写。裁减的行情窗口只支持该窗口的计算，不能冒充完整历史。产业骨架 verified=false 只是待核线索，不能当作技术事实；新闻标题只能作为线索。\n{}",methodology["constitution"].as_str().unwrap_or(""),methodology[sop].as_str().unwrap_or(""),output_contract);
+    let system=format!("{}\n{}\n移动端执行契约：证据、阶段产物和版本报告由服务端保存在 SQLite；模型没有文件工具。需要 calc 时先只返回 JSON {{calculations:[{{id:本阶段唯一英文标识,function:目录函数名,args:按plan_contract绑定证据或前序计算}}]}}。服务端按依赖执行后返回真实 output；之后再写结论。每阶段至多十二节点、两轮计划；单位/币种/累计和时点口径必须与证据一致。资产负债表为期末时点，不能拆成单季。模型不得填写业务数据数字；仅目录 literal_parameters 的单位、周期等配置允许字面值。计算型数字断言用 {{label:指标名,value:真实value,calculation:真实calculation_id,path:/value或其它output内指针}}；正文照抄服务端 display 由展示层显示。未做 calc 可直接返回结论。未知、缺失和无意义的结果必须列为缺口，不得心算补写。裁减的行情窗口只支持该窗口的计算，不能冒充完整历史。产业骨架 verified=false 只是待核线索，不能当作技术事实；新闻标题只能作为线索。用户整理的产业资料 verification=user_curated，未独立核验出处；冲突值必须并列说明、不能取平均或自动挑一个当作事实。\n{}",methodology["constitution"].as_str().unwrap_or(""),methodology[sop].as_str().unwrap_or(""),output_contract);
     let key = ai_config::injected_api_key(body);
     let mut generated = Vec::new();
     let outcome = match tokio::time::timeout(

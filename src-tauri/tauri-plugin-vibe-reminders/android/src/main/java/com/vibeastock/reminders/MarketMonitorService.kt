@@ -36,8 +36,8 @@ class MarketMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "stop") { stopWithReason("已手动停止"); return START_NOT_STICKY }
         if (started) return START_NOT_STICKY
-        config = JSONObject(getSharedPreferences(MONITOR_PREFS, MODE_PRIVATE).getString("config", "{}") ?: "{}")
-        if (config.optJSONArray("symbols")?.length() == 0) { stopSelf(); return START_NOT_STICKY }
+        config = try { JSONObject(getSharedPreferences(MONITOR_PREFS, MODE_PRIVATE).getString("config", "{}") ?: "{}") } catch (_: Exception) { stopWithReason("后台配置损坏，请重新开启"); return START_NOT_STICKY }
+        if ((config.optJSONArray("symbols")?.length() ?: 0) == 0 || config.optJSONObject("trading_days") == null) { stopWithReason("缺少订阅或官方月历，请重新开启"); return START_NOT_STICKY }
         started = true
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(NotificationChannel(MONITOR_CHANNEL, "持续后台盯盘", NotificationManager.IMPORTANCE_LOW))
@@ -55,6 +55,9 @@ class MarketMonitorService : Service() {
             val now = marketClock()
             val hhmm = now.hour * 100 + now.minute
             prefs.edit().putLong("heartbeat", System.currentTimeMillis()).apply()
+            val days = config.optJSONObject("trading_days")
+            if (days == null || !days.has(now.dayKey)) { stopWithReason("官方月历已过期，请重新开启以刷新交易日历"); return }
+            if (!days.optBoolean(now.dayKey, false)) { frames.clear(); prefs.edit().putString("message", "交易所日历休市，等待下一交易日").apply(); return }
             val battery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
             val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100

@@ -10,10 +10,9 @@
 //!    所以另给 `*_certain`(只取严格落在买入日与卖出日之间的完整交易日):`mfe_certain` = 确定至少赚到过这么多;
 //!    `mae_certain` = 确定至少差到过这个程度(**可能是正数 = 那几天从未浮亏**)。
 //! ⚠️ 用的是**不复权**日线对照成交成本(桌面版同):现金分红除息会让低点偏低,在说明里写明。
-//! 🔴 和桌面版不同:
-//!    - 手机端只有清仓后才算已实现,所以只算**卖光了的**一轮;北交所腾讯 K 线取不到,不算。
-//!    - 手机端没有送转流水,没法像桌面版那样直接排除「期间有送转」的整轮;改成看日线:持仓期间任意一天收盘价比前一天低 21% 以上
-//!      (A 股涨跌停最宽 20%,除权日才会这样),整轮标「疑似送转」不算(也可能是新股上市初期)。**只能识别大比例送转**,小比例送转看不出来。
+//! 已登记送转按事件日期把历史价格和买入数量换算到退出日股数口径。
+//! 对照整轮平均买入成本，是回顾性的价格路径比较，不是分批买卖时的逐日账户权益。
+//! 未登记的疑似大比例送转仍排除；只计算卖光且有成交明细的 A 股轮次。
 //! 🔴 行情取到就永久存本机:卖出当天收盘前取的那份不算定稿,收盘后再打开会重取一次。
 //! ⛔ 这些数据是用户自己的交易衍生出来的,只留本机,不进任何 AI。
 
@@ -82,6 +81,7 @@ pub(crate) struct Input {
     pub buy: String,
     pub sell: String,
     pub realized_pct: f64,
+    pub splits: Vec<(String,f64)>,
 }
 
 /// 复查清单要用的几个读数
@@ -123,6 +123,7 @@ impl Item {
             "mfe_pct": self.mfe_pct, "mae_pct": self.mae_pct, "mfe_certain": self.mfe_certain, "mae_certain": self.mae_certain,
             "certain_note": self.certain_note, "bars": self.bars, "bars_inner": self.bars_inner, "same_day": self.same_day,
             "precision": self.precision, "give_back_pct": self.give_back_pct, "capture_rate": self.capture_rate, "capture_note": self.capture_note,
+            "split_events":self.input.splits.len(),"price_basis":if self.input.splits.is_empty(){"不复权价格 / 整轮平均成本"}else{"按已登记送转换算到退出日股数口径 / 整轮平均买入成本；不是逐日账户收益"},
         })
     }
 }
@@ -147,6 +148,18 @@ pub(crate) fn compute_excursion(t: &Input, rows: &[Hl]) -> Computed {
     if !(t.cost > 0.0) || t.buy.is_empty() || t.sell.is_empty() || rows.is_empty() {
         return Computed::Empty;
     }
+    let adjusted;
+    let rows=if t.splits.is_empty(){rows}else{
+        let mut normalized=Vec::with_capacity(rows.len());
+        for row in rows {
+            let factor=t.splits.iter().filter(|(d,_)|d>&row.date).map(|(_,ratio)|*ratio).product::<f64>();
+            if !factor.is_finite()||factor<=0.0{return Computed::Split;}
+            let converted=Hl{date:row.date.clone(),high:row.high/factor,low:row.low/factor,close:row.close/factor};
+            if [converted.high,converted.low,converted.close].iter().any(|v|!v.is_finite()||*v<=0.0){return Computed::Split;}
+            normalized.push(converted);
+        }
+        adjusted=normalized;adjusted.as_slice()
+    };
     if rows.windows(2).any(|w| w[1].close < w[0].close * SPLIT_RATIO) {
         return Computed::Split;
     }
@@ -204,11 +217,21 @@ pub(crate) fn eligibility(r: &Row) -> Eligibility {
     if r.e.kind != "episode" || !r.closed || !(r.avg_cost > 0.0) {
         return Eligibility::NotClosed;
     }
-    if r.e.fills.iter().any(|f|f.side=="split") {return Eligibility::Split;}
     if is_bj(&r.e.symbol) {
         return Eligibility::Bj;
     }
-    Eligibility::Ok(Input { key: format!("mobile:{}", r.e.id), symbol: r.e.symbol.clone(), name: r.e.name.clone(), cost: r4(r.avg_cost), buy: buy.clone(), sell: sell.clone(), realized_pct: pnl })
+    let splits:Vec<_>=r.e.fills.iter().filter(|f|f.side=="split"&&&f.date>=buy&&&f.date<=sell).map(|f|(f.date.clone(),f.price)).collect();
+    let cost=if splits.is_empty(){r4(r.avg_cost)}else{
+        if splits.iter().any(|(_,ratio)|!ratio.is_finite()||*ratio<=0.0){return Eligibility::Split;}
+        let(mut amount,mut equivalent_shares)=(0.0,0.0);
+        for f in r.e.fills.iter().filter(|f|matches!(f.side.as_str(),"buy"|"opening")&&&f.date<=sell){
+            let factor=splits.iter().filter(|(d,_)|d>&f.date).map(|(_,ratio)|*ratio).product::<f64>();
+            amount+=f.price*f.shares;equivalent_shares+=f.shares*factor;
+        }
+        let cost=amount/equivalent_shares;
+        if !cost.is_finite()||cost<=0.0{return Eligibility::Split;}cost
+    };
+    Eligibility::Ok(Input { key: format!("mobile:{}", r.e.id), symbol: r.e.symbol.clone(), name: r.e.name.clone(), cost, buy: buy.clone(), sell: sell.clone(), realized_pct: pnl,splits })
 }
 
 // ---------------------------------------------------------------- 缓存(永久)与定稿判断
@@ -321,6 +344,7 @@ pub(crate) fn summary(items: &[Item]) -> Value {
     sorted.sort_by(|a, b| b.input.buy.cmp(&a.input.buy));
     json!({
         "trades": items.len(),
+        "split_adjusted_trades":items.iter().filter(|r|!r.input.splits.is_empty()).count(),
         "enough_samples": items.len() >= EXC_MIN_TRADES,
         // 一律用中位数:少数极端值会把均值拉得看不出典型情况
         "median_capture_rate": if caps.is_empty() { Value::Null } else { json!(r3(median(&caps))) },
@@ -337,7 +361,7 @@ pub(crate) fn summary(items: &[Item]) -> Value {
         "items": sorted.iter().map(|i| i.to_value()).collect::<Vec<_>>(),
         // 偏差必须和结论摆在一起
         "bias_note": format!("最大浮盈取的是日线高点,含「买入之前」的那部分 → 捕获率被系统性低估。其中 {same_day} 笔是同日进出,整段只能给上界。真实的最大浮盈落在每笔的「确定赚到过」与上界之间。最大浮亏同样包含入场前或离场后的日线低点,只能当最不利的边界,不能当实际持仓里的最大浮亏。"),
-        "caveat": "日线看不出最高点发生在盘中买入之前还是之后。跨日持有时,中间完整交易日的高低点在持仓期内。这里用不复权日线对照你的成交成本:遇到除息,低点会偏低,应自己核对,不据此判断真实得失;期间疑似大比例送转的整轮不算(手机端没有送转流水,只能从日线看出单日跌超 21% 这种大比例送转)。",
+        "caveat": "日线看不出极值发生在买入前或卖出后。已登记送转会把历史日线和买入股数换算到退出日股数口径，使用整轮平均买入成本比较价格路径；分批买卖时这不是逐日账户浮盈亏。未登记的疑似大比例送转仍排除。现金分红除息未复权，低点可能偏低，应核对原始流水。",
     })
 }
 
@@ -430,7 +454,7 @@ where
     let failed = failures.len();
     let not_counted: Vec<String> = [
         (not_closed > 0).then(|| format!("{not_closed} 笔还没卖光或没有成交明细")),
-        (split > 0).then(|| format!("{split} 笔期间疑似送转(不复权行情和成本不可比)")),
+        (split > 0).then(|| format!("{split} 笔存在未登记或无法可靠换算的疑似送转")),
         (bj > 0).then(|| format!("{bj} 笔是北交所(腾讯 K 线取不到)")),
         (failed > 0).then(|| format!("{failed} 笔行情没取到")),
         (uncached > 0).then(|| format!("{uncached} 笔还没取过行情")),
@@ -485,9 +509,28 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
+    #[test]
+    fn recorded_split_prices_and_buy_quantities_use_the_same_exit_share_basis() {
+        let mut e=closed_row(1,"600001","2026-09-01","2026-09-08",10.,14.).e;
+        let fill=|side:&str,date:&str,price:f64,shares:f64|Fill{side:side.into(),date:date.into(),price,shares,fee:Some(0.)};
+        e.fills=vec![fill("buy","2026-09-01",10.,100.),fill("split","2026-09-02",2.,0.),fill("sell","2026-09-03",6.,100.),fill("buy","2026-09-04",6.,100.),fill("split","2026-09-07",0.5,0.),fill("sell","2026-09-08",14.,100.)];
+        let r=journal_risk::settle(e,&ZERO,0);
+        let Eligibility::Ok(t)=eligibility(&r)else{panic!("有明确送转应可换算")};
+        assert!((t.cost-1600./150.).abs()<1e-10);assert_eq!(t.splits.len(),2);
+        let rows=vec![hl("2026-09-01",11.,8.,10.),hl("2026-09-02",5.5,4.5,5.),hl("2026-09-03",6.,5.,6.),hl("2026-09-04",6.5,5.,6.),hl("2026-09-07",15.,12.,14.),hl("2026-09-08",16.,14.,14.)];
+        let got=item(&t,&rows);assert_eq!(got.mfe_pct,50.);assert_eq!(got.mae_pct,-25.);assert_eq!(got.input.realized_pct,25.);assert_eq!(got.capture_rate,Some(0.5));assert_eq!(got.to_value()["split_events"],2);
+    }
+    #[test]
+    fn same_day_split_is_before_that_days_trades_and_unknown_splits_still_refuse() {
+        let mut t=input("2026-09-01","2026-09-03",20.);t.cost=5.;t.splits=vec![("2026-09-02".into(),2.)];
+        let rows=vec![hl("2026-09-01",11.,9.,10.),hl("2026-09-02",5.8,4.8,5.),hl("2026-09-03",6.,5.,6.)];
+        let got=item(&t,&rows);assert_eq!((got.mfe_pct,got.mae_pct),(20.,-10.));
+        t.splits.clear();assert!(matches!(compute_excursion(&t,&rows),Computed::Split));
+        t.splits=vec![("2026-09-02".into(),f64::INFINITY)];assert!(matches!(compute_excursion(&t,&rows),Computed::Split));
+    }
 
     fn input(buy: &str, sell: &str, realized: f64) -> Input {
-        Input { key: "mobile:1".into(), symbol: "600001".into(), name: "样本".into(), cost: 10.0, buy: buy.into(), sell: sell.into(), realized_pct: realized }
+        Input { key: "mobile:1".into(), symbol: "600001".into(), name: "样本".into(), cost: 10.0, buy: buy.into(), sell: sell.into(), realized_pct: realized,splits:vec![] }
     }
 
     fn hl(date: &str, high: f64, low: f64, close: f64) -> Hl {

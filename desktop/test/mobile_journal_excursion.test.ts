@@ -5,6 +5,14 @@ import { textOf, withRenderer } from "./helpers/render.ts";
 
 // 冻结样本:Rust Core /mobile/journal/{inbox,excursion} 对一份**合成**交易日志与合成日线的返回(12 笔已平仓 + 1 笔没卖完 + 1 笔北交所 + 1 笔补记;不含任何真实成交或行情)。
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/mobile-journal-excursion-synthetic.json", import.meta.url), "utf8"));
+test("已登记送转换算后的 MFE/MAE 保留口径说明", async () => {
+  await withRenderer(async r => {
+    const { ExcursionCard } = await r.load("/src/mobile/JournalExcursionPanel.tsx");
+    const data=structuredClone(fixture.excursion);data.items[0].split_events=2;data.items[0].price_basis="退出日股数口径，不是逐日账户收益";
+    const html=r.html(ExcursionCard,{data,busy:false,onFetch:()=>{}});
+    assert.match(textOf(html),/已换算 2 次送转/);assert.ok(html.includes("退出日股数口径，不是逐日账户收益"));
+  });
+});
 const flat = (html: string) => textOf(html).replace(/\s+/g, "");
 const sq = (value: string) => value.replace(/\s+/g, "");
 const noop = () => undefined;

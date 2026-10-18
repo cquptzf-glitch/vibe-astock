@@ -1,0 +1,169 @@
+name: Android signed distribution
+on:
+  workflow_dispatch:
+    inputs:
+      app_links_host:
+        description: Owned HTTPS domain (empty disables App Links)
+        required: false
+        type: string
+        default: ""
+permissions:
+  contents: read
+concurrency:
+  group: android-production-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  signed-artifacts:
+    runs-on: ubuntu-24.04
+    environment: android-production
+    timeout-minutes: 60
+    env:
+      CI: "true"
+      NDK_VERSION: "27.2.12479018"
+      ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      EXPECTED_CERT_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+      APP_LINK_HOST: ${{ inputs.app_links_host }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the owner's upgrade signing identity
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PYSETUP'
+          import base64, os
+          from pathlib import Path
+          for name in ['KEYSTORE_BASE64','ANDROID_STORE_PASSWORD','ANDROID_KEY_ALIAS','ANDROID_KEY_PASSWORD','EXPECTED_CERT_SHA256']:
+              if not os.environ.get(name): raise SystemExit('Missing production configuration: '+name)
+          key=Path(os.environ['RUNNER_TEMP'])/'vibe-upload.jks'
+          key.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'],validate=True))
+          key.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as out: out.write('ANDROID_KEYSTORE_PATH='+str(key)+'\n')
+          PYSETUP
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK and NDK
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -perm -111 2>/dev/null | head -n 1)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "sdkmanager not found under $SDK_ROOT" >&2
+            find "$SDK_ROOT" -maxdepth 4 -type f -name sdkmanager -print || true
+            exit 1
+          fi
+          echo "Using $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "build-tools;36.0.0" \
+            "ndk;${NDK_VERSION}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "NDK_HOME=${SDK_ROOT}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "${SDK_ROOT}/platform-tools" >> "$GITHUB_PATH"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Setup Rust Android target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Test Rust core
+        run: |
+          python3 core-rust/tests/generate_calc_parity.py --check
+          cargo test --locked --manifest-path core-rust/Cargo.toml
+
+      - name: Cache Tauri CLI
+        id: tauri-cli-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri
+          key: tauri-cli-v2-${{ runner.os }}-${{ runner.arch }}-1
+
+      - name: Install Tauri CLI
+        if: steps.tauri-cli-cache.outputs.cache-hit != 'true'
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix desktop
+
+      - name: Install shared test dependencies
+        run: npm ci --prefix orchestrator
+
+      - name: Typecheck and build frontend
+        run: npm run build --prefix desktop
+
+      - name: Test frontend
+        run: npm test --prefix desktop
+
+      - name: Build standalone mobile frontend
+        run: npm run build:mobile --prefix desktop
+
+      - name: Check distribution helpers
+        run: python3 -m unittest discover -s scripts/android/tests -v
+      - name: Initialize Android project
+        run: cargo tauri android init --ci
+      - name: Configure signing and optional owned App Links
+        run: |
+          python3 - <<'PYCONFIG'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts/android')
+          from configure_distribution import certificate, configure
+          from verify_distribution import signing_certificate
+          actual=signing_certificate()
+          if actual!=certificate(os.environ['EXPECTED_CERT_SHA256']): raise SystemExit('Configured upgrade certificate does not match keystore')
+          host=os.environ.get('APP_LINK_HOST','')
+          configure(Path('src-tauri/gen/android'),Path('dist/android-distribution'),host,[actual] if host else [],True)
+          PYCONFIG
+      - name: Build signed release APK and AAB
+        run: cargo tauri android build --ci --apk --aab --split-per-abi --target aarch64
+      - name: Test native navigation and clock
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :tauri-plugin-vibe-reminders:testDebugUnitTest
+      - name: Verify both signatures and checksums
+        shell: bash
+        run: |
+          APK="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' | sort | head -n 1)"
+          AAB="$(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab' | sort | head -n 1)"
+          test -n "$APK" && test -n "$AAB"
+          cp "$APK" dist/android-distribution/vibe-astock-release-arm64.apk
+          cp "$AAB" dist/android-distribution/vibe-astock-release-arm64.aab
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -n 1)"
+          python3 scripts/android/verify_distribution.py --apk dist/android-distribution/vibe-astock-release-arm64.apk --aab dist/android-distribution/vibe-astock-release-arm64.aab --apksigner "$APKSIGNER" --expected "$EXPECTED_CERT_SHA256" > dist/android-distribution/verification.json
+          (cd dist/android-distribution && sha256sum *.apk *.aab > SHA256SUMS)
+      - name: Upload signed distribution for owner review
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signed-distribution-${{ github.sha }}
+          path: dist/android-distribution/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary keystore
+        if: always()
+        run: |
+          python3 - <<'PYCLEAN'
+          import os
+          from pathlib import Path
+          (Path(os.environ['RUNNER_TEMP'])/'vibe-upload.jks').unlink(missing_ok=True)
+          PYCLEAN

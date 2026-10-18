@@ -13,6 +13,7 @@ on:
     paths:
       - "desktop/**"
       - "core-rust/**"
+      - "scripts/android/**"
       - "datasources/rss_sources.json"
       - "src-tauri/**"
       - ".github/workflows/android.yml"
@@ -107,6 +108,7 @@ jobs:
 
       - name: Test Rust core
         run: |
+          python3 -m unittest discover -s scripts/android/tests -v
           python3 core-rust/tests/generate_calc_parity.py --check
           cargo test --locked --manifest-path core-rust/Cargo.toml
 
@@ -162,6 +164,15 @@ jobs:
       - name: Initialize Android project
         run: cargo tauri android init --ci
 
+      - name: Restore preview upgrade signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-preview-debug-keystore-v1
+
+      - name: Guard preview upgrade identity
+        run: python3 scripts/android/prepare_preview_signing.py
+
       - name: Build installable size-optimized APK
         # CI keeps the Android debug signing path so artifacts remain directly
         # installable. Production signing is handled separately from this job.
@@ -170,6 +181,25 @@ jobs:
       - name: Test native reminder navigation
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-vibe-reminders:testDebugUnitTest
+
+      - name: Verify release APK and AAB with a disposable test key
+        run: python3 scripts/android/smoke_distribution.py
+
+      - name: Upload distribution verification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-distribution-smoke-receipt
+          path: dist/android-distribution-smoke/verification.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload public preview signing receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-signing-receipt
+          path: dist/preview-signing.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Prepare, inspect and verify APK
         shell: bash

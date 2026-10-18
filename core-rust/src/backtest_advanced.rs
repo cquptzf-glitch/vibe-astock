@@ -416,7 +416,7 @@ fn rebalance_portfolio(
                     }
                     let gap = bar.open / data[k][i - 1].close - 1.0;
                     if bar
-                        .limit(limits.then(|| board_limit(&all[k].0.digits)))
+                        .limit(limits.then(|| board_limit(&all[k].0.digits)),false)
                         .is_some_and(|l| gap <= -l + 0.001)
                     {
                         result.blocked_sell += 1;
@@ -457,7 +457,7 @@ fn rebalance_portfolio(
                     }
                     let gap = bar.open / data[k][i - 1].close - 1.0;
                     if bar
-                        .limit(limits.then(|| board_limit(&all[k].0.digits)))
+                        .limit(limits.then(|| board_limit(&all[k].0.digits)),true)
                         .is_some_and(|l| gap >= l - 0.001)
                     {
                         result.blocked_buy += 1;

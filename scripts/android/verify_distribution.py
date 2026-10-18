@@ -1,0 +1,99 @@
+"""Verify release certificate, bundle signature and optional owner website association."""
+from __future__ import annotations
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import urllib.request
+import zipfile
+from configure_distribution import certificate, validate_host
+
+def signing_certificate() -> str:
+    args = ["keytool", "-exportcert", "-keystore", os.environ["ANDROID_KEYSTORE_PATH"], "-alias", os.environ["ANDROID_KEY_ALIAS"], "-storepass:env", "ANDROID_STORE_PASSWORD"]
+    result = subprocess.run(args, capture_output=True, check=False)
+    if result.returncode or not result.stdout:
+        raise ValueError("Could not read configured signing certificate; check alias and store password")
+    return certificate(hashlib.sha256(result.stdout).hexdigest())
+
+def verify(apk: Path, aab: Path, apksigner: Path, expected: str) -> dict:
+    expected = certificate(expected)
+    badging = subprocess.run([str(apksigner.with_name("aapt")), "dump", "badging", str(apk)], capture_output=True, text=True)
+    package = re.search(r"package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", badging.stdout)
+    if badging.returncode or not package or package[1] != "com.vibeastock.mobile" or "application-debuggable" in badging.stdout or "arm64-v8a" not in badging.stdout:
+        raise ValueError("Release APK package, ABI or debuggability is incorrect")
+    r = subprocess.run([str(apksigner), "verify", "--verbose", "--print-certs", str(apk)], capture_output=True, text=True)
+    if r.returncode:
+        raise ValueError("APK signature verification failed")
+    found = re.search(r"Signer #1 certificate SHA-256 digest:\s*([a-fA-F0-9]+)", r.stdout)
+    if not found or certificate(found[1]) != expected:
+        raise ValueError("APK signing certificate differs from the configured upgrade key")
+    with zipfile.ZipFile(aab) as archive:
+        if not any(name.startswith("base/lib/arm64-v8a/") and name.endswith(".so") for name in archive.namelist()):
+            raise ValueError("AAB has no ARM64 native library")
+        if not any(re.fullmatch(r"META-INF/[^/]+\.(RSA|DSA|EC)", name, re.I) for name in archive.namelist()):
+            raise ValueError("AAB contains no signing block")
+    r = subprocess.run(["jarsigner", "-verify", "-strict", str(aab)], capture_output=True, text=True)
+    # A self-signed Android application certificate isn't a public CA certificate.
+    # jarsigner returns 4 for that valid signature, so inspect the signature with keytool too.
+    if r.returncode not in (0, 4) or "jar verified" not in (r.stdout + r.stderr).lower():
+        raise ValueError("AAB JAR signature verification failed")
+    exported = subprocess.run(["keytool", "-printcert", "-jarfile", str(aab), "-rfc"], capture_output=True, check=False)
+    pem = re.search(rb"-----BEGIN CERTIFICATE-----\s*(.*?)\s*-----END CERTIFICATE-----", exported.stdout, re.S)
+    if not pem:
+        raise ValueError("AAB certificate missing")
+    import base64
+    actual = certificate(hashlib.sha256(base64.b64decode(re.sub(rb"\s", b"", pem[1]), validate=True)).hexdigest())
+    if actual != expected:
+        raise ValueError("AAB signing certificate differs from APK")
+    return {"package":package[1],"version_code":int(package[2]),"version_name":package[3],"debuggable":False,"certificate_sha256": expected, "apk": {"name": apk.name, "bytes": apk.stat().st_size, "sha256": hashlib.sha256(apk.read_bytes()).hexdigest()}, "aab": {"name": aab.name, "bytes": aab.stat().st_size, "sha256": hashlib.sha256(aab.read_bytes()).hexdigest()}, "signature_verified": True, "device_upgrade_verified": False}
+
+def association_matches(body: object, fingerprints: list[str]) -> bool:
+    wanted = {certificate(f) for f in fingerprints}
+    if not isinstance(body, list) or not wanted:
+        return False
+    for entry in body:
+        if not isinstance(entry, dict) or not isinstance(entry.get("relation"), list) or "delegate_permission/common.handle_all_urls" not in entry["relation"]:
+            continue
+        target = entry.get("target")
+        if not isinstance(target, dict) or target.get("namespace") != "android_app" or target.get("package_name") != "com.vibeastock.mobile" or not isinstance(target.get("sha256_cert_fingerprints"), list):
+            continue
+        try:
+            if wanted.issubset({certificate(f) for f in target["sha256_cert_fingerprints"] if isinstance(f, str)}):
+                return True
+        except ValueError:
+            continue
+    return False
+
+def verify_website(host: str, fingerprints: list[str]) -> None:
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            return None
+    url = "https://" + validate_host(host) + "/.well-known/assetlinks.json"
+    with urllib.request.build_opener(NoRedirect()).open(url, timeout=12) as response:
+        if response.status != 200 or response.headers.get_content_type() != "application/json":
+            raise ValueError("assetlinks.json needs HTTP 200 and application/json without redirects")
+        payload = response.read(256 * 1024 + 1)
+        if len(payload) > 256 * 1024 or not association_matches(json.loads(payload), fingerprints):
+            raise ValueError("Website association does not match package and installed certificate")
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--certificate", action="store_true")
+    p.add_argument("--apk", type=Path)
+    p.add_argument("--aab", type=Path)
+    p.add_argument("--apksigner", type=Path)
+    p.add_argument("--expected", default="")
+    p.add_argument("--check-host", default="")
+    a = p.parse_args()
+    if a.certificate:
+        print(signing_certificate())
+    elif a.check_host:
+        verify_website(a.check_host, [a.expected])
+        print("Website association matched; device verification is still required")
+    else:
+        if not all((a.apk, a.aab, a.apksigner, a.expected)):
+            p.error("--apk, --aab, --apksigner and --expected are required")
+        print(json.dumps(verify(a.apk, a.aab, a.apksigner, a.expected), indent=2))

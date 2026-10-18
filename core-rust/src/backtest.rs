@@ -26,10 +26,10 @@ struct Bar {
     open: f64,
     close: f64,
     tradable: bool,
-    limit_override: Option<f64>,
+    limit_override: Option<(f64,f64)>,
 }
 
-impl Bar { fn limit(&self,fallback:Option<f64>)->Option<f64>{fallback?;match self.limit_override {Some(0.0)=>None,Some(v)=>Some(v),None=>fallback}} }
+impl Bar { fn limit(&self,fallback:Option<f64>,up:bool)->Option<f64>{fallback?;match self.limit_override {Some(band)=>{let v=if up{band.0}else{band.1};if v==0.0{None}else{Some(v)}},None=>fallback}} }
 
 #[derive(Debug, Clone, PartialEq)]
 enum Strategy {
@@ -192,8 +192,8 @@ fn simulate(data: &[Bar], strategy: &Strategy, costs: Costs, initial: f64, stop_
             }
             // 涨跌停:开盘价贴着涨停价买不进、贴着跌停价卖不出(0.1% 容差吸收取整);信号保留,下一根开盘再试
             let gap = bar.open / data[i - 1].close - 1.0;
-            let buy_blocked = bar.limit(limit_pct).is_some_and(|l| gap >= l - 0.001);
-            let sell_blocked = bar.limit(limit_pct).is_some_and(|l| gap <= -l + 0.001);
+            let buy_blocked = bar.limit(limit_pct,true).is_some_and(|l| gap >= l - 0.001);
+            let sell_blocked = bar.limit(limit_pct,false).is_some_and(|l| gap <= -l + 0.001);
             if shares == 0.0 && want_in && buy_blocked {
                 blocked_buys += 1;
             } else if shares > 0.0 && want_out && sell_blocked {
@@ -593,6 +593,8 @@ fn optimize_value(data: &[Bar], base: &Strategy, costs: Costs, initial: f64, sto
 pub async fn run(client: &Client, body: &Value) -> Result<Value> {
     let symbols = parse_symbols(body)?;
     let market_rules=rules::parse(body,&symbols)?;
+    let historical=body.get("historical_rules").and_then(Value::as_str).unwrap_or("auto");
+    if !matches!(historical,"auto"|"required"|"off") || body.get("historical_rules").is_some_and(|v|!v.is_string()){return Err(anyhow!("historical_rules 只允许 auto/required/off"));}
     let (start_date,end_date)=rules::range(body)?;
     let strategy = parse_strategy(body)?;
     let (costs, costs_detail) = parse_costs(body)?;
@@ -615,6 +617,7 @@ pub async fn run(client: &Client, body: &Value) -> Result<Value> {
 
     let calendar=crate::chart::index_closes(client,"1.000300",4000).await;
     let mut provenance=Vec::new();
+    let mut history_sources=Vec::new();
     let mut all: Vec<(crate::symbol::SymbolKey, Vec<Bar>)> = Vec::new();
     for key in &symbols {
         let envelope = quote::fetch_kline(client, key, if start_date.is_some()||end_date.is_some(){4000}else{bars}).await?;
@@ -625,6 +628,17 @@ pub async fn run(client: &Client, body: &Value) -> Result<Value> {
         if data.len()!=raw_rows.len(){return Err(anyhow!("{} 存在无效 K 线，未静默跳过后计算",key.digits));}
         if let Ok(calendar)=&calendar{data=rules::complete_calendar(&data,calendar);}
         data.retain(|b|start_date.as_ref().is_none_or(|s|&b.date>=s)&&end_date.as_ref().is_none_or(|e|&b.date<=e));
+        if historical!="off" {
+            if let (Some(first),Some(last))=(data.first(),data.last()) {
+                let loaded=tokio::time::timeout(std::time::Duration::from_secs(25),crate::historical_metadata::fetch(key,&first.date,&last.date)).await;
+                let audit=match loaded {
+                    Ok(Ok(h))=>rules::automatic(&key.digits,&mut data,&h),
+                    other=>json!({"status":"failed","reason":match other{Ok(Err(e))=>e.to_string(),_=>"历史元数据总预算超时".into()},"covered_bars":0}),
+                };
+                if historical=="required"&&audit["status"]!="ok"{return Err(anyhow!("{} 历史制度数据未完整覆盖:{}",key.digits,audit));}
+                let mut audit=audit;audit["symbol"]=json!(key.digits);history_sources.push(audit);
+            }
+        }
         rules::apply(&key.digits,&mut data,&market_rules);
         all.push((key.clone(), data));
     }
@@ -632,7 +646,7 @@ pub async fn run(client: &Client, body: &Value) -> Result<Value> {
     advanced::enhance(client,body,&mut result,&all,&strategy,costs,initial,stop,limit_check).await?;
     result["data_sources"]=json!(provenance);
     result["requested_range"]=json!({"start":start_date,"end":end_date,"note":"取得区间含预热期；实际策略区间为 period，不把未取得的日期当成已经回测。"});
-    result["market_rules"]=json!({"explicit_intervals":market_rules.len(),"note":"创业板按改革日期区分幅度；ST、上市初期与重新上市需提供带日期的 market_rules(0 表示无限制)。没有完整历史制度数据时仅按板块近似，不能用于精确成交可达性判断。"});
+    result["market_rules"]=json!({"mode":historical,"status":if historical=="off"{"disabled"}else if history_sources.iter().all(|r|r["status"]=="ok"){"ok"}else{"partial"},"sources":history_sources,"explicit_intervals":market_rules.len(),"note":"默认现查沪深逐日ST/停牌与上市日期，失败或缺日期会单独披露；required模式缺失即拒绝。主板ST在2026-07-06前为5%、以后10%；创业板改革及注册制新股前五日按时点处理。用户明确制度区间优先。重新上市、退市整理、北交所特殊状态仍需明确区间，不能用于精确成交可达性判断。"});
     result["suspension"]["calendar_available"]=json!(calendar.is_ok());
     result["suspension"]["calendar_error"]=json!(calendar.err().map(|e|e.to_string()));
     result["suspension"]["note"]=json!("零量及指数日历内缺失日禁止成交，最近已知收盘估值；日历缺失时仅按已有日线计算并披露缺口。起止区间以取得的真实行情为准。");
@@ -713,9 +727,9 @@ fn build_result(
     };
     let mut note = String::from("这是移动端 Lite 回测,用于历史假设核对;不等同于桌面端完整 Agent 回测。按 100 股整手、全仓进出");
     if limit_check {
-        note.push_str(";涨跌停按板块幅度近似(开盘价贴着涨停价买不进、贴着跌停价卖不出,信号留到下一根再试;ST 股 5% 和新股上市初期不设限没单独识别),停牌没模拟,结果仍可能偏乐观");
+        note.push_str(";涨跌停按板块幅度近似(开盘价贴着涨停价买不进、贴着跌停价卖不出,信号留到下一根再试;历史日状态覆盖见制度审计),零量/已知停牌日不成交,日线近似仍可能偏乐观");
     } else {
-        note.push_str(";已关闭涨跌停限制:一字涨停也按开盘价买得进、跌停也卖得出,停牌没模拟,结果偏乐观");
+        note.push_str(";已关闭涨跌停限制:一字涨停也按开盘价买得进、跌停也卖得出,零量/已知停牌日仍不成交,结果偏乐观");
     }
     if matches!(costs.fees, Some(f) if f == DEFAULT_FEES) {
         note.push_str(";费率用的是默认值(不是你的真实费率)");

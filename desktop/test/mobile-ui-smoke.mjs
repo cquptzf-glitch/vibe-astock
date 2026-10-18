@@ -22,6 +22,8 @@ const samplesFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-
 const journalRiskFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-risk-synthetic.json", "utf8"));
 const journalModesFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-modes-synthetic.json", "utf8"));
 const journalExcursionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-excursion-synthetic.json", "utf8"));
+journalExcursionFixture.excursion.items[0].split_events=2;
+journalExcursionFixture.excursion.items[0].price_basis="合成测试：退出日股数口径，不是逐日账户收益";
 const journalEnvFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-env-synthetic.json", "utf8"));
 const journalAttributionFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-attribution-synthetic.json", "utf8"));
 const journalProblemsFixture = JSON.parse(fs.readFileSync("desktop/test/fixtures/mobile-journal-problems-synthetic.json", "utf8"));
@@ -51,7 +53,14 @@ const overview = {
   breadth: { exchange: { up: 3200, down: 1800, flat: 135, amount_yuan: 1860000000000 }, distribution: [["lt5", "跌幅 >5%", 135], ["lt3", "-5%~-3%", 242], ["lt0", "-3%~0", 1423], ["eq0", "平盘", 135], ["gt0", "0~3%", 2580], ["gt3", "3%~5%", 478], ["gt5", "涨幅 >5%", 142]].map(([key, label, count]) => ({ key, label, count })) },
   sentiment: { limit_up: 82, broken_board: 19, limit_down: 9, seal_rate: 81.2 }, errors: [],
 };
+const industryFact = { id: 901, sector: "hbm", metric: "yield", entity: "合成样本厂", label: "良率", value: 80, unit: "%", currency: "none", period_end: "2026-06-30", published_date: "2026-07-01", source_name: "合成公开说明", source_url: "https://example.com/report", source_excerpt: "仅为合成浏览器测试数据：良率80%。" };
 const responses = {
+  "/mobile/industry/library": { schema: 1, records: [industryFact], errors: [], conflicts: [] },
+  "/mobile/ai/backtest": { status: "ok", report_markdown: "合成回测问题\n合成假设\n合成逻辑\n合成结果；存在历史制度缺口。", saved_document_id: 999, params_used: {}, ignored_params: [], resolved_symbols: ["600001"], result: {
+    status: "ok", symbol: "600001", symbols: ["600001"], market: "SH", strategy: { id: "donchian", name: "合成通道回测", label: "合成样本", execution: "前一收盘信号/下一开盘", fees: "合成费用", adjustment: "前复权", weighting: "单只", stop_loss_pct: null }, period: { start: "2026-01-02", end: "2026-06-30", bars: 120 },
+    metrics: { initial_capital: 100000, final_equity: 108000, total_return_pct: 8, buy_hold_return_pct: 5, excess_return_pct: 3, max_drawdown_pct: -4.5, annualized_return_pct: 16.2, sharpe: 1.23, closed_trades: 0, win_rate_pct: null, total_fees: 0, slippage_cost: 0, blocked_buys: 1, blocked_sells: 0, open_position: false }, trades: [], per_symbol: [], equity_curve: [["2026-01-02",100000],["2026-06-30",108000]], note: "这是合成界面测试结果，不是真实回测",
+    market_rules: { mode: "auto", status: "partial", note: "合成缺口：特殊制度需明确区间", sources: [{ symbol: "600001", status: "partial", covered_bars: 119, missing_dates: ["2026-07-03"], ipo_date: "1999-01-01", st_days: 5, ipo_rule_bars: 0, source: "合成历史源", scope: "仅为测试" }] },
+  } },
   "/health": { ok: true, version: version + "-mobile" },
   "/mobile/research/workflows": {tasks:[]},
   "/mobile/research/calculations": { records: [{calculation_id:"calc-synthetic-audit",record_id:100,node_id:"growth",function:"growth_rate",executed:true,calc_version:"0.5.0",bindings:{current:{evidence:"E1",path:"/current"},base:{evidence:"E1",path:"/base"}},inputs:{current:12,base:10},inputs_refs:{current:{type:"evidence",id:"E1",path:"/current"},base:{type:"evidence",id:"E1",path:"/base"}},output:{status:"ok",value:0.2,unit:"小数",display:"20.00%",reason:""}}] },
@@ -130,6 +139,11 @@ try {
           if (command === "mobile_api") {
             const request = args.request;
             const route = request.path.split("?")[0];
+            if(route==="/mobile/industry/library") {
+              if(request.body?.action==="import") { responses[route].records.push(...request.body.records.map((f,i)=>({...f,id:902+i}))); return {status:200,body:{inserted:request.body.records.length,duplicates:0}}; }
+              const sector=new URL(request.path,"https://mobile.invalid").searchParams.get("sector");
+              return {status:200,body:{...responses[route],records:responses[route].records.filter(f=>f.sector===sector)}};
+            }
             if(route==="/mobile/ai/workflow") {
               if(request.body.action==="advance") {
                 window.__researchTask.results.push({stage:window.__researchTask.stages[window.__researchTask.results.length],paragraphs:[{text:"仅为合成的浏览器测试结论，存在资料缺口。",evidence:["E1"]}],checks:[{ok:true,level:"calculation",actual:0.2,display:"20.00%",claim:{label:"合成数值"}}],calculations:responses["/mobile/research/calculations"].records,conditions:[],verified:true,model:"fixture",at:"2026-10-18"});
@@ -201,6 +215,28 @@ try {
       await page.getByText("证据和前序计算的来源路径",{exact:true}).click();
       await assertWidth();
       await page.screenshot({path:path.join(out,width+"-"+theme+"-calculation-audit.png"),fullPage:true});
+      await page.locator(".group-tabs").getByRole("tab",{name:"产业研究",exact:true}).click();
+      await page.getByRole("button",{name:"HBM",exact:true}).click();
+      await page.getByRole("heading",{name:"合成样本厂 · 良率",exact:true}).waitFor();
+      await page.getByText("出处与原文摘录",{exact:true}).click();
+      const imported={...industryFact,id:undefined,label:"导入样本良率",value:90,source_excerpt:"合成测试导入90%。"};
+      await page.locator('.industry-library input[type=file]').setInputFiles({name:"industry-hbm.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify({schema:1,records:[imported]}),"utf8")});
+      await page.getByRole("region",{name:"产业资料导入预览"}).waitFor();
+      await assertWidth();
+      await page.screenshot({path:path.join(out,width+"-"+theme+"-industry-import-preview.png"),fullPage:true});
+      await page.getByRole("button",{name:"确认保存全部 1 条",exact:true}).click();
+      await page.getByText("已保存 1 条，跳过 0 条重复观测。",{exact:true}).waitFor();
+      await page.getByRole("heading",{name:"合成样本厂 · 导入样本良率",exact:true}).waitFor();
+      await assertWidth();
+      await page.screenshot({path:path.join(out,width+"-"+theme+"-industry-library.png"),fullPage:true});
+      await page.locator(".group-tabs").getByRole("tab",{name:"历史回测",exact:true}).click();
+      await page.getByLabel("回测描述",{exact:true}).fill("仅运行合成浏览器回测样本");
+      await page.getByRole("button",{name:"让 AI 配置并运行",exact:true}).click();
+      await page.getByRole("region",{name:"历史交易制度覆盖"}).waitFor();
+      await page.getByText("历史制度数据存在缺口",{exact:false}).waitFor();
+      await page.getByText("600001 · 未完整覆盖",{exact:false}).click();
+      await assertWidth();
+      await page.screenshot({path:path.join(out,width+"-"+theme+"-backtest-historical-rules.png"),fullPage:true});
       // 研报文件导入:选文本文件 → 预览 → 取消
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
       await page.locator(".directory-grid button", { hasText: "保存、查阅与检索报告正文" }).click();
@@ -475,8 +511,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 180, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards, research calculation audit; 180 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 198, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, prior market/journal/research pages, calculation audits, industry import preview and save, historical backtest coverage; 198 screenshots.");
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
   const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);

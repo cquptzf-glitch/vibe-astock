@@ -1,0 +1,80 @@
+import json
+import hashlib
+import os
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+import xml.etree.ElementTree as ET
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from configure_distribution import configure, validate_host, certificate, attr
+from verify_distribution import association_matches
+from prepare_preview_signing import prepare
+
+class DistributionTest(unittest.TestCase):
+    def setUp(self):
+        self.directory=tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root=Path(self.directory.name)
+        self.project=self.root/'android'
+        (self.project/'app/src/main').mkdir(parents=True)
+        self.gradle=self.project/'app/build.gradle.kts'
+        self.gradle.write_text('plugins { id("com.android.application") }\n',encoding='utf-8')
+        self.manifest=self.project/'app/src/main/AndroidManifest.xml'
+        self.manifest.write_text('<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application><activity android:name=".MainActivity"><intent-filter><action android:name="android.intent.action.MAIN" /></intent-filter></activity></application></manifest>',encoding='utf-8')
+        self.out=self.root/'output'
+        self.fingerprint='12'*32
+    def test_links_are_idempotent_and_can_be_disabled(self):
+        for _ in range(2):configure(self.project,self.out,'links.example.com',[self.fingerprint])
+        app=ET.parse(self.manifest).getroot().find('application')
+        self.assertEqual(len(app.findall('activity/intent-filter')),4)
+        self.assertEqual(app.find('meta-data').get(attr('value')),'links.example.com')
+        pack=json.loads((self.out/'.well-known/assetlinks.json').read_text())
+        self.assertTrue(association_matches(pack,[self.fingerprint]))
+        self.assertFalse(association_matches(pack,['34'*32]))
+        configure(self.project,self.out)
+        app=ET.parse(self.manifest).getroot().find('application')
+        self.assertEqual(len(app.findall('activity/intent-filter')),1)
+        self.assertIsNone(app.find('meta-data'))
+        self.assertFalse((self.out/'.well-known/assetlinks.json').exists())
+    def test_invalid_configuration_does_not_modify_sources(self):
+        before=self.manifest.read_bytes()
+        for host in ['http://example.com','example.com/path','127.0.0.1','a.local','evil.com:443','example.com?x=1','x.test']:
+            with self.assertRaises(ValueError):configure(self.project,self.out,host,[self.fingerprint])
+        with self.assertRaises(ValueError):configure(self.project,self.out,'links.example.com',[])
+        self.assertEqual(self.manifest.read_bytes(),before)
+    def test_signing_uses_environment_only_and_missing_credentials_refuse(self):
+        with patch.dict(os.environ,{},clear=True):
+            with self.assertRaises(ValueError):configure(self.project,self.out,signing=True)
+        key=self.root/'test-only-keystore';key.write_bytes(b'synthetic test bytes, not a real key')
+        env={'ANDROID_KEYSTORE_PATH':str(key),'ANDROID_STORE_PASSWORD':'fixture-store-pass','ANDROID_KEY_ALIAS':'fixture-alias','ANDROID_KEY_PASSWORD':'fixture-key-pass'}
+        with patch.dict(os.environ,env,clear=True):
+            for _ in range(2):configure(self.project,self.out,signing=True)
+        source=self.gradle.read_text()
+        self.assertEqual(source.count('create("vibeRelease")'),1)
+        for value in env.values():self.assertNotIn(value,source)
+        self.assertIn('isDebuggable = false',source)
+        configure(self.project,self.out)
+        self.assertNotIn('vibeRelease',self.gradle.read_text())
+    def test_malformed_associations_are_not_verified(self):
+        for body in [None,{},[{'relation':'delegate_permission/common.handle_all_urls','target':{}}],[{'relation':['delegate_permission/common.handle_all_urls'],'target':{'namespace':'android_app','package_name':'com.vibeastock.mobile','sha256_cert_fingerprints':['bad']}}]]:
+            self.assertFalse(association_matches(body,[self.fingerprint]))
+        self.assertEqual(certificate(self.fingerprint),':'.join(['12']*32))
+        self.assertEqual(validate_host('Links.Example.Com'),'links.example.com')
+    def test_pinned_preview_identity_refuses_missing_or_changed_keys(self):
+        expected=self.root/'preview.json';key=self.root/'preview-test-key';output=self.root/'receipt.json'
+        expected.write_text(json.dumps({'certificate_sha256':'12'*32}),encoding='utf-8')
+        with patch('prepare_preview_signing.subprocess.run') as run:
+            with self.assertRaises(SystemExit):prepare(expected,key,output)
+            run.assert_not_called()
+        key.write_bytes(b'synthetic fixture, not a key')
+        with patch('prepare_preview_signing.subprocess.run') as run:
+            run.return_value.returncode=0;run.return_value.stdout=b'synthetic certificate fixture'
+            with self.assertRaises(SystemExit):prepare(expected,key,output)
+            self.assertFalse(output.exists())
+            expected.write_text(json.dumps({'certificate_sha256':hashlib.sha256(run.return_value.stdout).hexdigest()}),encoding='utf-8')
+            prepare(expected,key,output)
+            self.assertTrue(json.loads(output.read_text())['debug_signed'])
+
+if __name__=='__main__':unittest.main()

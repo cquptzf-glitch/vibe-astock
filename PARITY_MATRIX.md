@@ -20,24 +20,27 @@ Desktop CI PASS
 Android APK PASS
 ```
 
-## Current mobile matrix — 0.1.36 (2026-10-18)
+## Current mobile matrix — 0.1.37 (2026-10-18)
 
 | Area | Mobile implementation | Evidence | Status |
 | --- | --- | --- | --- |
 | Deterministic calc / evidence DAG | deterministic_calc 0.5.0 (24 functions), graph, research_calculations, CalculationAudit | 388 frozen Python cases with oracle source hashes; reject fabricated inputs/cycles/wrong claims/corrupt restores; cancellation/backup tests; 180-screen browser smoke | Pure function numerical parity verified within fixture scope; bounded mobile JSON DAG implemented; legacy file/CLI identity and full provider workflows not equivalent |
 | AI staged research / debate / emotion / weekly / industry | research_workflow + research-methodology.json | resume/cancel/late-result/math rejection/retry/archive tests; browser workflow | Implemented mobile snapshot workflow with evidence-bound calculation plans and durable audits; full desktop source/workflow parity pending |
 | Statements / consensus / valuation | research_extended | parser tests; live Sina/THS/Baidu probes | Implemented; provider continuity and real-device UX pending |
-| Advanced backtest | backtest_advanced / backtest_rules / ai_backtest | deterministic resampling, WFO no future dependence, rebalance cash bounds; live single/multi run | Implemented subset; historical ST/IPO automatic metadata still absent |
-| Corporate actions / opening positions | journal_fills v13 + unified settle; backup v11 | FIFO/partial sell/restore/no fake cash flow tests | Implemented; split MFE excluded rather than guessed |
-| Scan / Android service | market_scan + MarketMonitorService | parsing and native source compile | Full-market quote/minute sampling; exchange tick feed and device lifecycle unverified |
+| Historical market regimes | historical_metadata / backtest_rules / BacktestRuleAudit | live BaoStock ST + IPO probes; date/currency/status/paging rejection; deterministic regime tests | Implemented SH/SZ daily ST/tradestatus and IPO windows; BJ/relisting/delisting exceptions remain source gaps |
+| Industry measurement library | industry_library / IndustryLibrary | atomic import, dedup/conflicts, cutoff, backup, explicit research opt-in; SSR and browser import/save | Implemented user-curated observations across 20 sectors; not an independently verified full-market database |
+| Signed distribution / App Links | android-distribution.yml + scripts/android + native owned-host routing | 5 helper tests; native route checks; CI release-key fixture smoke pending | Build/configuration implemented; real owner key, hosted domain, store and device acceptance absent |
+| Advanced backtest | backtest_advanced / backtest_rules / ai_backtest | deterministic resampling, WFO no future dependence, rebalance cash bounds; live single/multi run | Implemented SH/SZ historical ST/IPO metadata; special relisting/delisting/BJ source coverage remains partial |
+| Corporate actions / opening positions | journal_fills v13 + unified settle; backup v11 | FIFO/partial sell/restore/no fake cash flow tests | Implemented; registered splits normalize MFE prices/quantities to exit-share basis; unknown actions and cash-dividend caveats remain |
+| Scan / Android service | market_scan + MarketMonitorService | parsing and native source compile | Full-market quote/minute sampling; official month calendar gates native sampling and rollover stops; exchange tick feed and device lifecycle unverified |
 | Calendar / event reminders | calendar_sources + native rules | complete-month validation, reminder/backup/done state tests; live SZSE | Implemented SZSE month semantics; special exchange-specific coverage pending |
 | General AI chat | ai_chat + AiChatPanel / SQLite threads | native streaming/cancel/history and frontend regressions; cross-platform CI | Implemented streaming, stop, threads and bounded tools; real model/device quality not certified |
 | Documents / controlled chat | document_import + chat_tools/chat_documents | file parsers, arithmetic round trip, budget, citation refusal tests | Implemented bounded retrieval and original PDF-page citations (blank pages preserved, wrong/unrecalled pages rejected); scanned PDFs/OCR unsupported |
 | Public-page assistant / share / offline | PublicPageActions / provider_cache | SSR/Edge and offline API tests; manual refresh bypass and failed-envelope fallback regression | Implemented text-summary cards and labeled historical cache |
 | Supply-chain / event probability | industry_revenue / probability / Kalshi GPU ladder | parsing tests; quote types, source gaps explicit | Implemented bounded scans; Kalshi/Polymarket transport failed locally; four live monthly-revenue providers passed |
-| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 180-screen smoke | 0.1.36 ARM64 check, APK/native tests/signature verification and preview publication passed; device acceptance pending |
+| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 198-screen smoke | 0.1.37 ARM64 check passes; candidate APK/release-AAB smoke pending; previous 0.1.36 preview passed; device acceptance pending |
 
-Local 0.1.36 validation: Rust 300 + symbol parity 1; frontend 569; frozen Python oracle 388 cases; Edge screenshots 180; desktop/mobile builds pass. Android CI #39123017859 passed and published the preview; cross-platform fixture follow-up is recorded below.
+Previous 0.1.36 verification (historical): Rust 300 + symbol parity 1; frontend 569; frozen Python oracle 388 cases; Edge screenshots 180; desktop/mobile builds pass. Android CI #39123017859 passed and published the preview; cross-platform fixture follow-up is recorded below.
 
 Validation remains scoped: local Core/frontend checks do not certify Android lifecycle, official signing, full legacy parity or all public providers. See ANDROID_REMAINING.md for outstanding items and release receipts.
 
@@ -155,3 +158,7 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 0.1.36 已发布：[Android 0.1.36 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.36)，标签固定在功能提交 `46fbc52e176fd48a857600984a302325e5928d6d`。[Android CI #39123017859](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39123017859) 的 APK 构建、原生 Gradle 单元测试、签名校验和发布全部成功。ARM64 APK 30,577,839 bytes（29.16 MiB），SHA256 `69385bf3372d0876573885f48e8b8fa067ed70e78bd5f6f82f7703dea499586b`。仍为 debug-signed 预览版，未做真机验收。
 
 云端 Android 日志核对：388 例 oracle 散列校验、Rust 300 项 + 符号 parity 1 项、前端 569 项、Chromium 180 张截图均通过。本机 Edge 同样 180 张截图通过。首轮跨平台六组有五组成功，Linux / Node 24 的既有并发 fixture 测试失败；测试夹具修复提交 `19d15f3`（不改变 APK 功能）对应[跨平台 CI #39123695067](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39123695067) 的 Windows/macOS/Linux × Node 22/24 六组全部成功。Linux / Node 24 日志核对：原并发槽位测试通过、编排器 1429 项通过 / 4 跳过、前端 569 项通过、mypy 115 个源文件通过、Python 311 + 583 + 783 项通过。本节最终回执优先于前文候选/首轮失败记录；回执文档提交不改变已发布标签。
+
+## 0.1.37 candidate validation
+
+Local Core 310 + symbol parity 1, frontend 574, 198 Edge screenshots, ARM64 check, five distribution helper tests and live BaoStock historical ST/IPO probes pass. Android native JUnit/APK/release-AAB fixture smoke and final publication receipt pending. Existing 388 calc oracle fixtures retained. Formal signing and website verification require the actual owner identity/domain, and device acceptance remains separate.

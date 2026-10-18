@@ -17,7 +17,7 @@ const CONTENT_MAX: usize = 1_000;
 const HISTORY_MAX: usize = 6;
 
 /// 模型可以填的参数(白名单)。键 → 说明;取值范围由回测工具自己校验并报错
-const ALLOWED: [&str; 23] = [
+const ALLOWED: [&str; 24] = [
     "strategy",
     "fast",
     "slow",
@@ -38,7 +38,7 @@ const ALLOWED: [&str; 23] = [
     "walk_forward",
     "benchmark",
     "rebalance_every",
-    "market_rules", "start_date", "end_date",
+    "market_rules", "start_date", "end_date", "historical_rules",
 ];
 
 /// 给模型和前端看的工具目录:和 `backtest::run` 实际接受的字段与范围一致
@@ -59,6 +59,7 @@ pub fn tool_catalog() -> Value {
             "limit_check": "是否模拟涨跌停,默认 true", "experiment": "固定小格参数实验,仅单只", "optimize": "前 70% 选参数 / 后 30% 检验,仅单只",
             "walk_forward":"滚动样本外:252日训练/63日检验,仅单只", "benchmark":"同期沪深300价格指数对照",
             "market_rules":"用户明确给定的历史制度区间数组，每项symbol/start/end/limit_pct；0不限幅，不得猜测ST或上市日期",
+            "historical_rules":"auto(默认)取沪深逐日ST/停牌与上市日，失败披露；required缺失即拒绝；off仅按板块和明确区间近似。不得自行关闭或放松用户要求",
             "rebalance_every":"组合共享现金等权再平衡间隔(1–252个交易日),需要至少两只;不填为各自独立",
         },
     })

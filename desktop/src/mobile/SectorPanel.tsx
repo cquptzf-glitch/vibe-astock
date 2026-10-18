@@ -4,6 +4,7 @@ import { Check, Copy, RefreshCw, Send } from "lucide-react";
 import sectorsData from "../verticals/finance/data/sectors.json";
 import { sectorSteps, type SectorBrief } from "../verticals/finance/lib/sectorPrompts";
 import "./discovery.css";
+import { IndustryLibrary } from "./IndustryLibrary";
 
 interface AiResult {
   response?: string;
@@ -97,6 +98,7 @@ export function SectorPanel() {
       </article>
 
       <div className="mobile-sector-steps">
+        <IndustryLibrary key={sector.key} sector={sector.key} />
         {steps.map((step, index) => (
           <article className="mobile-quote-card discovery-step-card" key={`${sector.key}-${step.n}`}>
             <div className="mobile-sector-step-head">

@@ -50,7 +50,7 @@ export function MarketScannerPanel({ onOpen }: { onOpen: (code: string) => void 
       <label><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> 前台定时扫描</label>
     </div>
     {error && <p role="alert">{error}</p>}{data && <ScanResults data={data} onOpen={onOpen} />}
-    <h3>Android 持续后台盯盘</h3><p className="watch-hint">主动开启后显示常驻通知，按交易时段持续采样价格，识别一分钟至三分钟的变化；每只同方向五分钟内不重复提醒。全市场订阅流量较大，可设置本次上限和低电量停止线。系统终止或重启后需重新开启。</p>
+    <h3>Android 持续后台盯盘</h3><p className="watch-hint">主动开启后显示常驻通知，按交易时段持续采样价格，识别一分钟至三分钟的变化；每只同方向五分钟内不重复提醒。全市场订阅流量较大，可设置本次上限和低电量停止线。按官方月历跳过休市；跨月或月历失效后停止，需重新开启以刷新。系统终止或重启后需重新开启。</p>
     <div className="rw-form"><label>本次下载流量上限 MB<input inputMode="numeric" value={budget} onChange={(e) => setBudget(Number(e.target.value))} /></label><label>电量低于此百分比停止<input inputMode="numeric" value={battery} onChange={(e) => setBattery(Number(e.target.value))} /></label></div>
     <div className="rw-actions"><button className="discovery-action" type="button" disabled={busy} onClick={() => void nativeAction("start")}>开启后台盯盘</button><button className="discovery-action" type="button" onClick={() => void nativeAction("stop")}>停止</button><button className="discovery-action" type="button" onClick={() => void nativeAction("status")}>读取状态与异动</button></div>
     {native && <div><p>{native.supported ? native.running ? "服务正在运行" : "服务未运行" : "当前环境不支持原生服务"} · {native.message} · {fmtNumber(native.bytes / 1024)} KiB</p>{native.alerts?.slice(0, 20).map((a, i) => <button className="watch-row" key={i} type="button" onClick={() => onOpen(a.code)}>{a.name} {a.code} · {fmtPercent(a.change_pct)} · {a.time}</button>)}</div>}

@@ -2,11 +2,11 @@
 
 > 最新未完成功能以 [ANDROID_REMAINING.md](ANDROID_REMAINING.md) 为准；本文早期章节保留历史基线，最新完成与验证记录在文末。每轮必须回复剩余清单、构建状态及实际发布版本。
 
-## 当前接手入口（0.1.36，2026-10-18）
+## 当前接手入口（0.1.37，2026-10-18）
 
-本轮在 0.1.35 基础上补齐 calc 0.5.0 的 24 个纯计算函数、证据绑定 JSON 依赖链、研究计算记录及审计界面。交易数据与模型规则保留原有处理。SQLite v13 / 备份 v11 不变。功能提交 46fbc52 已发布预览包，Android 构建与原生测试通过；最终回执见文末。
+当前是 0.1.37 待发布候选：沪深历史 ST/上市日自动规则、产业数据资料库及显式附带、已知送转 MFE/MAE、后台官方月历、release APK/AAB 和自有域名 App Links 构建配置。SQLite v13 / 备份 v11 保持不变。交易数据与模型规则未改。
 
-本地 Rust 300 项 + 1 项 parity、Python 冻结对照 388 例、前端 569 项和 Edge 180 张截图通过，桌面/移动构建通过。移动计算 ID 为 mobile-calc-v1，不与 Python CLI ID 字节等价；旧文件输入/全量数据适配与产业资料库未全部移植。正式签名、真实设备、历史 ST/IPO 自动识别和源站覆盖缺口见 ANDROID_REMAINING.md。下文早期 Pending 仅是历史记录。
+本地 Rust 310 项 + 1 项 parity、前端 574 项、Edge 198 张截图与 ARM64 检查通过，发行帮助脚本 5 项测试通过。正式密钥、真实域名部署、设备和特殊制度/行业自动源覆盖仍见 ANDROID_REMAINING.md。候选不代表 APK 或正式发行已验收，最终 CI 回执在文末补记；早期 Pending 是历史基线。
 
 > 审查基线：`android-mvp` 分支，代码基线 `573429707470d8911f37733107e5002e314be9df`。
 >
@@ -1618,3 +1618,23 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 0.1.36 已发布：[Android 0.1.36 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.36)，标签固定在功能提交 `46fbc52e176fd48a857600984a302325e5928d6d`。[Android CI #39123017859](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39123017859) 的 APK 构建、原生 Gradle 单元测试、签名校验和发布全部成功。ARM64 APK 30,577,839 bytes（29.16 MiB），SHA256 `69385bf3372d0876573885f48e8b8fa067ed70e78bd5f6f82f7703dea499586b`。仍为 debug-signed 预览版，未做真机验收。
 
 云端 Android 日志核对：388 例 oracle 散列校验、Rust 300 项 + 符号 parity 1 项、前端 569 项、Chromium 180 张截图均通过。本机 Edge 同样 180 张截图通过。首轮跨平台六组有五组成功，Linux / Node 24 的既有并发 fixture 测试失败；测试夹具修复提交 `19d15f3`（不改变 APK 功能）对应[跨平台 CI #39123695067](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39123695067) 的 Windows/macOS/Linux × Node 22/24 六组全部成功。Linux / Node 24 日志核对：原并发槽位测试通过、编排器 1429 项通过 / 4 跳过、前端 569 项通过、mypy 115 个源文件通过、Python 311 + 583 + 783 项通过。本节最终回执优先于前文候选/首轮失败记录；回执文档提交不改变已发布标签。
+
+## 0.1.37 增量交接
+
+- **历史制度取数与回测**：原生 Rust 接入 BaoStock 匿名 TCP，无 Python 常驻；查询逐日 ST/停牌和上市/退市日期，校验分页、代码、日期及字段。沪深主板 ST 按 2026-07-06 区分 5%/10%，创业板按改革时点区分，新制 IPO 前五日无限幅，旧制 2014 年后 IPO 首日 +44%/-36% 分开处理。参数 `historical_rules=auto|required|off`，覆盖、失败和日期缺口写进报告与界面；明确历史区间仍优先。
+- **产业资料库**：20 赛道可记录规模、产能、产量、良率、份额、交付周期和价格；日期、单位、币种、公开出处和摘录必填。JSON 导入先预览，整批事务校验、去重；冲突值并列保留，不跨单位混算。支持筛选、分页显示、完整导出、移除和备份恢复。产业任务默认不附带资料库，用户明确开启才进入该赛道研究快照；来源标 user_curated，未独立核验。算力相关产业研究接入已有 GPU 温度计与供应链月营收。
+- **送转 MFE/MAE**：已登记送转按事件日期把日线和买入股数换算到退出日股数口径，再与整轮平均买入成本比较。覆盖部分卖出、再买入、二次送转与反向拆股；不再一律排除。未知/无法可靠换算的疑似送转继续排除，现金分红除息与日线时序边界保留；这不是逐日账户收益。
+- **后台官方月历**：启动前取得完整月历；源站缺失时不启动。休市日不采样，跨月或覆盖失效时停止并提示刷新；空/损坏订阅配置会停止，不进入无数据常驻状态。
+- **发行工程**：正式签名 release APK/AAB 的手动构建、证书/包名/ABI/签名/校验和检查、维护者 artifact 已实现；HTTPS App Links 支持自有 host、原生路由白名单、assetlinks 生成和网站检查。未配置 host 时关闭。普通 CI 增加一次性测试密钥的 release APK/AAB 冒烟，不把测试身份当正式密钥。预览签名缓存与公开指纹固定可防止后续静默换证书。
+
+实现入口：`historical_metadata.rs` 为有界 BaoStock TCP/zlib/分页解析，`backtest_rules.rs` 应用逐日状态；`industry_library.rs` 和 `IndustryLibrary.tsx` 提供结构化观测；`journal_excursion.rs` 保留原始行情缓存、计算时按当前流水换算；`background_calendar()` 在开启原生服务前取完整月历。研究任务只在显式 `industry_library=true` 时读取所选赛道观测，之后保存成独立研究快照。
+
+产业库 API：GET `/mobile/industry/library/catalog`，GET `/mobile/industry/library?sector=...`；POST 的 `action=import,schema=1,records=[...]` 为 1–2000 条 / 32 MiB 总预算的事务导入；`action=delete,sector,id` 归档移除。内部来源 `mobile_industry_fact:<sector>` 不出现在普通资料检索/自动归档/清空中，仍随业务备份恢复；冲突值、来源错误和未来数据不会变成成功的零值。字段与 JSON 示例可由导出得到。
+
+正式发行帮助脚本和 `.github/workflows/android-distribution.yml` 只供维护者手动构建审阅，不自动发布商店。普通 Android CI 的 release 冒烟使用一次性测试密钥，不上传该私钥或测试包。预览签名缓存首次成功后须把实际公开指纹回填 `docs/android/preview-signing.json`；后续缓存缺失或指纹变化会拒绝发布，不能自动换新密钥。0.1.36 及以前预览不保证与该新身份兼容。步骤与凭据名见 `docs/android/distribution.md`。
+
+- Rust Core：310 项通过、28 项 ignored，符号 parity 1 项通过；原有 388 例 calc Python oracle 保留。
+- 前端：574 项通过；桌面与独立移动构建通过。Edge 三尺寸 × 明暗主题 198 张截图通过，包含产业资料导入预览/确认、历史制度覆盖和送转口径标签。
+- Android ARM64 命令层检查通过；原生路由/中国时区本机 19 项断言通过。正式发行配置帮助脚本 5 项测试通过。
+- 真实公开数据：BaoStock 600519 上市日/日状态、600221 历史 ST 时段、688001 上市前五日序列均跑通。没有用这些读数声称全部源站持续可用。
+- CI APK、原生 JUnit、一次性测试密钥 release APK/AAB 构建和发布回执待补；维护者正式密钥/商店/自有域名部署、真实设备均未验收。

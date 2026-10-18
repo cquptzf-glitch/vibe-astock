@@ -46,6 +46,7 @@ export function ResearchTaskView({ task, onConditions }: { task: ResearchTask; o
 
 export function ResearchWorkflowPanel() {
   const [sector,setSector]=useState(sectorsData.sectors[0]?.key ?? "");
+  const [industryLibrary,setIndustryLibrary]=useState(false);
   const [mode, setMode] = useState("deep");
   const [symbol, setSymbol] = useState("");
   const [date, setDate] = useState(chinaToday);
@@ -83,7 +84,7 @@ export function ResearchWorkflowPanel() {
     if (busy) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const current = await api<ResearchTask>("/mobile/ai/workflow", { mode, symbol, sector, date: (RESEARCH_MODES.find((m) => m.id === mode)?.stock || mode==="industry") ? chinaToday() : date, question });
+      const current = await api<ResearchTask>("/mobile/ai/workflow", { mode, symbol, sector, industry_library:mode==="industry"&&industryLibrary, date: (RESEARCH_MODES.find((m) => m.id === mode)?.stock || mode==="industry") ? chinaToday() : date, question });
       if (mounted.current) { setTask(current); await refresh(); }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { if (mounted.current) setBusy(false); }
@@ -108,9 +109,10 @@ export function ResearchWorkflowPanel() {
   return <section className="mobile-section rw-panel">
     <div className="mobile-section-title"><div><h1>研究工作流</h1><p>程序先取公开数据，模型逐阶段研究；数字和证据核对通过后才保存结论。每阶段自动生成一版研报，可暂停后继续。</p></div></div>
     <div className="rw-form">
-      <label>研究类型<WebSelect value={mode} onChange={(e) => setMode(e.target.value)}>{RESEARCH_MODES.map((m) => <option value={m.id} key={m.id}>{m.label}</option>)}</WebSelect></label>
+      <label>研究类型<WebSelect value={mode} onChange={(e) => {setMode(e.target.value);setIndustryLibrary(false);}}>{RESEARCH_MODES.map((m) => <option value={m.id} key={m.id}>{m.label}</option>)}</WebSelect></label>
       {RESEARCH_MODES.find((m) => m.id === mode)?.stock ? <label>股票代码<input aria-label="研究股票代码" value={symbol} maxLength={16} placeholder="例如 600519" onChange={(e) => setSymbol(e.target.value)} /></label> : <label>复盘日期<DateField value={date} onChange={(e) => setDate(e.target.value)} /></label>}
-      {mode==="industry"&&<label>产业赛道<WebSelect value={sector} onChange={e=>setSector(e.target.value)}>{sectorsData.sectors.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}</WebSelect></label>}
+      {mode==="industry"&&<label>产业赛道<WebSelect value={sector} onChange={e=>{setSector(e.target.value);setIndustryLibrary(false);}}>{sectorsData.sectors.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}</WebSelect></label>}
+      {mode==="industry"&&<label><input type="checkbox" checked={industryLibrary} onChange={e=>setIndustryLibrary(e.target.checked)}/>附带本赛道的产业资料库观测（含出处与摘录，交给当前模型）</label>}
       <label>研究问题<textarea aria-label="研究问题" value={question} maxLength={1000} placeholder="希望核对哪些事实、分歧或风险？" onChange={(e) => setQuestion(e.target.value)} /></label>
       <button type="button" disabled={busy} onClick={() => void create()}>创建新研究</button>
     </div>

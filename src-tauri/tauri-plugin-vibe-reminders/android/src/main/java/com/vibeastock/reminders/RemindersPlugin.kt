@@ -65,7 +65,8 @@ class RemindersPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     private fun captureNavigation(intent: Intent?) {
-        val route = validReminderRoute(intent?.getStringExtra(EXTRA_ROUTE)) ?: externalRoute(intent?.data?.toString()) ?: return
+        val host = try { activity.packageManager.getApplicationInfo(activity.packageName, PackageManager.GET_META_DATA).metaData?.getString("com.vibeastock.APP_LINK_HOST") } catch (_: Exception) { null }
+        val route = validReminderRoute(intent?.getStringExtra(EXTRA_ROUTE)) ?: externalRoute(intent?.data?.toString(), host) ?: return
         intent?.removeExtra(EXTRA_ROUTE)
         synchronized(this) { pendingRoute = route }
         // The command retains the route until React is mounted. This event only

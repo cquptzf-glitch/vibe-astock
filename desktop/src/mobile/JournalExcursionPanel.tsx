@@ -24,7 +24,7 @@ export interface InboxData {
 export interface ExcItem {
   key: string; symbol: string; name: string; date: string; exit_date: string; realized_pct: number; mfe_pct: number; mae_pct: number;
   mfe_certain: number | null; mae_certain: number | null; certain_note: string | null; bars: number; bars_inner: number; same_day: boolean;
-  precision: string; give_back_pct: number; capture_rate: number | null; capture_note: string | null;
+  precision: string; give_back_pct: number; capture_rate: number | null; capture_note: string | null;price_basis?:string;split_events?:number;
 }
 export interface ExcursionData {
   available: boolean; reason?: string; scanned: number; fetch_online: boolean; cached: number;
@@ -96,7 +96,7 @@ export function ExcursionCard({ data, busy, onFetch }: { data: ExcursionData; bu
       <div className="intra-table-wrap"><table className="intra-table" aria-label="逐笔最大浮盈浮亏">
         <thead><tr><th>入场日</th><th>名称</th><th>落袋</th><th>最大浮盈</th><th>最大浮亏</th><th>捕获率</th></tr></thead>
         <tbody>{(data.items ?? []).map((it) => <tr key={it.key} title={it.precision}>
-          <td>{it.date.slice(5)}{it.date !== it.exit_date ? `→${it.exit_date.slice(5)}` : ""}</td><td><b>{it.name || it.symbol}</b>{it.same_day && <small className="jm-change">同日进出</small>}</td>
+          <td>{it.date.slice(5)}{it.date !== it.exit_date ? `→${it.exit_date.slice(5)}` : ""}</td><td><b>{it.name || it.symbol}</b>{it.same_day && <small className="jm-change">同日进出</small>}{!!it.split_events&&<small className="jm-change" title={it.price_basis}>已换算 {it.split_events} 次送转</small>}</td>
           <td className={tone(it.realized_pct)}>{fmtPercent(it.realized_pct)}</td><td>{fmtPercent(it.mfe_pct)}{it.mfe_certain != null && <small className="jm-change">确定 {fmtPercent(it.mfe_certain)}</small>}</td>
           <td className={tone(it.mae_pct)}>{fmtPercent(it.mae_pct)}{it.mae_certain != null && <small className="jm-change">确定 {fmtPercent(it.mae_certain)}</small>}</td>
           <td>{it.capture_rate == null ? "—" : fmtRate(it.capture_rate)}{it.capture_note && <small className="jm-change">{it.capture_note}</small>}</td></tr>)}</tbody>

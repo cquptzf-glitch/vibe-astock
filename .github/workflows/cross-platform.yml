@@ -75,6 +75,7 @@ jobs:
         run: python -m mypy
       - name: Python tests
         run: |
+          python -m unittest discover -s scripts/android/tests -v
           python core-rust/tests/generate_calc_parity.py --check
           python -m pytest calc/tests -q
           python -m pytest backtest/tests -q

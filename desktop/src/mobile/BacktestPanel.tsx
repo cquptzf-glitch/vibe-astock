@@ -2,6 +2,7 @@ import { BarChart3, Loader2, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { RowsShareCard, type CardRow } from "./ShareCard";
+import { BacktestRuleAudit, type RuleCoverage } from "./BacktestRuleAudit";
 import "./backtest.css";
 
 type Trade = { symbol?: string; entry_date: string; entry_price: number; exit_date: string; exit_price: number; shares: number; pnl: number; pnl_pct: number; fees: number; reason: string };
@@ -52,7 +53,7 @@ export type Result = {
   sharpe_interval?: { available: boolean; reason?: string; low?: number; high?: number; valid_samples?: number; positive_share?: number; note?: string };
   cost_comparison?: { actual_return_pct: number; no_cost_return_pct: number; note: string };
   data_sources?: {symbol:string;source:string;status:string;fetched_at:string;fallback_reason?:string|null}[];
-  market_rules?: {note:string};
+  market_rules?: RuleCoverage;
   suspension?: { untradable_bars: number; note: string };
   benchmark?: { available: boolean; name?: string; return_pct?: number; excess_pct?: number; reason?: string; note?: string };
   walk_forward?: { available: boolean; reason?: string; total_return_pct?: number; note?: string; folds?: { train_start: string; train_end: string; test_start: string; test_end: string; selected: string; is_return_pct: number; oos_return_pct: number }[] };
@@ -270,7 +271,8 @@ export function AdvancedResults({ result }: { result: Result }) {
     {result.cost_comparison && <section className="backtest-block"><h2>扣费前后对照</h2><p>实际 {pct(result.cost_comparison.actual_return_pct)} · 不计费用及滑点 {pct(result.cost_comparison.no_cost_return_pct)}</p><p className="backtest-note">{result.cost_comparison.note}</p></section>}
     {bench && <section className="backtest-block"><h2>基准指数对照</h2>{bench.available ? <p>{bench.name} {pct(bench.return_pct)} · 策略超额 {pct(bench.excess_pct)}</p> : <p>{bench.reason}</p>}<p className="backtest-note">{bench.note}</p></section>}
     {walk && <section className="backtest-block"><h2>滚动样本外检验</h2>{walk.available ? <><p>各段样本外串联收益 {pct(walk.total_return_pct)}</p><table><thead><tr><th>训练期</th><th>检验期 / 参数</th><th>样本外</th></tr></thead><tbody>{walk.folds?.map((f) => <tr key={f.test_start}><td>{f.train_start} → {f.train_end}<br />{pct(f.is_return_pct)}</td><td>{f.test_start} → {f.test_end}<br />{f.selected}</td><td>{pct(f.oos_return_pct)}</td></tr>)}</tbody></table></> : <p>{walk.reason}</p>}<p className="backtest-note">{walk.note}</p></section>}
-    {result.data_sources&&<details><summary>实际行情来源与回测边界</summary>{result.data_sources.map(s=><p key={s.symbol}>{s.symbol} · {s.source} · {s.status} · {s.fetched_at}{s.fallback_reason?` · ${s.fallback_reason}`:""}</p>)}{result.market_rules&&<p>{result.market_rules.note}</p>}</details>}
+    {result.data_sources&&<details><summary>实际行情来源与回测边界</summary>{result.data_sources.map(s=><p key={s.symbol}>{s.symbol} · {s.source} · {s.status} · {s.fetched_at}{s.fallback_reason?` · ${s.fallback_reason}`:""}</p>)}</details>}
+    {result.market_rules&&<BacktestRuleAudit audit={result.market_rules}/>}
     {result.suspension && <p className="backtest-note">不可交易样本 {result.suspension.untradable_bars} 根。{result.suspension.note}</p>}
   </>;
 }

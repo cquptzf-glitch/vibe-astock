@@ -29,3 +29,4 @@
 .rw-audit > button { text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .rw-stage pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rw-stage small { overflow-wrap: anywhere; }
+.rw-form input[type="checkbox"] { width:auto; min-height:auto; margin-inline-end:.4rem; }

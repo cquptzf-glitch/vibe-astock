@@ -132,6 +132,8 @@ pub async fn mobile_api(
             let codes=match state.background_symbols(scope).await {Ok(v)=>v,Err(e)=>return Ok(response_error(400,"monitor_universe",e.to_string()))};
             if codes.is_empty(){return Ok(response_error(400,"monitor_universe","没有可订阅的股票,请先添加自选"));}
             config=json!({"action":action,"scope":scope,"symbols":codes,"interval_seconds":request.body["interval_seconds"].as_u64().unwrap_or(60).clamp(30,300),"threshold_pct":request.body["threshold_pct"].as_f64().unwrap_or(1.5).clamp(0.5,20.0),"max_bytes_mb":request.body["max_bytes_mb"].as_u64().unwrap_or(50).clamp(5,500),"stop_battery_pct":request.body["stop_battery_pct"].as_u64().unwrap_or(15).clamp(5,50)});
+            let calendar=match state.background_calendar().await{Ok(v)=>v,Err(e)=>return Ok(response_error(502,"monitor_calendar",format!("未取得本月官方交易日历，未启动后台盯盘：{e}")))};
+            if let Some(fields)=calendar.as_object(){for (key,value) in fields {config[key]=value.clone();}}
         }
         return match app.vibe_reminders().monitor(&config) {Ok(value)=>Ok(MobileApiResponse{status:200,body:value}),Err(e)=>Ok(response_error(500,"background_monitor",e.to_string()))};
     }

@@ -8,6 +8,7 @@ mod ai_review;
 mod ai_vision;
 mod backup;
 mod backtest;
+mod historical_metadata;
 mod boards;
 mod calendar;
 mod calendar_sources;
@@ -24,6 +25,7 @@ mod emotion;
 mod emotion_history;
 mod discovery;
 mod industry_signals;
+mod industry_library;
 mod industry_revenue;
 mod intraday;
 mod news;
@@ -214,6 +216,14 @@ impl AppCore {
     pub fn reminder_snapshot(&self) -> Result<Value> {
         if self.offline(){Ok(json!({"schema":1,"rules":[],"offline":true}))}else{reminders::native_snapshot(&self.db_path)}
     }
+    pub async fn background_calendar(&self) -> Result<Value> {
+        if self.offline(){return Err(anyhow::anyhow!("离线模式不能刷新后台交易日历"));}
+        let month=calendar_sources::month(&self.client,"/").await?;
+        let days=month["days"].as_array().ok_or_else(||anyhow::anyhow!("完整月历缺失"))?;
+        let mut states=serde_json::Map::new();
+        for day in days {states.insert(day["date"].as_str().ok_or_else(||anyhow::anyhow!("月历日期缺失"))?.replace('-',""),day["is_open"].clone());}
+        Ok(json!({"trading_days":states,"calendar_month":month["month"],"calendar_source":month["source"],"calendar_fetched_at":month["fetched_at"]}))
+    }
     pub async fn background_symbols(&self,scope:&str)->Result<Vec<String>> {market_scan::native_symbols(&self.client,&self.db_path,scope).await}
     pub fn offline(&self)->bool{provider_cache::offline(&self.db_path)}
 
@@ -253,6 +263,9 @@ impl AppCore {
         let mobile_version = format!("{APP_VERSION}-mobile");
 
         match (method.as_str(), route) {
+            ("GET","/mobile/industry/library/catalog")=>Ok(MobileApiResponse::ok(industry_library::catalog())),
+            ("GET","/mobile/industry/library")=>Ok(match discovery::parameter(&request.path,"sector").ok_or_else(||anyhow::anyhow!("请选择产业赛道")).and_then(|key|industry_library::list(&self.db_path,&key,None)){Ok(v)=>MobileApiResponse::ok(v),Err(e)=>MobileApiResponse::error(400,"industry_library",e.to_string())}),
+            ("POST","/mobile/industry/library")=>Ok(match industry_library::mutate(&self.db_path,&request.body){Ok(v)=>MobileApiResponse::ok(v),Err(e)=>MobileApiResponse::error(400,"industry_library",e.to_string())}),
             ("GET","/mobile/calc/catalog")=>Ok(MobileApiResponse::ok(deterministic_calc::catalog())),
             ("POST","/mobile/calc")=>{
                 let valid=request.body.as_object().is_some_and(|m|m.keys().all(|k|["function","args"].contains(&k.as_str())));
