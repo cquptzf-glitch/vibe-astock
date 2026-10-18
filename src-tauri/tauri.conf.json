@@ -19,7 +19,9 @@
       }
     ],
     "security": {
-      "capabilities": ["default"]
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {
@@ -28,5 +30,6 @@
     "android": {
       "minSdkVersion": 24
     }
-  }
+  },
+  "version": "0.1.38"
 }

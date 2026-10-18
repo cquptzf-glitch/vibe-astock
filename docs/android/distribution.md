@@ -44,3 +44,5 @@ python scripts/android/verify_distribution.py --check-host YOUR_OWNED_HOST --exp
 
 
 0.1.38 起显式为 Gradle debug 签名指定 `VIBE_PREVIEW_KEYSTORE_PATH`，最终 APK 另与守卫证书、包名、版本、ARM64 和 debug 属性核对。只有两者一致才发布并上传公开验证回执；0.1.37 未完成这项最终身份核对，不能据缓存守卫推断已发布包使用同一密钥。
+
+应用版本同时维护 `src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 与 `core-rust/Cargo.toml`。CI 在打包前检查一致；最终 APK 的 versionName 必须匹配发布版本，versionCode 必须按 Tauri 的 major×1,000,000 + minor×1,000 + patch 映射（0.1.38 = 1038）。只改 Cargo 或文件名会被拒绝。

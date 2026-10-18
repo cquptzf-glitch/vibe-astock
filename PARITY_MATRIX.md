@@ -185,3 +185,6 @@ Local Core 310 + symbol parity 1, frontend 574, 198 Edge screenshots, ARM64 chec
 APK：30,702,295 bytes；SHA256：`1797176695e6d2217001c2f2856c74e1f89337bdcbb456b134e8f310351255fb`。实际 APK 证书 `1C:D5:71:CD:1D:9D:F5:B3:CC:1D:ED:F8:E4:82:8F:8C:08:07:85:79:DF:7A:39:10:67:6F:BD:67:17:68:75:27`，与缓存守卫证书不同；因此 **0.1.37 尚未建立可保证的后续预览升级身份**。不将守卫证书误写成已发布包证书，不追改已发布版本；0.1.38 显式绑定 Gradle 密钥并核对最终 APK。
 
 0.1.38 在此基础上修复预览升级身份：显式指定 Gradle debug keystore；发布前核对最终 APK 与守卫证书、包名、版本、ARM64 和 debug 属性，校验后上传公开回执。新增两项回归，帮助脚本 8 项通过，等待 CI。
+
+
+0.1.38 候选 `e448383` 的跨平台 #39148052991 六组成功；Android #39148053065 的 debug/release APK、AAB、原生 JUnit 和测试签名验证通过，最终包证书与守卫一致（7C:2B:B8:8E:E4:E1:C6:20:29:93:5B:92:6F:F0:0F:2C:43:2C:5C:B7:76:AE:1E:8E:95:29:12:78:13:B2:35:8F），但新增版本检查阻止发布。直接检查已发布 0.1.37 的二进制 manifest，确认内部仍是默认 versionName=1.0 / versionCode=1。修复为在 tauri.conf.json 显式填写 0.1.38；构建前与 Cargo 对照、最终 debug/release APK 核对 0.1.38 / 1038；帮助脚本 9 项通过，待新 CI。以后升级必须同步 tauri.conf.json 与两处 Cargo 版本。

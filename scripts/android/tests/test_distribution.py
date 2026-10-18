@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from configure_distribution import configure, validate_host, certificate, attr
-from verify_distribution import association_matches, verify_apk_certificate, verify_preview
+from verify_distribution import association_matches, verify_apk_certificate, verify_preview, expected_version_code
 from prepare_preview_signing import prepare, configure_preview
 
 class DistributionTest(unittest.TestCase):
@@ -76,6 +76,12 @@ class DistributionTest(unittest.TestCase):
             self.assertFalse(association_matches(body,[self.fingerprint]))
         self.assertEqual(certificate(self.fingerprint),':'.join(['12']*32))
         self.assertEqual(validate_host('Links.Example.Com'),'links.example.com')
+    def test_android_version_code_matches_tauri_contract(self):
+        self.assertEqual(expected_version_code('0.1.38'),1038)
+        self.assertEqual(expected_version_code('1.2.3'),1002003)
+        for invalid in ['', '1.0', '0.0.0', '1.2.3-debug', '9999.0.0']:
+            with self.assertRaises(ValueError): expected_version_code(invalid)
+
     def test_preview_gradle_binds_the_guarded_key_explicitly(self):
         for _ in range(2): configure_preview(self.project)
         source = self.gradle.read_text()
@@ -97,7 +103,7 @@ class DistributionTest(unittest.TestCase):
             self.assertFalse(receipt['device_upgrade_verified'])
             self.assertEqual(receipt['apk']['sha256'],hashlib.sha256(apk.read_bytes()).hexdigest())
             self.assertEqual(run.call_count,2)
-        for text in [badging.replace('com.vibeastock.mobile','other.package'),badging.replace('0.1.38','0.1.37'),badging.replace('arm64-v8a','x86'),badging.replace('application-debuggable','')]:
+        for text in [badging.replace('com.vibeastock.mobile','other.package'),badging.replace('0.1.38','0.1.37'),badging.replace("versionCode='1038'","versionCode='1'"),badging.replace('arm64-v8a','x86'),badging.replace('application-debuggable','')]:
             with patch('verify_distribution.subprocess.run',return_value=result(text)):
                 with self.assertRaises(ValueError): verify_preview(apk,signer,expected,'0.1.38')
         for signed in [result('V2 Signer: certificate SHA-256 digest: '+'34'*32), result('',1)]:

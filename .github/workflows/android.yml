@@ -46,9 +46,13 @@ jobs:
           APP_VERSION="$(python3 - <<'PY'
           import pathlib
           import tomllib
+          import json
 
           with pathlib.Path("src-tauri/Cargo.toml").open("rb") as handle:
-              print(tomllib.load(handle)["package"]["version"])
+              version = tomllib.load(handle)["package"]["version"]
+          if json.loads(pathlib.Path("src-tauri/tauri.conf.json").read_text())["version"] != version:
+              raise SystemExit("Tauri Android version must match Cargo before building")
+          print(version)
           PY
           )"
           if [ -z "$APP_VERSION" ]; then

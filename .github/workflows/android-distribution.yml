@@ -125,11 +125,13 @@ jobs:
       - name: Configure signing and optional owned App Links
         run: |
           python3 - <<'PYCONFIG'
-          import os, sys
+          import os, sys, json, tomllib
           from pathlib import Path
           sys.path.insert(0,'scripts/android')
           from configure_distribution import certificate, configure
           from verify_distribution import signing_certificate
+          version=tomllib.loads(Path("src-tauri/Cargo.toml").read_text())["package"]["version"]
+          if json.loads(Path("src-tauri/tauri.conf.json").read_text())["version"]!=version: raise SystemExit("Tauri and Cargo versions must match")
           actual=signing_certificate()
           if actual!=certificate(os.environ['EXPECTED_CERT_SHA256']): raise SystemExit('Configured upgrade certificate does not match keystore')
           host=os.environ.get('APP_LINK_HOST','')
@@ -149,7 +151,7 @@ jobs:
           cp "$APK" dist/android-distribution/vibe-astock-release-arm64.apk
           cp "$AAB" dist/android-distribution/vibe-astock-release-arm64.aab
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -n 1)"
-          python3 scripts/android/verify_distribution.py --apk dist/android-distribution/vibe-astock-release-arm64.apk --aab dist/android-distribution/vibe-astock-release-arm64.aab --apksigner "$APKSIGNER" --expected "$EXPECTED_CERT_SHA256" > dist/android-distribution/verification.json
+          python3 scripts/android/verify_distribution.py --apk dist/android-distribution/vibe-astock-release-arm64.apk --aab dist/android-distribution/vibe-astock-release-arm64.aab --apksigner "$APKSIGNER" --expected "$EXPECTED_CERT_SHA256" --version "$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')" > dist/android-distribution/verification.json
           (cd dist/android-distribution && sha256sum *.apk *.aab > SHA256SUMS)
       - name: Upload signed distribution for owner review
         uses: actions/upload-artifact@v4

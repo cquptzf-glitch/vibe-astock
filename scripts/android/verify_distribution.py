@@ -31,11 +31,21 @@ def verify_apk_certificate(output: str, expected: str) -> None:
     if actual != {certificate(expected)}:
         raise ValueError("APK signing certificate differs from configured upgrade key: " + ", ".join(sorted(actual)))
 
-def verify(apk: Path, aab: Path, apksigner: Path, expected: str) -> dict:
+def expected_version_code(version: str) -> int:
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+        raise ValueError("A three-part Android application version is required")
+    major, minor, patch = map(int, version.split("."))
+    result = major * 1_000_000 + minor * 1_000 + patch
+    if not 0 < result <= 2_100_000_000:
+        raise ValueError("Android application version code is outside supported range")
+    return result
+
+def verify(apk: Path, aab: Path, apksigner: Path, expected: str, version: str) -> dict:
     expected = certificate(expected)
+    version_code = expected_version_code(version)
     badging = subprocess.run([str(apksigner.with_name("aapt")), "dump", "badging", str(apk)], capture_output=True, text=True)
     package = re.search(r"package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", badging.stdout)
-    if badging.returncode or not package or package[1] != "com.vibeastock.mobile" or "application-debuggable" in badging.stdout or "arm64-v8a" not in badging.stdout:
+    if badging.returncode or not package or package[1] != "com.vibeastock.mobile" or package[3] != version or int(package[2]) != version_code or "application-debuggable" in badging.stdout or "arm64-v8a" not in badging.stdout:
         raise ValueError("Release APK package, ABI or debuggability is incorrect")
     r = subprocess.run([str(apksigner), "verify", "--verbose", "--print-certs", str(apk)], capture_output=True, text=True)
     if r.returncode:
@@ -65,10 +75,11 @@ def verify_preview(apk: Path, apksigner: Path, expected: dict, version: str) -> 
     if expected.get("package") != "com.vibeastock.mobile" or not version:
         raise ValueError("Preview identity or version missing")
     digest = certificate(expected["certificate_sha256"])
+    version_code = expected_version_code(version)
     badging = subprocess.run([str(apksigner.with_name("aapt")), "dump", "badging", str(apk)], capture_output=True, text=True)
     package = re.search(r"package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", badging.stdout)
-    if badging.returncode or not package or package[1] != expected["package"] or package[3] != version or int(package[2]) <= 0 or "application-debuggable" not in badging.stdout or "arm64-v8a" not in badging.stdout:
-        raise ValueError("Preview APK package, version, ABI or debuggability is incorrect")
+    if badging.returncode or not package or package[1] != expected["package"] or package[3] != version or int(package[2]) != version_code or "application-debuggable" not in badging.stdout or "arm64-v8a" not in badging.stdout:
+        raise ValueError("Preview APK metadata mismatch: " + json.dumps({"aapt_exit":badging.returncode,"package":package[1] if package else None,"version_name":package[3] if package else None,"version_code":int(package[2]) if package else None,"debuggable":"application-debuggable" in badging.stdout,"arm64":"arm64-v8a" in badging.stdout}))
     result = subprocess.run([str(apksigner), "verify", "--verbose", "--print-certs", str(apk)], capture_output=True, text=True)
     if result.returncode:
         raise ValueError("Preview APK signature verification failed")
@@ -128,6 +139,6 @@ if __name__ == "__main__":
         verify_website(a.check_host, [a.expected])
         print("Website association matched; device verification is still required")
     else:
-        if not all((a.apk, a.aab, a.apksigner, a.expected)):
-            p.error("--apk, --aab, --apksigner and --expected are required")
-        print(json.dumps(verify(a.apk, a.aab, a.apksigner, a.expected), indent=2))
+        if not all((a.apk, a.aab, a.apksigner, a.expected, a.version)):
+            p.error("--apk, --aab, --apksigner, --expected and --version are required")
+        print(json.dumps(verify(a.apk, a.aab, a.apksigner, a.expected, a.version), indent=2))

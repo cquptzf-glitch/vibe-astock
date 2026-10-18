@@ -25,7 +25,7 @@ def main() -> None:
             tools=Path(os.environ['ANDROID_HOME'])/'build-tools'
             signers=sorted(tools.glob('*/apksigner'),key=lambda p:tuple(int(x) for x in p.parent.name.split('.') if x.isdigit()))
             if not signers:raise RuntimeError('apksigner missing')
-            receipt=verify(apk,aab,signers[-1],cert)
+            receipt=verify(apk,aab,signers[-1],cert,json.loads(Path("src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"])
             receipt.update({'identity':'disposable CI fixture, never a production upgrade key','production_signed':False,'website_verified':False})
             (output/'verification.json').write_text(json.dumps(receipt,indent=2)+'\n',encoding='utf-8')
             print('Disposable release APK/AAB signature smoke passed; production identity and device checks remain separate')

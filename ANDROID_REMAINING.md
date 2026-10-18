@@ -273,3 +273,9 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 
 
 提交 `10d3a87` 的[跨平台 CI #39146642264](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39146642264) 六组成功。Linux / Node 24：编排器 1429 项通过 / 4 跳过、前端 574 项、mypy 115 个文件、发行脚本 6 项、388 例 oracle 散列及 Python 311 + 583 + 783 项均通过。Android CI #39146642305 的 ARM64 debug APK 和原生单元测试已通过，等待 release APK/AAB 签名验证和发布。
+
+
+使用者本轮已明确：暂时没有 Android 设备，先完成 CI 和预览交付。真机验收保留为后续项，本轮不再请求连接设备；交易数据与模型处理继续保持现状。
+
+
+0.1.38 候选 `e448383` 的跨平台 #39148052991 六组成功；Android #39148053065 的 debug/release APK、AAB、原生 JUnit 和测试签名验证通过，最终包证书与守卫一致（7C:2B:B8:8E:E4:E1:C6:20:29:93:5B:92:6F:F0:0F:2C:43:2C:5C:B7:76:AE:1E:8E:95:29:12:78:13:B2:35:8F），但新增版本检查阻止发布。直接检查已发布 0.1.37 的二进制 manifest，确认内部仍是默认 versionName=1.0 / versionCode=1。修复为在 tauri.conf.json 显式填写 0.1.38；构建前与 Cargo 对照、最终 debug/release APK 核对 0.1.38 / 1038；帮助脚本 9 项通过，待新 CI。以后升级必须同步 tauri.conf.json 与两处 Cargo 版本。
