@@ -35,5 +35,7 @@ test("导入预览:标题分类代码可改,显示字符数,只预览开头但�
     const card = r.html(ReportImport, { onSaved: noop });
     assert.ok(flat(card).includes(sq("从文件导入研报(先预览)")) && !card.includes('type="file"'));
     assert.match(card, /aria-expanded="false"/);
+    const pdf = r.html(ReportPreview, { draft: { title: "PDF", body: "PDF 分页正文\n\n\fRevenue", chars: 20, source: "file_import_pdf_pages_v1" }, title: "PDF", category: "", symbol: "", busy: false, onTitle: noop, onCategory: noop, onSymbol: noop, onSave: noop, onCancel: noop });
+    assert.ok(textOf(pdf).includes("已保留 PDF 原始分页（含空白页），检索引用将包含页码。"));
   });
 });

@@ -335,7 +335,7 @@ export function AiChatPanel() {
       {page && <label className="ai-chat-attach"><input type="checkbox" checked={attach} disabled={sending} onChange={(e) => setAttach(e.target.checked)} aria-label="附带当前页面" />
         <span>附带页面「{page.title}」的内容({page.text.length} 字)<small>只随这一问发给你配置的模型,不存进对话历史;个人成交、持仓、盈亏页面不会登记。</small></span></label>}
       <label className="ai-chat-attach"><input type="checkbox" checked={toolsEnabled} disabled={sending} onChange={(e) => setToolsEnabled(e.target.checked)} /><span>允许公开数据与计算工具<small>只允许目录内取数与四则运算；本轮最多八次调用，完成后统一显示回复。</small></span></label>
-      {toolsEnabled && <label className="ai-chat-attach"><input type="checkbox" checked={documentsEnabled} disabled={sending} onChange={e=>setDocumentsEnabled(e.target.checked)} /><span>检索本机资料库<small>仅把匹配的正文片段交给模型；回答必须保留本轮 [资料:id] 引用。</small></span></label>}
+      {toolsEnabled && <label className="ai-chat-attach"><input type="checkbox" checked={documentsEnabled} disabled={sending} onChange={e=>setDocumentsEnabled(e.target.checked)} /><span>检索本机资料库<small>仅把匹配片段交给模型；引用须与本轮结果一致，新导入 PDF 包含原始页码。</small></span></label>}
       <div className="ai-chat-composer">
         <textarea
           value={draft}
