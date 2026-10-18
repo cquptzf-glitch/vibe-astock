@@ -20,6 +20,28 @@ Desktop CI PASS
 Android APK PASS
 ```
 
+## Current mobile matrix — 0.1.35 (2026-10-18)
+
+| Area | Mobile implementation | Evidence | Status |
+| --- | --- | --- | --- |
+| AI staged research / debate / emotion / weekly / industry | research_workflow + research-methodology.json | resume/cancel/late-result/math rejection/retry/archive tests; browser workflow | Implemented mobile snapshot workflow; full desktop calc/DAG parity pending |
+| Statements / consensus / valuation | research_extended | parser tests; live Sina/THS/Baidu probes | Implemented; provider continuity and real-device UX pending |
+| Advanced backtest | backtest_advanced / backtest_rules / ai_backtest | deterministic resampling, WFO no future dependence, rebalance cash bounds; live single/multi run | Implemented subset; historical ST/IPO automatic metadata still absent |
+| Corporate actions / opening positions | journal_fills v13 + unified settle; backup v11 | FIFO/partial sell/restore/no fake cash flow tests | Implemented; split MFE excluded rather than guessed |
+| Scan / Android service | market_scan + MarketMonitorService | parsing and native source compile | Full-market quote/minute sampling; exchange tick feed and device lifecycle unverified |
+| Calendar / event reminders | calendar_sources + native rules | complete-month validation, reminder/backup/done state tests; live SZSE | Implemented SZSE month semantics; special exchange-specific coverage pending |
+| General AI chat | ai_chat + AiChatPanel / SQLite threads | native streaming/cancel/history and frontend regressions; cross-platform CI | Implemented streaming, stop, threads and bounded tools; real model/device quality not certified |
+| Documents / controlled chat | document_import + chat_tools/chat_documents | file parsers, arithmetic round trip, budget, citation refusal tests | Implemented bounded retrieval and original PDF-page citations (blank pages preserved, wrong/unrecalled pages rejected); scanned PDFs/OCR unsupported |
+| Public-page assistant / share / offline | PublicPageActions / provider_cache | SSR/Edge and offline API tests; manual refresh bypass and failed-envelope fallback regression | Implemented text-summary cards and labeled historical cache |
+| Supply-chain / event probability | industry_revenue / probability / Kalshi GPU ladder | parsing tests; quote types, source gaps explicit | Implemented bounded scans; Kalshi/Polymarket transport failed locally; four live monthly-revenue providers passed |
+| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 174-screen smoke | APK build/native unit tests/signature verification and preview publication passed; device acceptance pending |
+
+Validation remains scoped: local Core/frontend checks do not certify Android lifecycle, official signing, full legacy parity or all public providers. See ANDROID_REMAINING.md for outstanding items and release receipts.
+
+
+<details>
+<summary>Earlier baseline matrix (historical; superseded rows use the current matrix above)</summary>
+
 ## Matrix
 
 | Area | Legacy oracle | Active implementation | Verification | Status |
@@ -80,6 +102,9 @@ Android APK PASS
 | Full PC backend contract | `orchestrator/` + Python scripts | Mobile Rust Core only covers selected domains | End-to-end parity suite pending | **Pending** |
 | Production Android release | Desktop release is separate | Debug-signed ARM64 APK CI + immutable GitHub preview Release | APK build/signature/SHA256 verification; publishing only after tests | **Preview delivery implemented; production signing/AAB/device upgrades pending** |
 
+
+</details>
+
 ## Rules for subsequent migrations
 
 1. `android-mvp` is the only active Android implementation branch.
@@ -92,24 +117,6 @@ Android APK PASS
 8. Keep holdings derived from journal fills; do not add a second positions truth store.
 9. Keep AI API keys out of SQLite/localStorage and backups; use the Android Keystore boundary.
 10. Do not bundle Node or Python runtimes into the production APK to obtain parity.
-
-
-## 0.1.35 mobile expansion (2026-10-18)
-
-| Area | Mobile implementation | Evidence | Status |
-| --- | --- | --- | --- |
-| AI staged research / debate / emotion / weekly / industry | research_workflow + research-methodology.json | resume/cancel/late-result/math rejection/retry/archive tests; browser workflow | Implemented mobile snapshot workflow; full desktop calc/DAG parity pending |
-| Statements / consensus / valuation | research_extended | parser tests; live Sina/THS/Baidu probes | Implemented; provider continuity and real-device UX pending |
-| Advanced backtest | backtest_advanced / backtest_rules / ai_backtest | deterministic resampling, WFO no future dependence, rebalance cash bounds; live single/multi run | Implemented subset; historical ST/IPO automatic metadata still absent |
-| Corporate actions / opening positions | journal_fills v13 + unified settle; backup v11 | FIFO/partial sell/restore/no fake cash flow tests | Implemented; split MFE excluded rather than guessed |
-| Scan / Android service | market_scan + MarketMonitorService | parsing and native source compile | Full-market quote/minute sampling; exchange tick feed and device lifecycle unverified |
-| Calendar / event reminders | calendar_sources + native rules | complete-month validation, reminder/backup/done state tests; live SZSE | Implemented SZSE month semantics; special exchange-specific coverage pending |
-| Documents / controlled chat | document_import + chat_tools/chat_documents | file parsers, arithmetic round trip, budget, citation refusal tests | Implemented bounded retrieval; scanned PDFs/OCR and original PDF page citations not supported |
-| Public-page assistant / share / offline | PublicPageActions / provider_cache | SSR/Edge and offline API tests | Implemented text-summary cards and labeled historical cache |
-| Supply-chain / event probability | industry_revenue / probability / Kalshi GPU ladder | parsing tests; quote types, source gaps explicit | Implemented bounded scans; Kalshi transport/live monthly-revenue acceptance pending |
-| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 174-screen smoke | Frontend verified locally; final APK awaits CI |
-
-Validation remains scoped: local Core/frontend checks do not certify Android lifecycle, official signing, full legacy parity or all public providers. See ANDROID_REMAINING.md for outstanding items and release receipts.
 
 
 ### 0.1.35 候选兼容性复核（2026-10-18）
@@ -125,3 +132,13 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 ### 0.1.35 缓存刷新复核（2026-10-18）
 
 手动刷新明确传 refresh=1，保留原证券、日期与筛选参数，不再被正常 TTL 缓存拦住。HTTP 200 中的 failed/error 结果也触发带陈旧标记的旧公开快照回退，不覆盖好缓存；参数 400 错误不回退掩盖，部分成功仍保留可用数据。新增刷新参数与缓存回退回归；Rust 289 项 + 1 项 parity、前端 566 项、移动构建通过，PDF 增量的 ARM64 目标检查通过。最终 APK 与发布回执待最新 CI。
+
+
+最终功能提交 `69eb810`：跨平台 [#39098061530](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061530) 六组已全部成功；本机最新候选 174 张截图通过。Android [#39098061563](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061563) 的 APK / 原生测试 / 发布结果继续等待最终回执。
+
+
+## 0.1.35 最终发布回执（2026-10-18）
+
+0.1.35 已发布：[Android 0.1.35 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.35)（标签固定在 `69eb81066a3e639b34f1431e934cc19bc6df131b`；[Android CI #39098061563](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061563) 的 APK 构建、原生 Gradle 单元测试、APK 签名校验与发布全部成功；[跨平台 #39098061530](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061530) 六组全部成功）。ARM64 APK 29,104,663 bytes（27.76 MiB），SHA256 `262c6b14f16b7b6b5bf58ebce27c344639cd9f7c393de93be993d2f6557cc1ff`。仍为 debug-signed 预览版，未做真机验收。
+
+云端日志已核对：Rust 289 项 + 1 项 parity、前端 566 项、Chromium 174 张截图；Linux 编排器 1429 项通过 / 4 跳过、Python 311 + 583 + 783 项通过、mypy 115 个源文件通过。本机 Edge 同样 174 张截图通过。本节最终回执优先于前面的候选阶段“待 CI”记录；文档回执提交不改变已发布 APK 标签。

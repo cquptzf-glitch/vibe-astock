@@ -2,6 +2,12 @@
 
 > 最新未完成功能以 [ANDROID_REMAINING.md](ANDROID_REMAINING.md) 为准；本文早期章节保留历史基线，最新完成与验证记录在文末。每轮必须回复剩余清单、构建状态及实际发布版本。
 
+## 当前接手入口（0.1.35，2026-10-18）
+
+主功能与后续兼容性、PDF 页码、缓存修复已推送到 `android-mvp`；最终功能提交为 `69eb810`。包括分阶段研究/辩论、Agent 回测、完整财务与历史估值、扫描和 Android 前台服务、官方月历及事件提醒、资料导入/检索、期初与送转核算。交易数据与模型规则保持原有处理。
+
+本地 Rust 289 项 + 1 项 parity、前端 566 项、移动构建通过；PDF 原始页序（含空白页）随备份恢复，错页/漏引拒绝。最终提交 69eb810 的跨平台六组、Android APK 构建、原生单元测试、签名校验和预览发布均已通过；安装包 27.76 MiB，下载与 SHA256 见文末最终回执。正式签名、真实设备、完整桌面 calc/DAG、历史 ST/IPO 自动识别和源站连接等缺口见 ANDROID_REMAINING.md。后续章节除文末增量外均是历史基线，不得把旧的 Pending 直接当成现状。
+
 > 审查基线：`android-mvp` 分支，代码基线 `573429707470d8911f37733107e5002e314be9df`。
 >
 > 本文档用于后续开发 Agent / 开发者直接接手。目标不是重复描述已经完成的 Android MVP，而是明确：**当前已经有什么、还缺什么、哪些属于前端、哪些属于 Rust/Core、哪些属于 Android 原生/发布工程，以及下一步按什么顺序开发。**
@@ -1574,3 +1580,13 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 ### 0.1.35 缓存刷新复核（2026-10-18）
 
 手动刷新明确传 refresh=1，保留原证券、日期与筛选参数，不再被正常 TTL 缓存拦住。HTTP 200 中的 failed/error 结果也触发带陈旧标记的旧公开快照回退，不覆盖好缓存；参数 400 错误不回退掩盖，部分成功仍保留可用数据。新增刷新参数与缓存回退回归；Rust 289 项 + 1 项 parity、前端 566 项、移动构建通过，PDF 增量的 ARM64 目标检查通过。最终 APK 与发布回执待最新 CI。
+
+
+最终功能提交 `69eb810`：跨平台 [#39098061530](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061530) 六组已全部成功；本机最新候选 174 张截图通过。Android [#39098061563](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061563) 的 APK / 原生测试 / 发布结果继续等待最终回执。
+
+
+## 0.1.35 最终发布回执（2026-10-18）
+
+0.1.35 已发布：[Android 0.1.35 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.35)（标签固定在 `69eb81066a3e639b34f1431e934cc19bc6df131b`；[Android CI #39098061563](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061563) 的 APK 构建、原生 Gradle 单元测试、APK 签名校验与发布全部成功；[跨平台 #39098061530](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39098061530) 六组全部成功）。ARM64 APK 29,104,663 bytes（27.76 MiB），SHA256 `262c6b14f16b7b6b5bf58ebce27c344639cd9f7c393de93be993d2f6557cc1ff`。仍为 debug-signed 预览版，未做真机验收。
+
+云端日志已核对：Rust 289 项 + 1 项 parity、前端 566 项、Chromium 174 张截图；Linux 编排器 1429 项通过 / 4 跳过、Python 311 + 583 + 783 项通过、mypy 115 个源文件通过。本机 Edge 同样 174 张截图通过。本节最终回执优先于前面的候选阶段“待 CI”记录；文档回执提交不改变已发布 APK 标签。
