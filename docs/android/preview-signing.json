@@ -3,6 +3,8 @@
   "certificate_sha256": "7C:2B:B8:8E:E4:E1:C6:20:29:93:5B:92:6F:F0:0F:2C:43:2C:5C:B7:76:AE:1E:8E:95:29:12:78:13:B2:35:8F",
   "first_version": "0.1.38",
   "debug_signed": true,
-  "signing_verification_run": "https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39148053065",
-  "device_upgrade_verified": false
+  "signing_verification_run": "https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39150050100",
+  "device_upgrade_verified": false,
+  "version_name": "0.1.38",
+  "version_code": 1038
 }

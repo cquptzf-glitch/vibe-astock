@@ -1,5 +1,7 @@
 # Android App 全面审查与后续开发交接
 
+当前交付：**0.1.38 已发布（2026-10-19）**，功能构建 `b629dc5`；Android #39150050100 和跨平台 #39150049996 全部成功。最终包内版本 0.1.38 / 1038，APK 与固定证书一致。最新限制以 [ANDROID_REMAINING.md](ANDROID_REMAINING.md) 为准；完整最终回执在本文末。
+
 > 最新未完成功能以 [ANDROID_REMAINING.md](ANDROID_REMAINING.md) 为准；本文早期章节保留历史基线，最新完成与验证记录在文末。每轮必须回复剩余清单、构建状态及实际发布版本。
 
 ## 当前接手入口（0.1.37，2026-10-19）
@@ -1667,3 +1669,19 @@ APK：30,702,295 bytes；SHA256：`1797176695e6d2217001c2f2856c74e1f89337bdcbb45
 
 
 0.1.38 候选 `e448383` 的跨平台 #39148052991 六组成功；Android #39148053065 的 debug/release APK、AAB、原生 JUnit 和测试签名验证通过，最终包证书与守卫一致（7C:2B:B8:8E:E4:E1:C6:20:29:93:5B:92:6F:F0:0F:2C:43:2C:5C:B7:76:AE:1E:8E:95:29:12:78:13:B2:35:8F），但新增版本检查阻止发布。直接检查已发布 0.1.37 的二进制 manifest，确认内部仍是默认 versionName=1.0 / versionCode=1。修复为在 tauri.conf.json 显式填写 0.1.38；构建前与 Cargo 对照、最终 debug/release APK 核对 0.1.38 / 1038；帮助脚本 9 项通过，待新 CI。以后升级必须同步 tauri.conf.json 与两处 Cargo 版本。
+
+
+## 0.1.38 最终发布回执
+
+0.1.38 已于 2026-10-19 发布：[Android 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.38)。实际功能构建提交：`b629dc5c18b4f7271122d990043bb8bf8300415b`。
+
+- [Android CI #39150050100](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39150050100)：build-apk / publish-preview 均成功。ARM64 debug APK、原生 JUnit、一次性测试密钥 release APK/AAB 签名与版本检查通过；最终预览 APK 证书与缓存守卫/固定公开指纹一致。
+- [跨平台 CI #39150049996](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39150049996)：六组全部成功。Linux / Node 24 日志核对：编排器 1429 项通过 / 4 跳过；前端 574 项；mypy 115 个源文件；发行脚本 9 项；388 例 calc oracle 散列匹配；Python 311 + 583 + 783 项通过。
+- Rust：312 项通过、28 项 ignored，符号 parity 另 1 项通过；移动端截图 198 张通过。原生本机路由/时区 20 项断言的既有回执保留。
+- APK：`vibe-astock-android-mvp-v0.1.38-arm64.apk`，30,700,727 bytes（29.28 MiB）；SHA256：`187757bc658a0b033abc11edf70c52aee646345742518015705e49d7e3899ef3`。
+- Android 内部包名 `com.vibeastock.mobile`，versionName `0.1.38`，versionCode `1038`。发布后又从公开 APK 中独立提取二进制 manifest，用 aapt 核对相同字段及 debug 属性；不只检查文件名或 Cargo 版本。
+- 最终 APK / 守卫证书 SHA256：`7C:2B:B8:8E:E4:E1:C6:20:29:93:5B:92:6F:F0:0F:2C:43:2C:5C:B7:76:AE:1E:8E:95:29:12:78:13:B2:35:8F`；公开固定值见 [preview-signing.json](docs/android/preview-signing.json)。缓存密钥缺失或证书不匹配即停止发布，不静默换身份。
+
+0.1.37 及以前未建立同一可保证的预览签名身份，且 0.1.37 包内版本仍为默认 1.0 / 1；迁移前先导出业务备份。0.1.38 的证书与版本检查通过不代表真机覆盖升级验收。正式维护者密钥、商店、自有域名 App Links、真实设备仍未验收。用户本轮已明确暂时没有设备，先完成 CI 和预览交付；不再以设备连接阻塞本轮。
+
+全量 Rust fmt / 严格 Clippy 检查仍未通过（库 60 项、含测试 70 项 lint），不计为 CI 已通过检查。交易数据与模型处理保持原状；SQLite v13 / 业务备份 v11 不变。
