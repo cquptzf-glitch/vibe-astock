@@ -6,6 +6,110 @@ use scraper::{Html, Selector};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 
+/// Small, unit-preserving series for controlled calculations. The full statements
+/// remain available in the research panel; aliases never mix labels across periods.
+pub(crate) fn calculation_series(data: &Value) -> Value {
+    let specs = &[
+        ("income", "revenue", &["营业总收入", "营业收入"][..]),
+        (
+            "income",
+            "net_profit_parent",
+            &[
+                "归属于母公司所有者的净利润",
+                "归属于母公司股东的净利润",
+                "归母净利润",
+            ][..],
+        ),
+        (
+            "income",
+            "net_profit_deducted",
+            &["扣除非经常性损益后的净利润", "扣非净利润"][..],
+        ),
+        ("income", "operating_cost", &["营业成本"][..]),
+        ("income", "operating_profit", &["营业利润"][..]),
+        ("balance", "assets", &["资产总计", "资产总额"][..]),
+        ("balance", "liabilities", &["负债合计"][..]),
+        ("balance", "cash", &["货币资金"][..]),
+        (
+            "cashflow",
+            "operating_cashflow",
+            &["经营活动产生的现金流量净额"][..],
+        ),
+        (
+            "cashflow",
+            "investing_cashflow",
+            &["投资活动产生的现金流量净额"][..],
+        ),
+        (
+            "cashflow",
+            "financing_cashflow",
+            &["筹资活动产生的现金流量净额"][..],
+        ),
+    ];
+    let mut series = serde_json::Map::new();
+    let mut missing = Vec::new();
+    for &(statement, key, labels) in specs {
+        let Some(rows) = data["statements"][statement].as_array() else {
+            missing.push(json!(key));
+            continue;
+        };
+        let Some(label) = labels
+            .iter()
+            .find(|&&label| rows.iter().any(|r| r["values"].get(label).is_some()))
+        else {
+            missing.push(json!(key));
+            continue;
+        };
+        let mut units = std::collections::BTreeSet::new();
+        let mut no_unit = false;
+        let mut values = Vec::new();
+        let mut legacy_unit = false;
+        for row in rows {
+            let value = row["values"].get(*label).cloned().unwrap_or(Value::Null);
+            if !value.is_null() {
+                let mut unit = row["items"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find(|i| i["label"] == *label)
+                    .and_then(|i| i["unit"].as_str())
+                    .map(str::trim)
+                    .filter(|u| !u.is_empty());
+                // Only these two labels have an existing repository source contract
+                // (fetch_financials.py LRB_FIELDS). Do not infer the remaining units.
+                if unit.is_none()
+                    && statement == "income"
+                    && row["currency"] == "CNY"
+                    && ["营业总收入", "归属于母公司所有者的净利润"].contains(label)
+                {
+                    unit = Some("元");
+                    legacy_unit = true;
+                }
+                if let Some(unit) = unit {
+                    units.insert(unit.to_owned());
+                } else {
+                    no_unit = true;
+                }
+            }
+            values.push(json!({"period":row["period"],"value":value}));
+        }
+        if no_unit
+            || units.len() != 1
+            || units
+                .iter()
+                .next()
+                .is_none_or(|u| crate::deterministic_calc::money_unit(u).is_err())
+        {
+            missing.push(json!(format!(
+                "{key}: 源站缺少明确且一致的金额单位，未生成金额序列"
+            )));
+            continue;
+        }
+        series.insert(key.to_owned(),json!({"statement":statement,"source_label":label,"unit":units.first().unwrap(),"unit_source":if legacy_unit{"既有 fetch_financials.py LRB_FIELDS 源契约，并核对 rCurrency=CNY"}else{"源站科目单位"},"money":true,"cumulative":values}));
+    }
+    json!({"series":series,"missing":missing,"source":data["source"],"fetched_at":data["fetched_at"],"note":"科目来自同一来源和明确金额单位；不补缺失值，不拼接不同科目。利润/现金流为年初至今累计；资产负债表为期末时点，不可 quarterize。"})
+}
+
 pub(crate) fn parse_statement(root: &Value, limit: usize) -> Result<Vec<Value>> {
     let reports = root
         .pointer("/result/data/report_list")
@@ -43,7 +147,7 @@ pub(crate) fn parse_statement(root: &Value, limit: usize) -> Result<Vec<Value>> 
             raw.push(json!({"label":label,"value":number,"raw":item["item_value"],"unit":item["item_unit"]}));
         }
         if !raw.is_empty() {
-            out.push(json!({"period":period,"values":values,"items":raw}));
+            out.push(json!({"period":period,"values":values,"items":raw,"currency":reports[k]["rCurrency"],"report_type":reports[k]["rType"],"publish_date":reports[k]["publish_date"]}));
         }
     }
     if out.is_empty() {
@@ -281,6 +385,63 @@ pub async fn valuation(client: &Client, path: &str) -> std::result::Result<Value
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    #[ignore = "live public financial / OHLC calculation acceptance; no model or private data"]
+    async fn live_calculation_inputs_probe() {
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .user_agent("Mozilla/5.0 VibeAStock-validation")
+            .build()
+            .unwrap();
+        let data = statements(&client, "/?symbol=600519").await.unwrap();
+        let series = calculation_series(&data);
+        let source = &series["series"]["net_profit_parent"];
+        assert_eq!(source["unit"], "元", "{series}");
+        let quarter = crate::deterministic_calc::execute(
+            "quarterize",
+            &json!({"cumulative":source["cumulative"],"unit":source["unit"],"money":true}),
+        );
+        assert_eq!(quarter["status"], "ok", "{quarter}");
+        let end = source["cumulative"][0]["period"].clone();
+        let args = json!({"single_quarters":quarter["details"]["series"],"unit":source["unit"],"money":true,"end_period":end});
+        for f in ["ttm_sum", "ttm_yoy"] {
+            let result = crate::deterministic_calc::execute(f, &args);
+            assert_eq!(result["status"], "ok", "{result}");
+            eprintln!("live {f}: {}", result["display"]);
+        }
+        let symbol = crate::normalize_stock_symbol("600519").unwrap();
+        let raw = crate::quote::fetch_kline(&client, &symbol, 180)
+            .await
+            .unwrap();
+        let rows: Vec<_> = raw["extra"]["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| json!({"date":r[0],"open":r[1],"close":r[2],"high":r[3],"low":r[4]}))
+            .collect();
+        let result =
+            crate::deterministic_calc::execute("technical_indicators", &json!({"klines":rows}));
+        assert_eq!(result["status"], "ok", "{result}");
+        eprintln!(
+            "live indicators: points={} date={} source={}",
+            result["details"]["points"], result["details"]["date"], raw["primary_source"]
+        );
+    }
+    #[test]
+    fn calculation_series_requires_known_units_and_never_splices_labels_or_currencies() {
+        let root = json!({"result":{"data":{"report_list":{"20260630":{"rCurrency":"CNY","data":[{"item_title":"营业总收入","item_value":"1200"},{"item_title":"归属于母公司所有者的净利润","item_value":"120"},{"item_title":"营业成本","item_value":"900"}]},"20260331":{"rCurrency":"CNY","data":[{"item_title":"营业总收入","item_value":"500"},{"item_title":"归属于母公司所有者的净利润","item_value":"50"}]}}}}});
+        let rows = parse_statement(&root, 12).unwrap();
+        let mut data = json!({"statements":{"income":rows},"source":"synthetic"});
+        let series = calculation_series(&data);
+        assert_eq!(series["series"]["revenue"]["unit"], "元");
+        assert_eq!(
+            series["series"]["net_profit_parent"]["cumulative"][0]["value"],
+            120.
+        );
+        assert!(series["series"].get("operating_cost").is_none());
+        data["statements"]["income"][0]["currency"] = json!("USD");
+        assert!(calculation_series(&data)["series"].get("revenue").is_none());
+    }
     #[tokio::test]
     #[ignore = "real public provider connectivity, no model or personal data"]
     async fn live_completion_sources_probe() {

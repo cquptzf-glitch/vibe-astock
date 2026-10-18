@@ -54,6 +54,7 @@ const overview = {
 const responses = {
   "/health": { ok: true, version: version + "-mobile" },
   "/mobile/research/workflows": {tasks:[]},
+  "/mobile/research/calculations": { records: [{calculation_id:"calc-synthetic-audit",record_id:100,node_id:"growth",function:"growth_rate",executed:true,calc_version:"0.5.0",bindings:{current:{evidence:"E1",path:"/current"},base:{evidence:"E1",path:"/base"}},inputs:{current:12,base:10},inputs_refs:{current:{type:"evidence",id:"E1",path:"/current"},base:{type:"evidence",id:"E1",path:"/base"}},output:{status:"ok",value:0.2,unit:"小数",display:"20.00%",reason:""}}] },
   "/mobile/cache": {offline:false,cached_responses:2,scope:"公开数据缓存"},
   "/mobile/watchlist": { items: watchlist },
   "/mobile/market-overview": overview,
@@ -131,13 +132,14 @@ try {
             const route = request.path.split("?")[0];
             if(route==="/mobile/ai/workflow") {
               if(request.body.action==="advance") {
-                window.__researchTask.results.push({stage:window.__researchTask.stages[window.__researchTask.results.length],paragraphs:[{text:"仅为合成的浏览器测试结论，存在资料缺口。",evidence:["E1"]}],checks:[{ok:true,level:"source",actual:20,claim:{label:"合成数值"}}],conditions:[],verified:true,model:"fixture",at:"2026-10-18"});
+                window.__researchTask.results.push({stage:window.__researchTask.stages[window.__researchTask.results.length],paragraphs:[{text:"仅为合成的浏览器测试结论，存在资料缺口。",evidence:["E1"]}],checks:[{ok:true,level:"calculation",actual:0.2,display:"20.00%",claim:{label:"合成数值"}}],calculations:responses["/mobile/research/calculations"].records,conditions:[],verified:true,model:"fixture",at:"2026-10-18"});
                 if(window.__researchTask.results.length===2)window.__researchTask.status="complete";
                 window.__researchTask.archive_id=99;
               }else window.__researchTask={id:88,title:"合成流程测试",mode:"deep",date:"2026-10-18",status:"active",stages:["合成阶段甲","合成阶段乙"],results:[],revision:0,gaps:[{source:"合成源",reason:"未取得完整财务"}]};
               return {status:200,body:structuredClone(window.__researchTask)};
             }
             if(route==="/mobile/research/workflows")return {status:200,body:{tasks:window.__researchTask?[structuredClone(window.__researchTask)]:[]}};
+            if(route==="/mobile/research/calculations")return {status:200,body:new URL(request.path,"https://mobile.invalid").searchParams.has("calculation_id")?responses[route].records[0]:responses[route]};
             if (route === "/fetch") return { status: 200, body: { envelope: request.body.endpoint === "kline" ? { ...quote, extra: { rows: klineRows } } : quote } };
             return { status: responses[route] ? 200 : 501, body: responses[route] || { message: "未提供界面测试样本" } };
           }
@@ -192,6 +194,13 @@ try {
       await page.getByText("仅为合成的浏览器测试结论",{exact:false}).first().waitFor();
       await assertWidth();
       await page.screenshot({path:path.join(out,width+"-"+theme+"-research-complete.png"),fullPage:true});
+      await page.getByRole("button",{name:"查看计算依赖与输入审计",exact:true}).click();
+      await page.getByRole("button",{name:/^growth_rate ·/}).click();
+      await page.getByRole("article",{name:"计算输入与依赖审计"}).waitFor();
+      await page.getByText("实际参与计算的输入",{exact:true}).click();
+      await page.getByText("证据和前序计算的来源路径",{exact:true}).click();
+      await assertWidth();
+      await page.screenshot({path:path.join(out,width+"-"+theme+"-calculation-audit.png"),fullPage:true});
       // 研报文件导入:选文本文件 → 预览 → 取消
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
       await page.locator(".directory-grid button", { hasText: "保存、查阅与检索报告正文" }).click();
@@ -466,8 +475,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 174, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 174 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 180, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards, research calculation audit; 180 screenshots.");
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
   const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);

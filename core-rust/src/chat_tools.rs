@@ -6,7 +6,9 @@ use std::path::Path;
 pub fn catalog() -> Value {
     json!([
         {"type":"function","function":{"name":"market_data","description":"读取公开市场或公司资料,只允许目录中的数据类型;不读取个人成交或任意文件。","parameters":{"type":"object","properties":{"kind":{"type":"string","enum":["quote","profile","statements","consensus","valuation","emotion","weekly","market"]},"symbol":{"type":"string","description":"个股资料必须为用户指定的股票代码"},"date":{"type":"string","description":"市场复盘日 YYYY-MM-DD,个股资料为当前快照"}},"required":["kind"],"additionalProperties":false}}},
-        {"type":"function","function":{"name":"calculate","description":"确定性四则运算或百分比变化,不执行代码。","parameters":{"type":"object","properties":{"op":{"type":"string","enum":["sum","difference","product","ratio","pct_change"]},"left":{"type":"number"},"right":{"type":"number"}},"required":["op","left","right"],"additionalProperties":false}}}
+        {"type":"function","function":{"name":"calculate","description":"确定性四则运算或百分比变化,不执行代码。","parameters":{"type":"object","properties":{"op":{"type":"string","enum":["sum","difference","product","ratio","pct_change"]},"left":{"type":"number"},"right":{"type":"number"}},"required":["op","left","right"],"additionalProperties":false}}},
+        {"type":"function","function":{"name":"calculation_catalog","description":"读取财务、季度序列、技术指标及财报事件的真实计算函数目录与参数。没有文件访问。","parameters":{"type":"object","properties":{},"additionalProperties":false}}},
+        {"type":"function","function":{"name":"financial_calculate","description":"执行 calculation_catalog 中的确定性函数。输入必须照抄本轮数据与单位；error 或 not_meaningful 不能写成数值结论，正文照抄 display。只计算，不访问网络或文件，不证明输入的业务来源。","parameters":{"type":"object","properties":{"function":{"type":"string"},"args":{"type":"object"}},"required":["function","args"],"additionalProperties":false}}}
     ])
 }
 pub(crate) fn calculate(args: &Value) -> Result<Value> {
@@ -39,12 +41,23 @@ pub async fn execute(client: &Client, db: &Path, name: &str, args: &Value) -> Re
         .as_object()
         .ok_or_else(|| anyhow!("工具参数须为对象"))?;
     let allowed: &[&str] = match name {
+        "calculation_catalog" => &[],
+        "financial_calculate" => &["function", "args"],
         "calculate" => &["op", "left", "right"],
         "market_data" => &["kind", "symbol", "date"],
         _ => return Err(anyhow!("工具不在目录内")),
     };
     if object.keys().any(|key| !allowed.contains(&key.as_str())) {
         return Err(anyhow!("工具参数包含目录外字段"));
+    }
+    if name == "calculation_catalog" {
+        return Ok(crate::deterministic_calc::catalog());
+    }
+    if name == "financial_calculate" {
+        return Ok(crate::deterministic_calc::execute(
+            args["function"].as_str().unwrap_or(""),
+            &args["args"],
+        ));
     }
     if name == "calculate" {
         return calculate(args);
@@ -95,7 +108,9 @@ pub async fn execute(client: &Client, db: &Path, name: &str, args: &Value) -> Re
             .map_err(|e| anyhow!("{e:?}")),
         _ => Err(anyhow!("未知数据类型")),
     }?;
-    if result["status"]=="failed" {return Err(anyhow!("该数据工具没有取到有效资料：{}",result));}
+    if result["status"] == "failed" {
+        return Err(anyhow!("该数据工具没有取到有效资料：{}", result));
+    }
     let packed = crate::research_workflow::compact(&result, 0);
     Ok(
         json!({"kind":kind,"data":packed,"truncated":packed!=result,"fetched_at":chrono::Utc::now().to_rfc3339()}),
@@ -104,6 +119,44 @@ pub async fn execute(client: &Client, db: &Path, name: &str, args: &Value) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn financial_tool_reads_catalog_then_preserves_not_meaningful() {
+        let app = crate::AppCore::new(crate::test_http::temp_root("financial-chat")).unwrap();
+        let call = |id: &str, name: &str, args: Value| json!({"choices":[{"message":{"role":"assistant","tool_calls":[{"id":id,"type":"function","function":{"name":name,"arguments":args.to_string()}}]}}]});
+        let (url, server) = crate::test_http::server(
+            vec![
+                call("catalog", "calculation_catalog", json!({})),
+                call(
+                    "pe",
+                    "financial_calculate",
+                    json!({"function":"pe_ttm_from_parts","args":{"total_market_cap":100,"cap_unit":"亿元","ttm_profit":0,"profit_unit":"亿元"}}),
+                ),
+                json!({"choices":[{"message":{"content":"合成输入的利润为零，市盈率无意义，未作为有效数值。"}}]}),
+            ],
+            0,
+        );
+        crate::test_http::config(app.db_path(), &url);
+        let result = crate::ai_chat::send(
+            &Client::new(),
+            app.db_path(),
+            &json!({"content":"核对合成样本的市盈率","tools_enabled":true}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            result["tool_records"][0]["result"]["functions"]
+                .as_array()
+                .unwrap()
+                .len(),
+            24
+        );
+        assert_eq!(
+            result["tool_records"][1]["result"]["status"],
+            "not_meaningful"
+        );
+        assert!(result["tool_records"][1]["result"]["value"].is_null());
+        server.join().unwrap();
+    }
     #[tokio::test]
     async fn model_tool_round_trip_returns_actual_arithmetic_trace() {
         let app = crate::AppCore::new(std::env::temp_dir().join(format!(

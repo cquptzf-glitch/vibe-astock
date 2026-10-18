@@ -106,7 +106,9 @@ jobs:
           targets: aarch64-linux-android
 
       - name: Test Rust core
-        run: cargo test --locked --manifest-path core-rust/Cargo.toml
+        run: |
+          python3 core-rust/tests/generate_calc_parity.py --check
+          cargo test --locked --manifest-path core-rust/Cargo.toml
 
       - name: Cache Tauri CLI
         id: tauri-cli-cache

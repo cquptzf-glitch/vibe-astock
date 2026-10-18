@@ -336,9 +336,9 @@ async fn send_tools(client:&Client,db:&Path,body:&Value)->std::result::Result<Va
             for call in calls{
                 let name=call["function"]["name"].as_str().unwrap_or("");
                 let raw=call["function"]["arguments"].as_str().unwrap_or("");
-                let args=if raw.len()<=2000{serde_json::from_str(raw).unwrap_or(Value::Null)}else{Value::Null};
-                let executed=if name=="search_documents" {if body["documents_enabled"]==true{crate::chat_documents::search(db,&args)}else{Err(anyhow::anyhow!("本轮未开启资料库检索"))}}else{crate::chat_tools::execute(client,db,name,&args).await};
-                let ok=executed.is_ok();let result=executed.unwrap_or_else(|e|json!({"error":e.to_string()}));
+                let args=if raw.len()<=if name=="financial_calculate"{128*1024}else{2000}{serde_json::from_str(raw).unwrap_or(Value::Null)}else{Value::Null};
+                let executed=if name=="search_documents" {if body["documents_enabled"]==true{crate::chat_documents::search(db,&args)}else{Err(anyhow::anyhow!("本轮未开启资料库检索"))}}else if name=="financial_calculate"&&!records.iter().any(|r:&Value|r["tool"]=="calculation_catalog"&&r["ok"]==true){Err(anyhow::anyhow!("请先调用 calculation_catalog 读取真实目录和参数"))}else{crate::chat_tools::execute(client,db,name,&args).await};
+                let mut ok=executed.is_ok();let result=executed.unwrap_or_else(|e|json!({"error":e.to_string()}));if result["status"]=="error"{ok=false;}
                 records.push(json!({"tool":name,"args":args,"ok":ok,"result":result}));
                 p.messages.push(json!({"role":"tool","tool_call_id":call["id"],"content":result.to_string()}));
             }

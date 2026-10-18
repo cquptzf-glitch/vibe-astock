@@ -5258,7 +5258,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vibe-astock-core"
-version = "0.1.35"
+version = "0.1.36"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5268,19 +5268,21 @@ dependencies = [
  "futures-util",
  "html-escape",
  "pdf-extract",
+ "regex",
  "reqwest 0.12.28",
  "roxmltree",
  "rusqlite",
  "scraper",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "zip 4.6.1",
 ]
 
 [[package]]
 name = "vibe-astock-mobile"
-version = "0.1.35"
+version = "0.1.36"
 dependencies = [
  "serde",
  "serde_json",

@@ -6,7 +6,28 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+pub fn temp_root(prefix: &str) -> std::path::PathBuf {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    std::env::temp_dir().join(format!(
+        "{prefix}-{}-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        chrono::Utc::now().timestamp_nanos_opt().unwrap()
+    ))
+}
 pub fn server(replies: Vec<Value>, delay_ms: u64) -> (String, thread::JoinHandle<Vec<Value>>) {
+    let (url, handle, _) = observed_server(replies, delay_ms);
+    (url, handle)
+}
+pub fn observed_server(
+    replies: Vec<Value>,
+    delay_ms: u64,
+) -> (
+    String,
+    thread::JoinHandle<Vec<Value>>,
+    std::sync::mpsc::Receiver<usize>,
+) {
+    let (tx, rx) = std::sync::mpsc::channel();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     listener.set_nonblocking(true).unwrap();
@@ -54,13 +75,14 @@ pub fn server(replies: Vec<Value>, delay_ms: u64) -> (String, thread::JoinHandle
                 bytes.extend_from_slice(&chunk[..n]);
             }
             requests.push(serde_json::from_slice(&bytes[start..start + len]).unwrap());
+            let _ = tx.send(requests.len());
             thread::sleep(Duration::from_millis(delay_ms));
             let body = reply.to_string();
             let _=write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body);
         }
         requests
     });
-    (url, handle)
+    (url, handle, rx)
 }
 pub fn config(db: &std::path::Path, url: &str) {
     rusqlite::Connection::open(db).unwrap().execute("INSERT OR REPLACE INTO mobile_ai_config(id,base_url,model,api_key,updated_at,vision) VALUES(1,?1,'fixture-model','','2026-10-18',0)",[url]).unwrap();

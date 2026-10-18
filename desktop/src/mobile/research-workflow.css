@@ -25,3 +25,7 @@
 .exchange-month > .closed { opacity: .45; }
 .exchange-month > .open { background: var(--mobile-card); border: 1px solid var(--mobile-border); }
 .exchange-month small { font-size: 9px; }
+.rw-audit { display: grid; gap: .5rem; min-width: 0; }
+.rw-audit > button { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.rw-stage pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rw-stage small { overflow-wrap: anywhere; }

@@ -75,6 +75,7 @@ jobs:
         run: python -m mypy
       - name: Python tests
         run: |
+          python core-rust/tests/generate_calc_parity.py --check
           python -m pytest calc/tests -q
           python -m pytest backtest/tests -q
           python -m pytest .agents/skills/data-access/scripts/tests -q

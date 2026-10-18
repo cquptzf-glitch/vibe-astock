@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { DateField, WebSelect, askConfirm } from "./controls";
 import { chinaToday } from "./emotionData";
 import "./research-workflow.css";
+import { CalculationAuditPanel, type CalculationSummary } from "./CalculationAudit";
 
 export const RESEARCH_MODES = [
   { id:"industry",label:"产业研究 · 六阶段",stock:false },
@@ -14,7 +15,7 @@ export const RESEARCH_MODES = [
 ] as const;
 interface Paragraph { text: string; evidence: string[] }
 interface Condition { metric: string; direction: string; reason: string }
-interface Stage { stage: string; paragraphs: Paragraph[]; checks: { ok: boolean; level: string; actual: number | null; claim: { label?: string } }[]; conditions: Condition[]; verified: boolean; model: string; at: string }
+interface Stage { stage: string; paragraphs: Paragraph[]; checks: { ok: boolean; level: string; actual: number | null; display?: string | null; claim: { label?: string } }[]; calculations?: CalculationSummary[]; conditions: Condition[]; verified: boolean; model: string; at: string }
 export interface ResearchTask { id: number; title: string; mode: string; date: string; status: string; stages: string[]; results: Stage[]; revision: number; archive_id?: number; error?: { message: string; audit?: unknown }; gaps: { source: string; reason: string }[] }
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
@@ -34,10 +35,12 @@ export function ResearchTaskView({ task, onConditions }: { task: ResearchTask; o
     {task.results.map((stage, i) => <article className="rw-stage" key={i}>
       <h3>{stage.stage}</h3>
       {stage.paragraphs.map((p, j) => <p key={j}>{p.text} <small>[{p.evidence.join("、")}]</small></p>)}
-      {stage.checks.length > 0 && <details><summary>数字复核 ({stage.checks.length})</summary><ul>{stage.checks.map((c, j) => <li key={j}>{c.claim.label ?? "数字"}：{c.actual ?? "未能复核"} · {c.level === "formula" ? "算式核对" : c.level === "source" ? "数据包一致" : "无来源"}</li>)}</ul></details>}
+      {stage.checks.length > 0 && <details><summary>数字复核 ({stage.checks.length})</summary><ul>{stage.checks.map((c, j) => <li key={j}>{c.claim.label ?? "数字"}：{c.display ?? c.actual ?? "未能复核"} · {c.level === "calculation" ? "受控计算链" : c.level === "formula" ? "算式核对" : c.level === "source" ? "数据包一致" : "无来源"}</li>)}</ul></details>}
+      {!!stage.calculations?.length && <details><summary>本阶段计算 ({stage.calculations.length})</summary>{stage.calculations.map((c) => <p key={`${c.node_id}-${c.calculation_id}`}>{c.function} · {c.output.status === "ok" ? c.output.display ?? "多项结果" : c.output.reason || c.output.status}</p>)}</details>}
       {stage.conditions.length > 0 && onConditions && <button type="button" onClick={() => onConditions(stage.conditions)}>将本阶段条件加入明日验证</button>}
       <small>{stage.model} · {stage.at}</small>
     </article>)}
+    <CalculationAuditPanel key={task.id} taskId={task.id} />
   </section>;
 }
 

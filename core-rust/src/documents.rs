@@ -33,7 +33,7 @@ pub fn list(db_path: &Path, path: &str) -> Result<Value> {
     Ok(json!({ "kind": kind, "count": items.len(), "items": items }))
 }
 
-fn internal(source:&str)->bool{source=="mobile_research_task"||source.starts_with("calendar_reminder:")||source.starts_with("mobile_library_policy:")}
+fn internal(source:&str)->bool{source=="mobile_research_task"||source.starts_with(crate::research_calculations::PREFIX)||source.starts_with("calendar_reminder:")||source.starts_with("mobile_library_policy:")}
 
 pub fn policy(db:&Path,body:&Value)->Result<Value>{
     use rusqlite::OptionalExtension;
@@ -56,7 +56,7 @@ fn apply_policy(db:&Path,kind:&str)->Result<usize>{
     let days=config["days"].as_i64().filter(|n|(7..=3650).contains(n)).ok_or_else(||anyhow!("归档规则损坏"))?;
     let cutoff=(chrono::Utc::now()-chrono::Duration::days(days)).to_rfc3339();
     let category=config["category"].as_str().unwrap_or("");
-    Ok(conn.execute("UPDATE mobile_documents SET status='archived' WHERE kind=?1 AND updated_at<?2 AND (?3='' OR category=?3) AND status IN ('active','read') AND source<>'mobile_research_task' AND source NOT LIKE 'calendar_reminder:%' AND source NOT LIKE 'mobile_library_policy:%'",params![kind,cutoff,category])?)
+    Ok(conn.execute("UPDATE mobile_documents SET status='archived' WHERE kind=?1 AND updated_at<?2 AND (?3='' OR category=?3) AND status IN ('active','read') AND source<>'mobile_research_task' AND source NOT LIKE 'mobile_research_calculation:%' AND source NOT LIKE 'calendar_reminder:%' AND source NOT LIKE 'mobile_library_policy:%'",params![kind,cutoff,category])?)
 }
 
 pub fn save(db_path: &Path, body: &Value) -> Result<Value> {
@@ -124,7 +124,7 @@ pub fn clear(db_path: &Path, body: &Value) -> Result<Value> {
         return Err(anyhow!("清空文档前必须明确确认"));
     }
     let conn = open(db_path)?;
-    let count = conn.execute("DELETE FROM mobile_documents WHERE kind=?1 AND source<>'mobile_research_task' AND source NOT LIKE 'calendar_reminder:%' AND source NOT LIKE 'mobile_library_policy:%'", [&kind])?;
+    let count = conn.execute("DELETE FROM mobile_documents WHERE kind=?1 AND source<>'mobile_research_task' AND source NOT LIKE 'mobile_research_calculation:%' AND source NOT LIKE 'calendar_reminder:%' AND source NOT LIKE 'mobile_library_policy:%'", [&kind])?;
     Ok(json!({ "cleared": true, "kind": kind, "count": count }))
 }
 

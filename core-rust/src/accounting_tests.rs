@@ -2,10 +2,7 @@
 mod tests {
     use serde_json::json;
     fn fixture() -> crate::AppCore {
-        crate::AppCore::new(std::env::temp_dir().join(format!(
-            "accounting-{}",
-            chrono::Utc::now().timestamp_nanos_opt().unwrap()
-        )))
+        crate::AppCore::new(crate::test_http::temp_root("accounting"))
         .unwrap()
     }
     #[test]

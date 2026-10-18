@@ -18,6 +18,7 @@ mod daily_review;
 mod data_clear;
 mod data_summary;
 mod documents;
+mod deterministic_calc;
 mod document_import;
 mod emotion;
 mod emotion_history;
@@ -57,6 +58,7 @@ mod reminders;
 mod research;
 mod research_extended;
 mod research_workflow;
+mod research_calculations;
 mod review_tiers;
 mod rotation;
 mod samples;
@@ -251,6 +253,13 @@ impl AppCore {
         let mobile_version = format!("{APP_VERSION}-mobile");
 
         match (method.as_str(), route) {
+            ("GET","/mobile/calc/catalog")=>Ok(MobileApiResponse::ok(deterministic_calc::catalog())),
+            ("POST","/mobile/calc")=>{
+                let valid=request.body.as_object().is_some_and(|m|m.keys().all(|k|["function","args"].contains(&k.as_str())));
+                if !valid{return Ok(MobileApiResponse::error(400,"calc_args","仅允许 function 与 args"));}
+                Ok(MobileApiResponse::ok(deterministic_calc::execute(request.body["function"].as_str().unwrap_or(""),&request.body["args"])))
+            },
+            ("GET","/mobile/research/calculations")=>Ok(match research_calculations::view(&self.db_path,&request.path){Ok(value)=>MobileApiResponse::ok(value),Err(e)=>MobileApiResponse::error(400,"calculation_artifact",e.to_string())}),
             ("GET","/mobile/cache")=>Ok(MobileApiResponse::ok(provider_cache::settings(&self.db_path,None)?)),
             ("POST","/mobile/cache")=>Ok(match provider_cache::settings(&self.db_path,Some(&request.body)){Ok(value)=>MobileApiResponse::ok(value),Err(e)=>MobileApiResponse::error(400,"cache_settings",e.to_string())}),
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
