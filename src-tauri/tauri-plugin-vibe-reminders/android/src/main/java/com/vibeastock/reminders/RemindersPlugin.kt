@@ -27,9 +27,6 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.Charset
-import java.time.ZonedDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
@@ -45,7 +42,6 @@ private const val SNAPSHOT_KEY = "snapshot_json"
 private const val UNIQUE_WORK = "vibe_astock_periodic_reminders"
 private const val CHANNEL_ID = "vibe_astock_market_reminders"
 private const val INTERVAL_MINUTES = 15L
-private val MARKET_ZONE: ZoneId = ZoneId.of("Asia/Shanghai")
 
 @InvokeArg
 class SyncRulesArgs {
@@ -189,9 +185,9 @@ class ReminderWorker(
 
         val quoteCache = mutableMapOf<String, QuoteSnapshot?>()
         val now = System.currentTimeMillis()
-        val marketNow = ZonedDateTime.now(MARKET_ZONE)
-        val marketDate = marketNow.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE)
-        val marketDateIso = marketNow.toLocalDate().toString()
+        val marketNow = marketClock(now)
+        val marketDate = marketNow.dayKey
+        val marketDateIso = marketNow.date
 
         for (index in 0 until rules.length()) {
             val rule = rules.optJSONObject(index) ?: continue

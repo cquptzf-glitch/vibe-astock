@@ -110,3 +110,8 @@ Android APK PASS
 | Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 174-screen smoke | Frontend verified locally; final APK awaits CI |
 
 Validation remains scoped: local Core/frontend checks do not certify Android lifecycle, official signing, full legacy parity or all public providers. See ANDROID_REMAINING.md for outstanding items and release receipts.
+
+
+### 0.1.35 候选兼容性复核（2026-10-18）
+
+Android 时间处理改用 java.util.Calendar / 严格 SimpleDateFormat，避免 minSDK 24/25 调用 API 26 的 java.time；外部导航与时间解析直接编译运行 15 项断言通过。首轮跨平台 CI 仅 mobileMain.tsx 未登记为组装根导致边界断言失败，已登记双平台入口，定向 13 项通过；等待 CI 复跑。174 张浏览器截图复跑通过。本地旧桌面/Python 全套存在失败，不能写作通过；实际跨平台结果后续补记。

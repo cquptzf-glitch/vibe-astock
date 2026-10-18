@@ -8,8 +8,6 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.Charset
-import java.time.*
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
@@ -17,7 +15,6 @@ import kotlin.math.abs
 internal const val MONITOR_PREFS = "vibe_market_monitor"
 internal const val MONITOR_CHANNEL = "vibe_market_monitor"
 private const val MONITOR_ID = 74100
-private val CHINA = ZoneId.of("Asia/Shanghai")
 
 internal data class MonitorPoint(val time: Long, val price: Double)
 internal fun surgePercent(points: List<MonitorPoint>, point: MonitorPoint): Double? {
@@ -55,7 +52,7 @@ class MarketMonitorService : Service() {
     private fun sample() {
         val prefs = getSharedPreferences(MONITOR_PREFS, MODE_PRIVATE)
         try {
-            val now = ZonedDateTime.now(CHINA)
+            val now = marketClock()
             val hhmm = now.hour * 100 + now.minute
             prefs.edit().putLong("heartbeat", System.currentTimeMillis()).apply()
             val battery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -63,7 +60,7 @@ class MarketMonitorService : Service() {
             val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
             val charging = battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
             if (!charging && level >= 0 && scale > 0 && level * 100 / scale <= config.optInt("stop_battery_pct", 15)) { stopWithReason("电量达到停止线"); return }
-            if (now.dayOfWeek in listOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) || !(hhmm in 930..1130 || hhmm in 1300..1500)) {
+            if (now.weekend || !(hhmm in 930..1130 || hhmm in 1300..1500)) {
                 frames.clear()
                 prefs.edit().putString("message", "非连续竞价时段，等待下一场").apply()
                 return
@@ -100,9 +97,9 @@ class MarketMonitorService : Service() {
                         if (code !in batch) continue
                         val price = fields.getOrNull(3)?.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 } ?: continue
                         val stamp = fields.getOrNull(30).orEmpty()
-                        val time = try { LocalDateTime.parse(stamp, DateTimeFormatter.ofPattern("yyyyMMddHHmmss")).atZone(CHINA) } catch (_: Exception) { continue }
-                        if (time.toLocalDate() != now.toLocalDate() || abs(Duration.between(time, now).seconds) > 180) continue
-                        val point = MonitorPoint(time.toInstant().toEpochMilli(), price)
+                        val time = quoteMillis(stamp) ?: continue
+                        if (stamp.take(8) != now.dayKey || now.millis-time !in 0L..180_000L) continue
+                        val point = MonitorPoint(time, price)
                         val history = frames.getOrPut(code) { mutableListOf() }
                         if (history.lastOrNull()?.time?.let { it >= point.time } == true) continue
                         history.removeAll { point.time - it.time > 180_000 }
@@ -113,7 +110,7 @@ class MarketMonitorService : Service() {
                         val millis = System.currentTimeMillis()
                         if (millis - (cooldown[key] ?: 0) < 300_000) continue
                         cooldown[key] = millis
-                        newAlerts.add(JSONObject().put("code", code).put("name", fields.getOrNull(1).orEmpty()).put("price", price).put("change_pct", delta).put("time", time.toString()))
+                        newAlerts.add(JSONObject().put("code", code).put("name", fields.getOrNull(1).orEmpty()).put("price", price).put("change_pct", delta).put("time", stamp))
                     }
                 } finally { connection.disconnect() }
             }
@@ -127,7 +124,7 @@ class MarketMonitorService : Service() {
                 (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(MONITOR_ID + 1, notification("${newAlerts.size} 只股票发生分钟价格变化", text, false))
             }
             prefs.edit().putLong("bytes", bytesUsed).putLong("last_sample", System.currentTimeMillis()).putString("message", "已采样 ${codes.size} 只；累计 ${bytesUsed / 1024} KiB").apply()
-            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(MONITOR_ID, notification("后台盯盘运行中", "${codes.size} 只 · ${bytesUsed / 1024} KiB · ${now.toLocalTime().withNano(0)}"))
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(MONITOR_ID, notification("后台盯盘运行中", "${codes.size} 只 · ${bytesUsed / 1024} KiB · ${now.clock}"))
         } catch (e: Exception) { prefs.edit().putString("message", "取数失败：${e.javaClass.simpleName}，稍后重试").apply() }
     }
 

@@ -1559,3 +1559,8 @@ SQLite v13 在事务里重建 journal_fills CHECK，保留原成交 ID/顺序/FK
 0.1.35 发布结果待补。后续优先剩余数据制度/逐笔源、桌面 calc/DAG 的完整等价、真机/原生测试和签名发行；不能将这批功能按钮可用等同全功能验收。
 
 补充：回测 UI 遵循 AGENTS.md 6.1，只保留 Agent 对话入口，删除旧参数表单；运行结果仍完整展示。迁移保留 journal_fills 的 AUTOINCREMENT 历史高水位，避免复用已删成交 ID。
+
+
+### 0.1.35 候选兼容性复核（2026-10-18）
+
+Android 时间处理改用 java.util.Calendar / 严格 SimpleDateFormat，避免 minSDK 24/25 调用 API 26 的 java.time；外部导航与时间解析直接编译运行 15 项断言通过。首轮跨平台 CI 仅 mobileMain.tsx 未登记为组装根导致边界断言失败，已登记双平台入口，定向 13 项通过；等待 CI 复跑。174 张浏览器截图复跑通过。本地旧桌面/Python 全套存在失败，不能写作通过；实际跨平台结果后续补记。
