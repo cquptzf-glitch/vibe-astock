@@ -4,7 +4,7 @@
 
 ## 当前接手入口（0.1.36，2026-10-18）
 
-本轮在 0.1.35 基础上补齐 calc 0.5.0 的 24 个纯计算函数、证据绑定 JSON 依赖链、研究计算记录及审计界面。交易数据与模型规则保留原有处理。SQLite v13 / 备份 v11 不变。当前为待推送候选，APK 发布以文末后补 CI 回执为准。
+本轮在 0.1.35 基础上补齐 calc 0.5.0 的 24 个纯计算函数、证据绑定 JSON 依赖链、研究计算记录及审计界面。交易数据与模型规则保留原有处理。SQLite v13 / 备份 v11 不变。功能提交 46fbc52 已发布预览包，Android 构建与原生测试通过；最终回执见文末。
 
 本地 Rust 300 项 + 1 项 parity、Python 冻结对照 388 例、前端 569 项和 Edge 180 张截图通过，桌面/移动构建通过。移动计算 ID 为 mobile-calc-v1，不与 Python CLI ID 字节等价；旧文件输入/全量数据适配与产业资料库未全部移植。正式签名、真实设备、历史 ST/IPO 自动识别和源站覆盖缺口见 ANDROID_REMAINING.md。下文早期 Pending 仅是历史记录。
 
@@ -1601,13 +1601,20 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 
 关键入口：`core-rust/src/deterministic_calc/{mod,formulas,series,indicators,earnings,graph}.rs`；`research_calculations.rs`；`research_workflow.rs`；`desktop/src/mobile/CalculationAudit.tsx`。公开 API 为 GET `/mobile/calc/catalog`、POST `/mobile/calc`、GET `/mobile/research/calculations?task_id=...&calculation_id=...`。工具不提供 shell、任意文件或网络读取。
 
-依赖链最多 12 节点、两轮计划；每节点实际输入 96 KiB，记录输出总预算 220 KiB。业务参数必须引用证据或计算，配置参数仅接受登记字段。摘要进入研究报告，完整审计作为不可覆盖内部文档随现有备份恢复；读取时验散列并重放核对输出，普通资料清理保留它们。取消与阶段落库由短提交锁串行保护，锁不跨网络 await。模型结论须引用真实 calculation_id，无法计算输出不得写成零或通过核对。
+依赖链最多 12 节点、两轮计划；每节点实际输入 96 KiB，单项计算记录预算 220 KiB。业务参数必须引用证据或计算，配置参数仅接受登记字段。摘要进入研究报告，完整审计作为不可覆盖内部文档随现有备份恢复；读取时验散列并重放核对输出，普通资料清理保留它们。取消与阶段落库由短提交锁串行保护，锁不跨网络 await。模型结论须引用真实 calculation_id，无法计算输出不得写成零或通过核对。
 
 - Rust Core：300 项通过、27 项 ignored，另有符号 parity 1 项通过；包含备份恢复、审计损坏拒绝、取消竞态和真实计算结果数字核对。
 - calc 0.5.0：388 个冻结 Python 对照用例覆盖全部 24 函数；CI 校验对应 Python 源文件散列，防止旧 fixture 掩盖源变化。计算值与输出结构对照通过，不宣称错误文案逐字一致。
 - 前端：569 项通过，桌面与独立移动构建通过；Edge 三尺寸 × 明暗主题共 180 张截图通过，包括查看计算明细和来源。
 - 真实公开数据：新浪财务序列与东财 180 根日线在本机跑通，单季/TTM/同比与技术指标实际执行成功；真实用户模型长报告和真机生命周期未验收。
-- Android ARM64 Rust 命令层最终检查通过；CI 发布回执待补记；本机 APK 链接仍受 SafeNet 环境影响，APK 以 CI 为准。
+- Android ARM64 Rust 命令层最终检查通过；CI APK、原生单元测试与签名校验通过。本机 APK 链接仍受 SafeNet 环境影响，APK 以 CI 为准。
 
 
-0.1.36 首轮跨平台 CI #39123017948 的 Linux / Node 24 并发槽位测试返回 `agent_probe_failed`，Linux / Node 22 已通过。检查发现测试专用 fixture-flags.json 会被重复原地写入，而多个 CLI 探针子进程同时读它，存在读到空/不完整 JSON 的竞态；具体子进程 stderr 未由该错误保留，不能声称日志已证明唯一原因。后续测试修复改为相同内容不重写、变更原子替换；不改产品登录探针与容量逻辑。本机定向 9 项通过、1 项平台跳过，Linux 并发分支以修复后的跨平台 CI 为准。Android APK 仍从功能提交 46fbc52 构建。
+0.1.36 首轮跨平台 CI #39123017948 的 Linux / Node 24 并发槽位测试返回 `agent_probe_failed`，Linux / Node 22 已通过。检查发现测试专用 fixture-flags.json 会被重复原地写入，而多个 CLI 探针子进程同时读它，存在读到空/不完整 JSON 的竞态；具体子进程 stderr 未由该错误保留，不能声称日志已证明唯一原因。后续测试修复改为相同内容不重写、变更原子替换；不改产品登录探针与容量逻辑。本机定向 9 项通过、1 项平台跳过，修复后的跨平台 CI #39123695067 六组全部成功，Linux 并发分支已通过。Android APK 仍从功能提交 46fbc52 构建。
+
+
+## 0.1.36 发布验证回执
+
+0.1.36 已发布：[Android 0.1.36 预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.36)，标签固定在功能提交 `46fbc52e176fd48a857600984a302325e5928d6d`。[Android CI #39123017859](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39123017859) 的 APK 构建、原生 Gradle 单元测试、签名校验和发布全部成功。ARM64 APK 30,577,839 bytes（29.16 MiB），SHA256 `69385bf3372d0876573885f48e8b8fa067ed70e78bd5f6f82f7703dea499586b`。仍为 debug-signed 预览版，未做真机验收。
+
+云端 Android 日志核对：388 例 oracle 散列校验、Rust 300 项 + 符号 parity 1 项、前端 569 项、Chromium 180 张截图均通过。本机 Edge 同样 180 张截图通过。首轮跨平台六组有五组成功，Linux / Node 24 的既有并发 fixture 测试失败；测试夹具修复提交 `19d15f3`（不改变 APK 功能）对应[跨平台 CI #39123695067](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39123695067) 的 Windows/macOS/Linux × Node 22/24 六组全部成功。Linux / Node 24 日志核对：原并发槽位测试通过、编排器 1429 项通过 / 4 跳过、前端 569 项通过、mypy 115 个源文件通过、Python 311 + 583 + 783 项通过。本节最终回执优先于前文候选/首轮失败记录；回执文档提交不改变已发布标签。
