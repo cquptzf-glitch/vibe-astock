@@ -193,14 +193,6 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload public preview signing receipt
-        uses: actions/upload-artifact@v4
-        with:
-          name: preview-signing-receipt
-          path: dist/preview-signing.json
-          if-no-files-found: error
-          retention-days: 30
-
       - name: Prepare, inspect and verify APK
         shell: bash
         run: |
@@ -245,7 +237,18 @@ jobs:
             exit 1
           fi
           "$APKSIGNER" verify --verbose --print-certs "dist/${ANDROID_APK_NAME}"
+          python3 scripts/android/verify_distribution.py --preview-receipt dist/preview-signing.json --apk "dist/${ANDROID_APK_NAME}" --apksigner "$APKSIGNER" --version "$APP_VERSION" --output dist/preview-apk-verification.json
           sha256sum "dist/${ANDROID_APK_NAME}" > "dist/${ANDROID_APK_NAME}.sha256"
+
+      - name: Upload public preview signing receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-signing-receipt
+          path: |
+            dist/preview-signing.json
+            dist/preview-apk-verification.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

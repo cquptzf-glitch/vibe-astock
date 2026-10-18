@@ -24,4 +24,36 @@ def prepare(expected_file:Path,key:Path,output:Path):
     output.write_text(json.dumps({'certificate_sha256':actual,'package':'com.vibeastock.mobile','debug_signed':True,'device_upgrade_verified':False},indent=2)+'\n',encoding='utf-8')
     print('Preview signing certificate SHA256: '+actual)
 
-if __name__=='__main__':prepare(Path('docs/android/preview-signing.json'),Path.home()/'.android/debug.keystore',Path('dist/preview-signing.json'))
+def configure_preview(project: Path) -> None:
+    gradle = project / 'app/build.gradle.kts'
+    source = gradle.read_text(encoding='utf-8')
+    import re
+    source = re.sub(r'// BEGIN VIBE PREVIEW SIGNING.*?// END VIBE PREVIEW SIGNING\n?', '', source, flags=re.S)
+    source = source.rstrip() + '\n\n' + PREVIEW_SIGNING
+    gradle.write_text(source, encoding='utf-8')
+
+PREVIEW_SIGNING = '''// BEGIN VIBE PREVIEW SIGNING
+android {
+    signingConfigs.getByName("debug") {
+        storeFile = file(System.getenv("VIBE_PREVIEW_KEYSTORE_PATH") ?: error("VIBE_PREVIEW_KEYSTORE_PATH required"))
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+    }
+    buildTypes.getByName("debug") {
+        signingConfig = signingConfigs.getByName("debug")
+    }
+}
+// END VIBE PREVIEW SIGNING
+'''
+
+if __name__=='__main__':
+    key = Path.home()/'.android/debug.keystore'
+    prepare(Path('docs/android/preview-signing.json'),key,Path('dist/preview-signing.json'))
+    configure_preview(Path('src-tauri/gen/android'))
+    # Explicitly bind Gradle to the key checked above. Its default user-home
+    # resolution can otherwise select a different Android debug keystore.
+    if not os.environ.get('GITHUB_ENV'):
+        raise SystemExit('Set VIBE_PREVIEW_KEYSTORE_PATH to the guarded key before building')
+    with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as env_file:
+        env_file.write('VIBE_PREVIEW_KEYSTORE_PATH='+str(key.resolve())+'\n')

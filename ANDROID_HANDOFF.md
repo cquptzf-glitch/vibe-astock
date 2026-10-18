@@ -1635,7 +1635,7 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 
 - Rust Core：310 项通过、28 项 ignored，符号 parity 1 项通过；原有 388 例 calc Python oracle 保留。
 - 前端：574 项通过；桌面与独立移动构建通过。Edge 三尺寸 × 明暗主题 198 张截图通过，包含产业资料导入预览/确认、历史制度覆盖和送转口径标签。
-- Android ARM64 命令层检查通过；原生路由/中国时区本机 19 项断言通过。正式发行配置帮助脚本 5 项测试通过。
+- Android ARM64 命令层检查通过；原生路由/中国时区本机 20 项断言通过。正式发行配置帮助脚本 6 项测试通过。
 - 真实公开数据：BaoStock 600519 上市日/日状态、600221 历史 ST 时段、688001 上市前五日序列均跑通。没有用这些读数声称全部源站持续可用。
 - CI APK、原生 JUnit、一次性测试密钥 release APK/AAB 构建和发布回执待补；维护者正式密钥/商店/自有域名部署、真实设备均未验收。
 
@@ -1648,3 +1648,16 @@ PDF 采用逐页提取，含空白页的原始页序随正文和来源标记一�
 
 
 候选提交 `93336e0` 的[跨平台 CI #39144585337](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39144585337) 六组全部成功；Android CI #39144585327 的 debug APK、原生 JUnit、release APK/AAB 构建完成，但新增签名解析校验失败，发布被阻止。定位为 Build Tools 37 的签名输出格式变更；已补旧/新格式解析及错证书、多签名、来源盖章不能冒充应用证书的回归测试，发行脚本六项通过，待重跑签名及发布回执。
+
+
+工程检查回执（2026-10-19）：全量 Rust `cargo fmt --check` 未通过（已有格式差异）；`cargo clippy --all-targets --no-deps -- -D warnings` 未通过（库 60 项、含测试 70 项 lint）。这两项不计为通过。Build Tools 37 本机一次性合成签名包验证通过，新证书解析器读取并核对了真实工具输出；不代表设备安装升级验收。
+
+
+提交 `10d3a87` 的[跨平台 CI #39146642264](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39146642264) 六组成功。Linux / Node 24：编排器 1429 项通过 / 4 跳过、前端 574 项、mypy 115 个文件、发行脚本 6 项、388 例 oracle 散列及 Python 311 + 583 + 783 项均通过。Android CI #39146642305 的 ARM64 debug APK 和原生单元测试已通过，等待 release APK/AAB 签名验证和发布。
+
+
+0.1.37 已发布（2026-10-19）：[预览版](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.37)，功能提交 `10d3a87a71defced2543c69f23eb512fdeececa5`。[Android CI #39146642305](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39146642305) 构建/发布均成功；一次性测试密钥 release APK/AAB 签名验证通过；[跨平台 #39146642264](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/39146642264) 六组成功。Rust 312 + parity 1、前端 574、移动截图 198、原生 JUnit 通过。
+
+APK：30,702,295 bytes；SHA256：`1797176695e6d2217001c2f2856c74e1f89337bdcbb456b134e8f310351255fb`。实际 APK 证书 `1C:D5:71:CD:1D:9D:F5:B3:CC:1D:ED:F8:E4:82:8F:8C:08:07:85:79:DF:7A:39:10:67:6F:BD:67:17:68:75:27`，与缓存守卫证书不同；因此 **0.1.37 尚未建立可保证的后续预览升级身份**。不将守卫证书误写成已发布包证书，不追改已发布版本；0.1.38 显式绑定 Gradle 密钥并核对最终 APK。
+
+0.1.38 在此基础上修复预览升级身份：显式指定 Gradle debug keystore；发布前核对最终 APK 与守卫证书、包名、版本、ARM64 和 debug 属性，校验后上传公开回执。新增两项回归，帮助脚本 8 项通过，等待 CI。

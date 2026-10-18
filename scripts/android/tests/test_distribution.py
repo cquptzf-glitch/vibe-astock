@@ -6,11 +6,12 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from configure_distribution import configure, validate_host, certificate, attr
-from verify_distribution import association_matches, verify_apk_certificate
-from prepare_preview_signing import prepare
+from verify_distribution import association_matches, verify_apk_certificate, verify_preview
+from prepare_preview_signing import prepare, configure_preview
 
 class DistributionTest(unittest.TestCase):
     def setUp(self):
@@ -75,6 +76,34 @@ class DistributionTest(unittest.TestCase):
             self.assertFalse(association_matches(body,[self.fingerprint]))
         self.assertEqual(certificate(self.fingerprint),':'.join(['12']*32))
         self.assertEqual(validate_host('Links.Example.Com'),'links.example.com')
+    def test_preview_gradle_binds_the_guarded_key_explicitly(self):
+        for _ in range(2): configure_preview(self.project)
+        source = self.gradle.read_text()
+        self.assertEqual(source.count('// BEGIN VIBE PREVIEW SIGNING'), 1)
+        self.assertIn('storeFile = file(System.getenv("VIBE_PREVIEW_KEYSTORE_PATH")', source)
+        self.assertIn('signingConfig = signingConfigs.getByName("debug")', source)
+        configure(self.project, self.out)
+        self.assertIn('VIBE_PREVIEW_KEYSTORE_PATH', self.gradle.read_text())
+
+    def test_preview_checks_built_apk_certificate_version_and_package(self):
+        apk = self.root/'fixture.apk'; apk.write_bytes(b'synthetic APK fixture')
+        signer = self.root/'apksigner'
+        expected = {'package':'com.vibeastock.mobile','certificate_sha256':self.fingerprint,'debug_signed':True,'device_upgrade_verified':False}
+        badging = "package: name='com.vibeastock.mobile' versionCode='1038' versionName='0.1.38'\napplication-debuggable\nnative-code: 'arm64-v8a'\n"
+        def result(stdout, code=0): return SimpleNamespace(returncode=code, stdout=stdout)
+        with patch('verify_distribution.subprocess.run',side_effect=[result(badging),result('V2 Signer: certificate SHA-256 digest: '+self.fingerprint)]) as run:
+            receipt = verify_preview(apk,signer,expected,'0.1.38')
+            self.assertTrue(receipt['signature_verified'])
+            self.assertFalse(receipt['device_upgrade_verified'])
+            self.assertEqual(receipt['apk']['sha256'],hashlib.sha256(apk.read_bytes()).hexdigest())
+            self.assertEqual(run.call_count,2)
+        for text in [badging.replace('com.vibeastock.mobile','other.package'),badging.replace('0.1.38','0.1.37'),badging.replace('arm64-v8a','x86'),badging.replace('application-debuggable','')]:
+            with patch('verify_distribution.subprocess.run',return_value=result(text)):
+                with self.assertRaises(ValueError): verify_preview(apk,signer,expected,'0.1.38')
+        for signed in [result('V2 Signer: certificate SHA-256 digest: '+'34'*32), result('',1)]:
+            with patch('verify_distribution.subprocess.run',side_effect=[result(badging),signed]):
+                with self.assertRaises(ValueError): verify_preview(apk,signer,expected,'0.1.38')
+
     def test_pinned_preview_identity_refuses_missing_or_changed_keys(self):
         expected=self.root/'preview.json';key=self.root/'preview-test-key';output=self.root/'receipt.json'
         expected.write_text(json.dumps({'certificate_sha256':'12'*32}),encoding='utf-8')
