@@ -14,7 +14,7 @@ export interface ImportSummary { rows: number; importable: number; duplicates: n
 export interface ImportPreview { summary: ImportSummary; rows: ImportRow[]; episodes: { symbol: string; name: string; fills: number; open_shares: number; closed: boolean }[]; note: string }
 export interface ImportDone { imported_entries: number; entry_ids: number[]; imported_fills: number; imported_dividends: number; skipped: { line: number; why: string | null }[] }
 
-export const TEMPLATE = "日期,类型,代码,名称,数量,价格,费用,金额\n2026-03-05,买入,600519,贵州茅台,100,1450,5,\n2026-03-20,卖出,600519,贵州茅台,100,1500,12.5,\n2026-06-01,现金分红,600519,贵州茅台,,,,300";
+export const TEMPLATE = "日期,类型,代码,名称,数量,价格,费用,金额,比例\n2026-03-05,买入,600519,贵州茅台,100,1450,5,\n2026-03-20,卖出,600519,贵州茅台,100,1500,12.5,\n2026-06-01,现金分红,600519,贵州茅台,,,,300";
 const STATUS_TEXT = { ok: "可导入", duplicate: "已记过", problem: "有问题" } as const;
 
 /** 券商导出常是 GBK:先按 UTF-8 严格解码,失败再按 GBK */
@@ -80,7 +80,7 @@ export function TradeImportCard({ onImported }: { onImported: () => void }) {
   return <section className="trade-import" aria-label="从表格导入成交">
     <button type="button" className="ti-toggle" aria-expanded={open} onClick={() => setOpen(!open)}><FileUp size={15} /> 从表格导入成交与分红 {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</button>
     {open && <div className="ti-body">
-      <p className="ti-note">粘贴券商导出的表格(CSV 或从表格软件复制),或选一个文件。第一行要是列名,至少要有「日期」「类型」「代码」;类型认得买入 / 卖出 / 现金分红。全部在本机处理,不发给任何 AI。</p>
+      <p className="ti-note">粘贴券商导出的表格(CSV 或从表格软件复制),或选一个文件。第一行要是列名,至少要有「日期」「类型」「代码」;类型认得买入 / 卖出 / 现金分红 / 期初持仓 / 送转拆股；期初价格填每股成本，送转另加「比例」列，填新股数 / 原股数(十转十填 2)，无现金流。全部在本机处理,不发给任何 AI。</p>
       <textarea value={text} onChange={(e) => edit(e.target.value)} rows={5} aria-label="表格内容" placeholder={TEMPLATE} spellCheck={false} />
       <div className="ti-actions">
         <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}><FileUp size={13} /> 选文件</button>

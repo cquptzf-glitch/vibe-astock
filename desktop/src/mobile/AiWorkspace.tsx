@@ -3,9 +3,10 @@ import { useState } from "react";
 
 import { AiChatPanel } from "./AiChatPanel";
 import { AiReviewPanel } from "./AiReviewPanel";
+import { ResearchWorkflowPanel } from "./ResearchWorkflowPanel";
 import "./ai-workspace.css";
 
-type AiView = "chat" | "review";
+type AiView = "chat" | "review" | "research";
 
 export function AiWorkspace() {
   const [view, setView] = useState<AiView>("chat");
@@ -13,6 +14,7 @@ export function AiWorkspace() {
   return (
     <section className="ai-workspace">
       <div className="ai-workspace-tabs" role="tablist" aria-label="AI 功能">
+        <button role="tab" aria-selected={view === "research"} className={view === "research" ? "active" : ""} onClick={() => setView("research")}><BrainCircuit size={14} /> 研究 / 辩论 / 复盘</button>
         <button
           role="tab"
           aria-selected={view === "chat"}
@@ -31,7 +33,7 @@ export function AiWorkspace() {
         </button>
       </div>
 
-      {view === "chat" ? <AiChatPanel /> : <AiReviewPanel />}
+      {view === "chat" ? <AiChatPanel /> : view === "research" ? <ResearchWorkflowPanel /> : <AiReviewPanel />}
     </section>
   );
 }

@@ -7,7 +7,7 @@
 //!    同一天里先算买入再算卖出(券商导出常把同一天的顺序倒着写)。卖出超过此前买入(含手机里已记的?不含,只看这份表)的行
 //!    写「卖出超过持有」、不导入;跳过一笔卖出会让之后的持有偏大,所以问题清单要摆在预览里。
 //! 🔴 与已记的成交完全一样(同代码、同日、同方向、同价同量)的行标「已记过」、不重复导入;分红按同代码同日同金额判重。
-//! 🔴 手机端不支持「期初持仓」「送转拆股」行:写明原因、不导入(请手动记一笔)。
+//! 期初持仓按零费用的初始成本记录；送转拆股按明确的新股数/原股数比例结转，不产生现金流。
 //! 🔴 费用列留空的成交按「设置」里的费率估(和手动记一笔一致),不当 0。
 
 use crate::{journal, portfolio, symbol::normalize_stock_symbol};
@@ -58,14 +58,16 @@ enum Kind {
     Buy,
     Sell,
     Dividend,
-    Unsupported,
+    Opening,
+    Split,
 }
 
-const KIND_ALIASES: [(Kind, &[&str]); 4] = [
+const KIND_ALIASES: [(Kind, &[&str]); 5] = [
     (Kind::Buy, &["买入", "买", "证券买入", "buy"]),
     (Kind::Sell, &["卖出", "卖", "证券卖出", "sell"]),
     (Kind::Dividend, &["现金分红", "分红", "红利", "红利入账", "股息", "股息入账", "dividend"]),
-    (Kind::Unsupported, &["送转", "拆股", "送转拆股", "送转/拆股", "合股", "split", "期初持仓", "期初", "opening"]),
+    (Kind::Opening, &["期初持仓", "期初", "opening"]),
+    (Kind::Split, &["送转", "拆股", "送转拆股", "送转/拆股", "合股", "split"]),
 ];
 
 fn norm(text: &str) -> String {
@@ -206,7 +208,7 @@ pub(crate) fn parse_table(input: &str, today: &str) -> std::result::Result<Vec<R
         let kind_key = norm(&kind_text);
         let kind = KIND_ALIASES.iter().find(|(_, names)| names.iter().any(|n| norm(n) == kind_key)).map(|(k, _)| *k);
         let mut row = Row {
-            line, date: normalize_date(&get(&cells, Field::Date)), kind: kind.unwrap_or(Kind::Unsupported), kind_text: kind_text.clone(), symbol: get(&cells, Field::Symbol), name: get(&cells, Field::Name),
+            line, date: normalize_date(&get(&cells, Field::Date)), kind: kind.unwrap_or(Kind::Buy), kind_text: kind_text.clone(), symbol: get(&cells, Field::Symbol), name: get(&cells, Field::Name),
             shares: None, price: None, fee: None, amount: None, problem: None, duplicate: false,
         };
         row.problem = check_row(&mut row, kind, [get(&cells, Field::Shares), get(&cells, Field::Price), get(&cells, Field::Fee), get(&cells, Field::Amount)], &get(&cells, Field::Ratio), today);
@@ -219,9 +221,6 @@ fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, t
     let Some(kind) = kind else {
         return Some(format!("不认识的类型「{}」(认得:买入 / 卖出 / 现金分红)", row.kind_text));
     };
-    if kind == Kind::Unsupported {
-        return Some(format!("手机端暂不支持「{}」这类行(期初持仓、送转拆股),请手动记一笔", row.kind_text));
-    }
     if row.symbol.len() < 6 && !row.symbol.is_empty() && row.symbol.bytes().all(|b| b.is_ascii_digit()) {
         return Some(format!("代码「{}」只有 {} 位:表格软件会把 000001 存成 1,分不清原来是哪只,请把代码列改成文本格式", row.symbol, row.symbol.len()));
     }
@@ -240,9 +239,15 @@ fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, t
         (Ok(a), Ok(b), Ok(c), Ok(d)) => (a, b, c, d),
         (Err(e), ..) | (_, Err(e), ..) | (_, _, Err(e), _) | (_, _, _, Err(e)) => return Some(e),
     };
-    let _ = ratio;
+    if kind == Kind::Split {
+        let ratio = number(ratio).ok().flatten();
+        return match ratio.filter(|r|(0.001..=1000.0).contains(r)) {
+            Some(r) => { row.price=Some(r); row.shares=Some(1.0); row.fee=Some(0.0); None },
+            None => Some("送转拆股必须填比例(新股数/原股数，例如每十股转十股填 2；合股填 0.5)，范围 0.001–1000".into())
+        };
+    }
     match kind {
-        Kind::Buy | Kind::Sell => {
+        Kind::Buy | Kind::Sell | Kind::Opening => {
             let (Some(s), Some(p)) = (shares, price) else { return Some("买卖要有数量和价格".into()) };
             if s <= 0.0 {
                 return Some(if s < 0.0 { "数量是负数:有的券商导出卖出数量写负数,请自己改成正数并确认方向".into() } else { "数量要大于 0".into() });
@@ -255,7 +260,7 @@ fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, t
             }
             row.shares = Some(s);
             row.price = Some(p);
-            row.fee = fee;
+            row.fee = if kind == Kind::Opening {Some(0.0)}else{fee};
             None
         }
         Kind::Dividend => match amount {
@@ -266,7 +271,7 @@ fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, t
             Some(_) => Some("分红金额要大于 0(到手现金,元)".into()),
             None => Some("现金分红要有金额(到手现金,元)".into()),
         },
-        Kind::Unsupported => None,
+        Kind::Split => None,
     }
 }
 
@@ -286,12 +291,12 @@ fn load_existing(conn: &Connection) -> Result<(ExistingFills, Vec<(String, Strin
 fn mark_duplicates(rows: &mut [Row], existing: &ExistingFills, dividends: &[(String, String, f64)]) {
     for row in rows.iter_mut().filter(|r| r.problem.is_none()) {
         row.duplicate = match row.kind {
-            Kind::Buy | Kind::Sell => {
-                let side = if row.kind == Kind::Buy { "buy" } else { "sell" };
+            Kind::Buy | Kind::Sell | Kind::Opening => {
+                let side = match row.kind { Kind::Buy=>"buy",Kind::Opening=>"opening",_=>"sell" };
                 existing.get(&row.symbol).is_some_and(|list| list.iter().any(|(s, d, p, n)| s == side && *d == row.date && (p - row.price.unwrap_or(0.0)).abs() < EPS && (n - row.shares.unwrap_or(0.0)).abs() < EPS))
             }
             Kind::Dividend => dividends.iter().any(|(s, d, a)| *s == row.symbol && *d == row.date && (a - row.amount.unwrap_or(0.0)).abs() < 0.005),
-            Kind::Unsupported => false,
+            Kind::Split => existing.get(&row.symbol).is_some_and(|list|list.iter().any(|(s,d,p,_)|s=="split" && *d==row.date && (p-row.price.unwrap_or(0.0)).abs()<EPS)),
         };
     }
 }
@@ -307,10 +312,10 @@ pub(crate) struct Episode {
 
 /// 按代码、日期重放,把买卖切成一轮一轮;同日先买后卖。卖出超过此前买入的行写问题、不导入。
 pub(crate) fn plan_episodes(rows: &mut [Row]) -> Vec<Episode> {
-    let mut order: Vec<usize> = (0..rows.len()).filter(|i| rows[*i].problem.is_none() && !rows[*i].duplicate && matches!(rows[*i].kind, Kind::Buy | Kind::Sell)).collect();
+    let mut order: Vec<usize> = (0..rows.len()).filter(|i| rows[*i].problem.is_none() && !rows[*i].duplicate && matches!(rows[*i].kind, Kind::Buy | Kind::Sell | Kind::Opening | Kind::Split)).collect();
     order.sort_by(|a, b| {
         let (x, y) = (&rows[*a], &rows[*b]);
-        x.symbol.cmp(&y.symbol).then(x.date.cmp(&y.date)).then((x.kind == Kind::Sell).cmp(&(y.kind == Kind::Sell))).then(x.line.cmp(&y.line))
+        x.symbol.cmp(&y.symbol).then(x.date.cmp(&y.date)).then((match x.kind {Kind::Split=>0,Kind::Opening=>1,Kind::Buy=>2,_=>3}).cmp(&(match y.kind {Kind::Split=>0,Kind::Opening=>1,Kind::Buy=>2,_=>3}))).then(x.line.cmp(&y.line))
     });
     let mut episodes: Vec<Episode> = Vec::new();
     let mut current: Option<Episode> = None;
@@ -320,16 +325,26 @@ pub(crate) fn plan_episodes(rows: &mut [Row]) -> Vec<Episode> {
             episodes.extend(current.take());
             position = 0.0;
         }
+        if rows[ix].kind == Kind::Split {
+            if let Some(e) = current.as_mut().filter(|_|position>EPS) {
+                let r=&rows[ix]; let ratio=r.price.unwrap();
+                e.fills.push(("split".into(),r.date.clone(),ratio,1.0,Some(0.0)));
+                position*=ratio; e.open_shares=position;
+            } else { rows[ix].problem=Some("送转拆股此前没有持仓(只看本份表)".into()); }
+            continue;
+        }
+        if rows[ix].kind == Kind::Opening && position>EPS {rows[ix].problem=Some("期初持仓之前已有持仓，不能重复建立期初".into());continue;}
+        let side = if rows[ix].kind==Kind::Opening {"opening"}else{"buy"};
         let (symbol, name, date, price, shares, fee, is_buy) = {
             let r = &rows[ix];
-            (r.symbol.clone(), r.name.clone(), r.date.clone(), r.price.unwrap_or(0.0), r.shares.unwrap_or(0.0), r.fee, r.kind == Kind::Buy)
+            (r.symbol.clone(), r.name.clone(), r.date.clone(), r.price.unwrap_or(0.0), r.shares.unwrap_or(0.0), r.fee, matches!(r.kind,Kind::Buy|Kind::Opening))
         };
         if is_buy {
             let e = current.get_or_insert_with(|| Episode { symbol: symbol.clone(), name: name.clone(), fills: Vec::new(), open_shares: 0.0 });
             if e.name.is_empty() {
                 e.name = name;
             }
-            e.fills.push(("buy".into(), date, price, shares, fee));
+            e.fills.push((side.into(), date, price, shares, fee));
             position += shares;
             e.open_shares = position;
         } else if position + EPS < shares {
@@ -514,7 +529,7 @@ mod tests {
         assert!(why[1].contains("数量是负数"));
         assert!(why[2].contains("价格要大于 0"));
         assert!(why[3].contains("不认识的类型"));
-        assert!(why[4].contains("暂不支持"));
+        assert!(why[4].contains("必须填比例"));
         assert!(why[5].contains("未来"));
         assert!(why[6].contains("日期无效"));
         assert!(why[7].contains("数量不是数字"));

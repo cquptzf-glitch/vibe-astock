@@ -1,4 +1,8 @@
 .backtest-panel { margin-top:14px; }
+.backtest-heatmap { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; margin: 10px 0; }
+.backtest-heatmap > div { display: flex; flex-direction: column; gap: 5px; text-align: center; padding: 8px 3px; }
+.backtest-heatmap small { font-size: 9px; }
+.backtest-heatmap .current { outline: 1px solid currentColor; }
 .backtest-kicker { display:flex; align-items:center; gap:6px; color: var(--mobile-accent); font-size:12px; font-weight:700; }
 .backtest-title h1 { margin:5px 0 4px; font-size:22px; letter-spacing:-.02em; }
 .backtest-title p { margin:0; color: var(--mobile-muted); font-size:12px; line-height:1.6; }
@@ -48,3 +52,12 @@
 .backtest-block td.down { color: var(--mobile-down); }
 .backtest-block td small { color: var(--mobile-muted); }
 .backtest-block tr.current td { font-weight:700; }
+.backtest-nl { margin:12px 0 4px; padding:11px 12px; border:1px solid var(--mobile-border); border-radius:14px; background: var(--mobile-card,var(--mobile-soft)); }
+.backtest-nl h2 { display:flex; align-items:center; gap:6px; margin:0 0 5px; font-size:13px; }
+.backtest-nl textarea { width:100%; min-height:64px; margin-top:7px; box-sizing:border-box; border:1px solid var(--mobile-border); border-radius:10px; background:var(--mobile-soft); color:inherit; padding:8px 10px; font-size:12px; resize:vertical; }
+.backtest-ask { margin:7px 0 0; padding:7px 9px; border-radius:10px; background:var(--mobile-soft); font-size:11px; line-height:1.5; }
+.backtest-nl-actions { display:flex; gap:8px; margin-top:8px; }
+.backtest-nl-actions button { display:inline-flex; align-items:center; gap:5px; min-height:34px; padding:0 12px; border:1px solid var(--mobile-border); border-radius:10px; background:var(--mobile-soft); color:inherit; font-size:12px; }
+.backtest-nl-actions button:first-child { background:var(--mobile-accent,#f97316); border-color:transparent; color:#fff; font-weight:700; }
+.backtest-nl-actions button:disabled { opacity:.55; }
+.backtest-report { margin:0; white-space:pre-wrap; word-break:break-word; font:11px/1.65 inherit; }

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Building2, FileText, LineChart, RefreshCw } from "lucide-react";
+import { ResearchExtendedPanel } from "./ResearchExtendedPanel";
+import "./research-workflow.css";
 
-type ResearchTab = "profile" | "financials" | "announcements" | "estimates";
+type ResearchTab = "profile" | "financials" | "announcements" | "estimates" | "advanced";
 
 interface ProfileResult {
   symbol: string;
@@ -160,13 +162,15 @@ export function ResearchPanel({ symbol }: { symbol: string }) {
       </div>
 
       <div className="mobile-stock-tabs" role="tablist" aria-label="个股研究">
+        <button role="tab" aria-selected={tab === "advanced"} className={tab === "advanced" ? "active" : ""} onClick={() => setTab("advanced")}>三表 / 估值 / 共识</button>
         <button role="tab" aria-selected={tab === "profile"} className={tab === "profile" ? "active" : ""} onClick={() => setTab("profile")}>资料</button>
         <button role="tab" aria-selected={tab === "financials"} className={tab === "financials" ? "active" : ""} onClick={() => setTab("financials")}>财务</button>
         <button role="tab" aria-selected={tab === "announcements"} className={tab === "announcements" ? "active" : ""} onClick={() => setTab("announcements")}>公告</button>
         <button role="tab" aria-selected={tab === "estimates"} className={tab === "estimates" ? "active" : ""} onClick={() => setTab("estimates")}>预测</button>
       </div>
 
-      {loading && !activeError && (
+      {tab === "advanced" && <ResearchExtendedPanel symbol={symbol} />}
+      {loading && tab !== "advanced" && !activeError && (
         <div className="mobile-empty"><RefreshCw className="spin" size={18} /> 正在加载研究数据…</div>
       )}
       {activeError && <div className="mobile-error">{activeError}</div>}

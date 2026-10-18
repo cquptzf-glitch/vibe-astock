@@ -1,6 +1,7 @@
 mod anomalies;
 mod observations;
 mod stock_context;
+mod ai_backtest;
 mod ai_chat;
 mod ai_config;
 mod ai_review;
@@ -9,15 +10,20 @@ mod backup;
 mod backtest;
 mod boards;
 mod calendar;
+mod calendar_sources;
 mod chart;
+mod chat_tools;
+mod chat_documents;
 mod daily_review;
 mod data_clear;
 mod data_summary;
 mod documents;
+mod document_import;
 mod emotion;
 mod emotion_history;
 mod discovery;
 mod industry_signals;
+mod industry_revenue;
 mod intraday;
 mod news;
 mod journal;
@@ -30,8 +36,12 @@ mod journal_problems;
 mod journal_mutation;
 mod journal_review;
 mod journal_risk;
+mod journal_weekly;
+#[cfg(test)] mod accounting_tests;
+#[cfg(test)] mod test_http;
 mod journal_settings;
 mod market;
+mod market_scan;
 mod market_panel;
 mod messages;
 mod monitor;
@@ -39,10 +49,14 @@ mod portfolio;
 mod portfolio_perf;
 mod portfolio_replay;
 mod portfolio_xray;
+mod provider_cache;
+mod probability;
 mod prev_broken;
 mod quote;
 mod reminders;
 mod research;
+mod research_extended;
+mod research_workflow;
 mod review_tiers;
 mod rotation;
 mod samples;
@@ -160,6 +174,23 @@ impl AppCore {
         self.ai_cancel.lock().ok().and_then(|mut map| map.remove(request_id)).map(|handle| handle.abort()).is_some()
     }
 
+    pub async fn ai_chat_tools(&self,mut body:Value)->MobileApiResponse{
+        let id=body["request_id"].as_str().unwrap_or("").to_string();
+        if id.is_empty()||id.len()>64{return MobileApiResponse::error(400,"ai_tools","request_id 必须为 1–64 字符");}
+        body["tools_enabled"]=json!(true);
+        let (handle,registration)=AbortHandle::new_pair();
+        if let Ok(mut map)=self.ai_cancel.lock(){map.insert(id.clone(),handle);}
+        let result=Abortable::new(ai_chat::send(&self.client,&self.db_path,&body),registration).await;
+        if let Ok(mut map)=self.ai_cancel.lock(){map.remove(&id);}
+        match result{
+            Err(_)=>MobileApiResponse::error(499,"ai_tools_cancelled","已取消,这一轮没有保存"),
+            Ok(Ok(value))=>MobileApiResponse::ok(value),
+            Ok(Err(ai_chat::ChatError::BadRequest(message)))=>MobileApiResponse::error(400,"ai_tools",message),
+            Ok(Err(ai_chat::ChatError::Upstream(message)))=>MobileApiResponse::error(502,"ai_tools",message),
+            Ok(Err(ai_chat::ChatError::Internal(error)))=>MobileApiResponse::error(500,"ai_tools",error.to_string()),
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn db_path(&self) -> &std::path::Path {
         &self.db_path
@@ -179,14 +210,35 @@ impl AppCore {
     }
 
     pub fn reminder_snapshot(&self) -> Result<Value> {
-        reminders::native_snapshot(&self.db_path)
+        if self.offline(){Ok(json!({"schema":1,"rules":[],"offline":true}))}else{reminders::native_snapshot(&self.db_path)}
     }
+    pub async fn background_symbols(&self,scope:&str)->Result<Vec<String>> {market_scan::native_symbols(&self.client,&self.db_path,scope).await}
+    pub fn offline(&self)->bool{provider_cache::offline(&self.db_path)}
 
     pub async fn handle(&self, request: MobileApiRequest) -> MobileApiResponse {
-        match self.handle_inner(request).await {
+        let cache=provider_cache::key(&request);
+        let offline=provider_cache::offline(&self.db_path)||discovery::parameter(&request.path,"offline").as_deref()==Some("1");
+        let refresh=discovery::parameter(&request.path,"refresh").as_deref()==Some("1");
+        let saved=cache.as_ref().and_then(|(key,ttl)|provider_cache::read(&self.db_path,key,*ttl));
+        if cache.is_some()&&offline{
+            return match saved {Some((body,_,at))=>provider_cache::response(body,true,true,at,"离线模式:显示以前保存的公开数据,不是实时行情".into()),None=>MobileApiResponse::error(503,"offline_cache_miss","离线缓存中没有这份数据,请联网加载一次")};
+        }
+        let route=request.path.split('?').next().unwrap_or("");
+        let post=request.method.eq_ignore_ascii_case("POST");
+        if offline&&((post&&matches!(route,"/fetch"|"/mobile/ai/chat"|"/mobile/ai/chat/stream"|"/mobile/ai/chat/tools"|"/mobile/ai/review"|"/mobile/ai/recognize"|"/mobile/ai/backtest"|"/mobile/ai/workflow"|"/mobile/backtest"|"/mobile/watch/poll"|"/mobile/scan"|"/mobile/calendar/sync"|"/mobile/symbol-search"|"/mobile/messages/generate"|"/mobile/ai/config/test"|"/mobile/ai/config"|"/mobile/shortline/verify"))||matches!(route,"/mobile/intraday"|"/mobile/monitor"|"/mobile/portfolio/perf"|"/mobile/portfolio/xray"|"/mobile/portfolio/replay"|"/mobile/journal/excursion"|"/mobile/journal/environment"|"/mobile/journal/attribution"|"/mobile/shortline/verify"|"/mobile/shortline/history"|"/mobile/shortline/cycle"|"/mobile/shortline/risk"|"/mobile/shortline/samples"|"/mobile/review/structure"|"/mobile/review/tiers"|"/mobile/shortline/prev-broken"|"/mobile/shortline/theme-tree"|"/mobile/news/probability"|"/mobile/research/estimates"|"/mobile/shortline/limit-up")){
+            // Local workflow load/create/cancel do not call a provider.
+            if route!="/mobile/ai/workflow"||request.body["action"]=="advance"{return MobileApiResponse::error(503,"offline_mode","当前为离线模式,请在设置中恢复联网后执行此操作");}
+        }
+        if !refresh{if let Some((body,false,at))=saved.as_ref(){return provider_cache::response(body.clone(),false,false,at.clone(),String::new());}}
+        let result=match self.handle_inner(request).await {
             Ok(response) => response,
             Err(error) => MobileApiResponse::error(500, "mobile_core", error.to_string()),
+        };
+        if let Some((key,_))=cache{
+            if result.status==200&&result.body["status"]!="failed"&&result.body.get("error").is_none(){let _=provider_cache::write(&self.db_path,&key,&result.body);}
+            else if result.status>=500{if let Some((body,_,at))=saved{return provider_cache::response(body,true,false,at,format!("取数失败,显示上次公开数据快照:{}",result.body["message"].as_str().unwrap_or("数据源不可用")));}}
         }
+        result
     }
 
     async fn handle_inner(&self, request: MobileApiRequest) -> Result<MobileApiResponse> {
@@ -200,6 +252,8 @@ impl AppCore {
         let mobile_version = format!("{APP_VERSION}-mobile");
 
         match (method.as_str(), route) {
+            ("GET","/mobile/cache")=>Ok(MobileApiResponse::ok(provider_cache::settings(&self.db_path,None)?)),
+            ("POST","/mobile/cache")=>Ok(match provider_cache::settings(&self.db_path,Some(&request.body)){Ok(value)=>MobileApiResponse::ok(value),Err(e)=>MobileApiResponse::error(400,"cache_settings",e.to_string())}),
             ("GET", "/health") => Ok(MobileApiResponse::ok(json!({
                 "ok": true,
                 "version": mobile_version
@@ -257,6 +311,8 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "documents", error.to_string())),
             },
+            ("POST", "/mobile/documents/parse") => Ok(match document_import::parse(&request.body) {Ok(value)=>MobileApiResponse::ok(value),Err(error)=>MobileApiResponse::error(400,"document_parse",error.to_string())}),
+            ("POST", "/mobile/documents/policy") => Ok(match documents::policy(&self.db_path,&request.body) {Ok(value)=>MobileApiResponse::ok(value),Err(error)=>MobileApiResponse::error(400,"document_policy",error.to_string())}),
             ("POST", "/mobile/documents") => match documents::save(&self.db_path, &request.body) {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "documents", error.to_string())),
@@ -295,7 +351,7 @@ impl AppCore {
                 Ok(MobileApiResponse::ok(storage::upsert(&self.db_path, &request.body)?))
             }
             ("POST", "/mobile/data/clear") => match data_clear::run(&self.db_path, &request.body) {
-                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Ok(mut value) => {value["provider_cache_removed"]=json!(provider_cache::clear(&self.db_path)?);Ok(MobileApiResponse::ok(value))},
                 Err(error) => Ok(MobileApiResponse::error(400, "data_clear", error.to_string())),
             },
             ("GET", "/mobile/messages") => Ok(MobileApiResponse::ok(messages::list(&self.db_path)?)),
@@ -353,6 +409,7 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "journal_modes", error.to_string())),
             },
+            ("GET", "/mobile/journal/weekly") => Ok(MobileApiResponse::ok(journal_weekly::view(&self.db_path,&request.path)?)),
             ("GET", "/mobile/journal/excursion") => Ok(discovery_response(journal_excursion::view(&self.client, &self.db_path, &request.path).await)),
             ("GET", "/mobile/journal/environment") => Ok(discovery_response(journal_env::view(&self.client, &self.db_path).await)),
             ("GET", "/mobile/journal/attribution") => Ok(discovery_response(journal_attribution::view(&self.client, &self.db_path, &request.path).await)),
@@ -428,6 +485,7 @@ impl AppCore {
                 }
                 Err(ai_chat::ChatError::Internal(error)) => Err(error),
             },
+            ("POST", "/mobile/ai/chat/tools") => Ok(self.ai_chat_tools(request.body).await),
             ("POST", "/mobile/ai/recognize") => match ai_vision::recognize(&self.client, &self.db_path, &request.body).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(ai_vision::VisionError::BadRequest(message)) => Ok(MobileApiResponse::error(400, "ai_vision", message)),
@@ -464,6 +522,7 @@ impl AppCore {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(502, "monitor", error.to_string())),
             },
+            ("POST", "/mobile/scan") => Ok(match market_scan::scan(&self.client,&self.db_path,&request.body).await{Ok(value)=>MobileApiResponse::ok(value),Err(e)=>MobileApiResponse::error(400,"market_scan",e.to_string())}),
             ("POST", "/mobile/watch/poll") => {
                 let response = discovery_response(watch::poll(&self.client, &self.db_path, &self.watch).await);
                 // 盯盘页开着时顺带检查竞价与盘中时点(每分钟最多一次):手机上没有常驻的定时任务
@@ -482,6 +541,33 @@ impl AppCore {
             ("POST", "/mobile/backtest") => match backtest::run(&self.client, &request.body).await {
                 Ok(value) => Ok(MobileApiResponse::ok(value)),
                 Err(error) => Ok(MobileApiResponse::error(400, "backtest", error.to_string())),
+            },
+            ("GET", "/mobile/research/workflows/catalog") => Ok(MobileApiResponse::ok(research_workflow::catalog())),
+            ("GET", "/mobile/calendar/month") => Ok(match calendar_sources::month(&self.client,&request.path).await { Ok(value)=>MobileApiResponse::ok(value),Err(error)=>MobileApiResponse::error(502,"exchange_calendar",error.to_string()) }),
+            ("POST", "/mobile/calendar/sync") => Ok(match calendar_sources::sync(&self.client,&self.db_path,&request.body).await { Ok(value)=>MobileApiResponse::ok(value),Err(error)=>MobileApiResponse::error(400,"calendar_sync",error.to_string()) }),
+            ("POST", "/mobile/calendar/reminder") => Ok(match calendar_sources::set_reminder(&self.db_path,&request.body) { Ok(value)=>MobileApiResponse::ok(value),Err(error)=>MobileApiResponse::error(400,"calendar_reminder",error.to_string()) }),
+            ("GET", "/mobile/research/workflows") => Ok(MobileApiResponse::ok(research_workflow::list(&self.db_path)?)),
+            ("POST", "/mobile/ai/workflow") => {
+                let action = request.body["action"].as_str().unwrap_or("create");
+                let id = request.body["id"].as_i64().unwrap_or(0);
+                let outcome = match action {
+                    "create" => research_workflow::create(&self.db_path, &request.body),
+                    "load" => research_workflow::load(&self.db_path, id),
+                    "cancel" => research_workflow::cancel(&self.db_path, id),
+                    "advance" => research_workflow::advance(&self.client, &self.db_path, id, &request.body).await,
+                    _ => Err(anyhow::anyhow!("无效的研究操作")),
+                };
+                Ok(match outcome {
+                    Ok(value) => MobileApiResponse::ok(value),
+                    Err(error) => MobileApiResponse::error(400, "research_workflow", error.to_string()),
+                })
+            }
+            ("GET", "/mobile/backtest/tools") => Ok(MobileApiResponse::ok(ai_backtest::tool_catalog())),
+            ("POST", "/mobile/ai/backtest") => match ai_backtest::run(&self.client, &self.db_path, &request.body).await {
+                Ok(value) => Ok(MobileApiResponse::ok(value)),
+                Err(ai_chat::ChatError::BadRequest(message)) => Ok(MobileApiResponse::error(400, "ai_backtest", message)),
+                Err(ai_chat::ChatError::Upstream(message)) => Ok(MobileApiResponse::error(502, "ai_backtest_upstream", message)),
+                Err(ai_chat::ChatError::Internal(error)) => Ok(MobileApiResponse::error(500, "ai_backtest_internal", error.to_string())),
             },
             ("GET", "/mobile/shortline/limit-up") => Ok(MobileApiResponse::ok(
                 shortline::limit_up_pool(&self.client, &request.path).await?,
@@ -507,7 +593,9 @@ impl AppCore {
             ("GET", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::verify(&self.client, &self.db_path, &request.path).await)),
             ("POST", "/mobile/shortline/verify") => Ok(discovery_response(emotion_history::save_verify(&self.client, &self.db_path, &request.body).await)),
             ("GET", "/mobile/news/catalog") => Ok(MobileApiResponse::ok(news::catalog()?)),
+            ("GET", "/mobile/news/probability") => Ok(match probability::fetch(&self.client).await{Ok(value)=>MobileApiResponse::ok(value),Err(e)=>MobileApiResponse::error(502,"probability",e.to_string())}),
             ("GET", "/mobile/news") => Ok(discovery_response(news::fetch(&self.client, &request.path).await)),
+            ("GET", "/mobile/industry/revenue") => Ok(match industry_revenue::fetch(&self.client).await{Ok(v)=>MobileApiResponse::ok(v),Err(e)=>MobileApiResponse::error(502,"industry_revenue",e.to_string())}),
             ("GET", "/mobile/industry/gpu-rent") => Ok(discovery_response(industry_signals::gpu_rent(&self.client, &request.path).await)),
             ("GET", "/mobile/boards/detail") => Ok(discovery_response(boards::detail(&self.client, &request.path).await)),
             ("GET", "/mobile/rotation") => Ok(MobileApiResponse::ok(
@@ -516,6 +604,9 @@ impl AppCore {
             ("GET", "/mobile/research/profile") => {
                 Ok(research_response(research::profile(&self.client, &request.path).await))
             }
+            ("GET", "/mobile/research/statements") => Ok(research_response(research_extended::statements(&self.client, &request.path).await)),
+            ("GET", "/mobile/research/consensus") => Ok(research_response(research_extended::consensus(&self.client, &request.path).await)),
+            ("GET", "/mobile/research/valuation") => Ok(research_response(research_extended::valuation(&self.client, &request.path).await)),
             ("GET", "/mobile/research/announcements") => Ok(research_response(
                 research::announcements(&self.client, &request.path).await,
             )),

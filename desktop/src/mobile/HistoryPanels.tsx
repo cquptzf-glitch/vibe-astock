@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { WebSelect, DateField } from "./controls";
 import { CalendarDays, Plus, RefreshCw, RotateCcw, Save, Sparkles, Trash2 } from "lucide-react";
+import { JournalWeekly } from "./JournalWeekly";
 import { historyContext, useRegisterAiPage, weeklyContext } from "./aiPageContext";
 import { fmtPercent } from "./discoveryData";
 import { chinaToday, clearEmotionCache, fmtRate, useCachedResource, useEmotionDate } from "./emotionData";
@@ -198,6 +199,7 @@ export function WeeklyPanel({ onOpenSymbol, onAskAi }: { onOpenSymbol: Open; onA
     <ReviewDateBar title="近 5 天" detail="热度、行业轮动与龙头谱系" loading={result.loading} error={result.error} onRefresh={result.refresh} shownDate={result.data?.date} />
     {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页近 5 个交易日的读数写一份市场周报:先写这周情绪的走势(涨停、最高板、炸板率、赚钱效应),再写行业轮动和龙头谱系的变化,最后列出数据缺口。只描述已发生的现象,不要给买卖建议,也不要提到我的个人交易。")}><Sparkles size={13} />问 AI:生成市场周报</button>}
     {result.data && <WeeklyView data={result.data} onOpenSymbol={onOpenSymbol} />}
+    <JournalWeekly date={result.data?.date ?? date} />
   </section>;
 }
 

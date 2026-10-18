@@ -1,4 +1,5 @@
 package com.vibeastock.reminders
+import android.net.Uri
 
 import android.Manifest
 import android.app.Activity
@@ -7,7 +8,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
-import android.net.Uri
 import android.webkit.WebView
 import android.content.Context
 import android.content.pm.PackageManager
@@ -36,7 +36,7 @@ import kotlin.math.abs
 private const val EXTRA_ROUTE = "com.vibeastock.reminders.ROUTE"
 
 internal fun validReminderRoute(route: String?): String? {
-    if (route == "/mobile/journal/daily" || route == "/mobile/reminders") return route
+    if (route == "/mobile/journal/daily" || route == "/mobile/reminders" || route == "/mobile/discovery/calendar") return route
     return route?.takeIf { Regex("^/mobile/stock/(SH|SZ|BJ)[0-9]{6}$").matches(it) }
 }
 
@@ -69,7 +69,7 @@ class RemindersPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     private fun captureNavigation(intent: Intent?) {
-        val route = validReminderRoute(intent?.getStringExtra(EXTRA_ROUTE)) ?: return
+        val route = validReminderRoute(intent?.getStringExtra(EXTRA_ROUTE)) ?: externalRoute(intent?.data?.toString()) ?: return
         intent?.removeExtra(EXTRA_ROUTE)
         synchronized(this) { pendingRoute = route }
         // The command retains the route until React is mounted. This event only
@@ -90,6 +90,31 @@ class RemindersPlugin(private val activity: Activity) : Plugin(activity) {
             next
         }
         invoke.resolve(JSObject().apply { put("route", route ?: JSONObject.NULL) })
+    }
+
+    @Command
+    fun monitor(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(SyncRulesArgs::class.java)
+            val config = JSONObject(args.snapshotJson)
+            val prefs = activity.getSharedPreferences(MONITOR_PREFS, Context.MODE_PRIVATE)
+            when (config.optString("action", "status")) {
+                "start" -> {
+                    if (Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) { invoke.reject("请先在设置里允许通知，再开启后台盯盘"); return }
+                    if ((config.optJSONArray("symbols")?.length() ?: 0) !in 1..10000) { invoke.reject("订阅列表为空或过大"); return }
+                    activity.stopService(Intent(activity, MarketMonitorService::class.java))
+                    prefs.edit().putString("config", config.toString()).apply()
+                    val intent = Intent(activity, MarketMonitorService::class.java)
+                    if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
+                }
+                "stop" -> { activity.stopService(Intent(activity, MarketMonitorService::class.java)); prefs.edit().putBoolean("running", false).putString("message", "已手动停止").apply() }
+                "status" -> {}
+                else -> { invoke.reject("后台盯盘操作无效"); return }
+            }
+            invoke.resolve(JSObject().apply {
+                put("supported", true); put("running", prefs.getBoolean("running", false)); put("bytes", prefs.getLong("bytes", 0)); put("last_sample", prefs.getLong("last_sample", 0)); put("message", prefs.getString("message", "尚未开启")); put("alerts", org.json.JSONArray(prefs.getString("alerts", "[]")))
+            })
+        } catch (e: Exception) { invoke.reject("后台盯盘操作失败：${e.javaClass.simpleName}") }
     }
 
     @Command
@@ -174,6 +199,16 @@ class ReminderWorker(
             if (id <= 0L || !rule.optBoolean("enabled", true)) continue
 
             val kind = rule.optString("kind")
+            if (kind == "calendar_event") {
+                val eventDate = rule.optString("date")
+                val hour = rule.optInt("review_hour", 9).coerceIn(0, 23)
+                val key = "calendar_event_date_$id"
+                if (eventDate == marketDateIso && marketNow.hour >= hour && prefs.getString(key, "") != marketDateIso) {
+                    postNotification(id, rule.optString("name", "日历事件"), rule.optString("detail").ifBlank { "今天有待关注的日历事件。" }, rule.optString("route", "/mobile/discovery/calendar"))
+                    prefs.edit().putString(key, marketDateIso).apply()
+                }
+                continue
+            }
             if (kind == "daily_review") {
                 val reviewHour = rule.optInt("review_hour", 16).coerceIn(0, 23)
                 val lastDateKey = "review_date_$id"

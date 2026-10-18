@@ -8,6 +8,7 @@ import { useEffect, useSyncExternalStore } from "react";
 
 import type { EmotionData, EmotionStock } from "./emotionData";
 import type { HistoryData, WeeklyData } from "./HistoryPanels";
+import type { MarketPanelData } from "./MarketPanel";
 import type { MobilePage } from "./mobileRoutes";
 
 export interface AiPageContext { title: string; text: string; at: number }
@@ -216,5 +217,34 @@ export function limitUpTableContext(d: EmotionData): string | null {
     ...sorted.slice(0, 30).map((s) => `${s.name} ${s.code} | ${s.boards}板 | ${s.sector || "—"} | 首封 ${s.first_seal ? s.first_seal.slice(0, 5) : "—"} | 炸板 ${s.broken_times} | 成交 ${yi(s.amount)}`),
   ];
   if (sorted.length > 30) lines.push(`…另有 ${sorted.length - 30} 只未列出。`);
+  return lines.join("\n");
+}
+
+/** 每日复盘 · 市场面板:主要指数中长线、成交额、两融、国债、估值、全球、行业资金、龙虎榜;取不到的块写原因,不是复盘日的数据标出来 */
+export function marketPanelContext(d: MarketPanelData): string {
+  const lines = [`复盘日 ${d.date}${d.settled ? "" : "(盘中未收盘)"}。`];
+  if (d.trend.available) {
+    lines.push("主要指数(收盘 | 近 1/20/250 日涨跌 | 今年以来 | 在 20/60/250 日线之上):");
+    for (const r of d.trend.rows) {
+      const above = [r.above_ma20, r.above_ma60, r.above_ma250].map((v) => (v == null ? "—" : v ? "上" : "下")).join("/");
+      lines.push(`${r.name} | ${r.close} | ${pct(r.chg1)} / ${pct(r.chg20)} / ${pct(r.chg250)} | ${pct(r.ytd)} | ${above}`);
+    }
+    if (d.trend.failed.length) lines.push(`没取到的指数:${d.trend.failed.map((f) => f.name).join("、")}。`);
+  } else lines.push(`主要指数:暂不可用(${d.trend.reason})。`);
+  lines.push(d.amount.available ? `成交额:最新 ${yi(d.amount.last)}${d.amount.partial ? "(盘中未收盘)" : ""},较 20 日均 ${d.amount.vs_ma20 == null ? "—" : `${d.amount.vs_ma20 > 0 ? "+" : ""}${d.amount.vs_ma20}%`}。` : `成交额:暂不可用(${d.amount.reason})。`);
+  lines.push(d.margin.available ? `两融余额 ${yi(d.margin.balance)},5 日变化 ${d.margin.chg5 == null ? "—" : yi(d.margin.chg5)},5 日净买入 ${d.margin.net_buy5 == null ? "—" : yi(d.margin.net_buy5)}。` : `两融:暂不可用(${d.margin.reason})。`);
+  lines.push(d.bond.available ? `国债收益率:1 年 ${d.bond.y1 ?? "—"}%,10 年 ${d.bond.y10 ?? "—"}%,30 年 ${d.bond.y30 ?? "—"}%。` : `国债收益率:暂不可用(${d.bond.reason})。`);
+  lines.push(d.valuation.available ? `沪深 300 估值:市盈率 ${d.valuation.pe ?? "—"},股息率 ${d.valuation.dy ?? "—"}%,股债利差(股息率口径)${d.valuation.dy_spread ?? "—"}%${d.valuation.stale_days ? `;这份数据滞后 ${d.valuation.stale_days} 天` : ""}。` : `沪深 300 估值:暂不可用(${d.valuation.reason})。`);
+  if (d.global.available) lines.push("全球市场:" + d.global.rows.filter((g) => g.available).map((g) => `${g.name} ${pct(g.pct)}`).join("、") + "。");
+  else lines.push(`全球市场:暂不可用(${d.global.reason})。`);
+  if (d.board_flow.available) {
+    const stale = d.board_flow.matches_review_day ? "" : "(不是复盘日的数据)";
+    lines.push(`行业资金${stale}:净流入前 3 — ${d.board_flow.top.slice(0, 3).map((f) => `${f.name} ${yi(f.net)}`).join("、")};净流出前 3 — ${d.board_flow.bottom.slice(0, 3).map((f) => `${f.name} ${yi(f.net)}`).join("、")}(新浪口径,和东财主力净额不是一个口径)。`);
+  } else lines.push(`行业资金:暂不可用(${d.board_flow.reason})。`);
+  if (d.turnover.available) lines.push(`成交额前 5${d.turnover.matches_review_day ? "" : "(不是复盘日的数据)"}:` + d.turnover.rows.slice(0, 5).map((t) => `${t.name} ${yi(t.amount)}`).join("、") + "。");
+  if (d.dragon.available) lines.push(`龙虎榜(${d.dragon.date},共 ${d.dragon.total} 条)净买入前 3:` + d.dragon.top_buy.slice(0, 3).map((x) => `${x.name} ${x.net_buy_wan == null ? "—" : `${(x.net_buy_wan / 1e4).toFixed(2)}亿`}`).join("、") + "。");
+  else lines.push(`龙虎榜:暂不可用(${d.dragon.reason})。`);
+  if (d.notes.length) lines.push(`说明:${d.notes.join(";")}。`);
+  lines.push("口径:只描述已经发生的市场状态。");
   return lines.join("\n");
 }

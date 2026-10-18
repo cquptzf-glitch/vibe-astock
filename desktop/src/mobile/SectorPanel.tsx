@@ -15,7 +15,7 @@ async function postAi(prompt: string): Promise<string> {
   const response = await fetch("/api/mobile/ai/chat", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({ message: prompt }),
+    body: JSON.stringify({ content: prompt }),
   });
   const body = await response.json().catch(() => null) as AiResult | null;
   if (!response.ok) throw new Error(body?.message ?? body?.error ?? `HTTP ${response.status}`);

@@ -196,8 +196,30 @@ pub(crate) async fn day_closes(client: &Client, key: &SymbolKey, qfq: bool, limi
     Ok(rows.into_iter().filter(|b| b.0.len() >= 10).map(|b| (b.0[..10].to_string(), b.2)).collect())
 }
 
+/// Backtest fallback uses the same OHLC parser as the chart, never close-as-open.
+pub(crate) async fn backtest_fallback(client:&Client,key:&SymbolKey,limit:usize)->Result<Vec<Value>>{
+    let (rows,dropped,_)=tencent_kline(client,key,Period::Day,true,limit).await?;
+    if dropped>0{return Err(anyhow!("腾讯回测日线有 {dropped} 行不合格,拒绝悄悄删行"));}
+    if rows.is_empty(){return Err(anyhow!("腾讯回测日线为空"));}
+    Ok(rows.iter().map(|r|json!([r.0,r.1,r.2,r.3,r.4,r.5])).collect())
+}
+
 /// 指数日线收盘价(东财 secid 如 "1.000300";不复权)。只要日期和收盘价
 pub(crate) async fn index_closes(client: &Client, secid: &str, limit: usize) -> Result<Vec<(String, f64)>> {
+    match index_closes_primary(client,secid,limit).await {
+        Ok(rows) if rows.len()>=2=>Ok(rows),
+        primary=>{
+            let token=match secid {"1.000300"=>"sh000300","1.000001"=>"sh000001","0.399001"=>"sz399001","0.399006"=>"sz399006",_=>return primary};
+            let args=[("param",format!("{token},day,,,{limit},qfq"))];
+            let root=get_json(client,"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",&args).await?;
+            let raw=root["data"][token]["day"].as_array().ok_or_else(||anyhow!("腾讯指数备源缺少日线；主源也未取得有效数据"))?;
+            let rows:Vec<_>=raw.iter().filter_map(|r|{let d=r[0].as_str()?;chrono::NaiveDate::parse_from_str(d,"%Y-%m-%d").ok()?;let p=r[2].as_f64().or_else(||r[2].as_str()?.parse::<f64>().ok())?.is_finite().then(||r[2].as_f64().or_else(||r[2].as_str()?.parse::<f64>().ok())).flatten()?;if p<=0.0{return None;}Some((d.to_string(),p))}).collect();
+            if rows.len()!=raw.len()||rows.len()<2||rows.windows(2).any(|w|w[0].0>=w[1].0){return Err(anyhow!("腾讯指数备源存在无效或乱序日线"));}Ok(rows)
+        }
+    }
+}
+
+async fn index_closes_primary(client: &Client, secid: &str, limit: usize) -> Result<Vec<(String, f64)>> {
     let root = get_json(client, "https://push2his.eastmoney.com/api/qt/stock/kline/get", &[
         ("secid", secid.to_string()), ("klt", "101".into()), ("fqt", "0".into()), ("lmt", limit.to_string()), ("end", "20500101".into()),
         ("fields1", "f1,f2,f3".into()), ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61".into()),

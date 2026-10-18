@@ -40,6 +40,7 @@ pub fn native_snapshot(db_path: &Path) -> Result<Value> {
     for item in &mut items {
         item["route"] = Value::String(notification_route(item));
     }
+    items.extend(crate::calendar_sources::notification_rules(db_path)?);
     Ok(json!({
         "schema": 1,
         "generated_at": Utc::now().to_rfc3339(),

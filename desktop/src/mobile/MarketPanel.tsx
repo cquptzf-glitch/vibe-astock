@@ -4,7 +4,10 @@
  * 都是按固定公式算的客观事实,不是趋势判断,不给买卖建议。短线格子直接复用情绪复盘的数据(同一个复盘日)。
  * 红涨绿跌;全球指数也沿用红涨(和本产品一致,不是国际惯例)。
  */
-import { Activity, Coins, Gauge, Globe, TrendingUp } from "lucide-react";
+import { Activity, Coins, Gauge, Globe, Sparkles, TrendingUp } from "lucide-react";
+import { useMemo } from "react";
+
+import { marketPanelContext, useRegisterAiPage } from "./aiPageContext";
 
 import { fmtNumber, fmtPercent, fmtYuan } from "./discoveryData";
 import { fmtRate, useCachedResource, useEmotion, type EmotionData } from "./emotionData";
@@ -184,12 +187,15 @@ export function MarketPanelView({ data: d, emotion, onOpenSymbol }: { data: Mark
   </div>;
 }
 
-export function MarketPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
+export function MarketPanel({ onOpenSymbol, onAskAi }: { onOpenSymbol: (symbol: string) => void; onAskAi?: (question: string) => void }) {
   const emotion = useEmotion();
   const result = useCachedResource<MarketPanelData>(`/mobile/review/market${emotion.date ? "?date=" + emotion.date : ""}`);
+  const aiText = useMemo(() => (result.data ? marketPanelContext(result.data) : null), [result.data]);
+  useRegisterAiPage("市场面板", aiText);
   return <section className="mobile-section emo-page">
     <ReviewDateBar title="市场面板" detail="每日复盘的市场状态、主要指数中长线、成交额与两融、全球市场和资金去向" loading={result.loading} error={result.error}
       onRefresh={() => { result.refresh(); emotion.refresh(); }} shownDate={result.data?.date} />
+    {aiText && onAskAi && <button type="button" className="emo-link emo-ask" onClick={() => onAskAi("按这页的读数,梳理一下今天市场的整体状态:指数中长线位置、成交额和两融、国债和估值、全球市场、资金去向;没取到或不是复盘日的数据要指出来。只描述已发生的现象,不要给买卖建议。")}><Sparkles size={13} />问 AI:梳理今天的市场状态</button>}
     {result.data && <MarketPanelView data={result.data} emotion={emotion.data} onOpenSymbol={onOpenSymbol} />}
   </section>;
 }

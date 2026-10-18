@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::path::Path;
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 12;
+pub const CURRENT_SCHEMA_VERSION: i64 = 13;
 
 const LEGACY_REQUIRED_TABLES: [&str; 6] = [
     "watchlist",
@@ -136,7 +136,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
         verify_tables(&conn, &LEGACY_REQUIRED_TABLES)?;
     }
     // MIGRATIONS[n] 把 user_version n+1 升到 n+2;0 和 1 都从第一步开始
-    const MIGRATIONS: [fn(&Connection) -> Result<()>; 11] = [
+    const MIGRATIONS: [fn(&Connection) -> Result<()>; 12] = [
         migrate_1_to_2,
         migrate_2_to_3,
         migrate_3_to_4,
@@ -148,6 +148,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
         migrate_9_to_10,
         migrate_10_to_11,
         migrate_11_to_12,
+        migrate_12_to_13,
     ];
     for step in &MIGRATIONS[(version.max(1) - 1) as usize..] {
         step(&conn)?;
@@ -488,6 +489,28 @@ fn migrate_11_to_12(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Preserve fill IDs/order and foreign keys while extending the CHECK constraint.
+fn migrate_12_to_13(conn: &Connection) -> Result<()> {
+    use rusqlite::OptionalExtension;
+    let previous_seq:Option<i64>=conn.query_row("SELECT seq FROM sqlite_sequence WHERE name='journal_fills'",[],|r|r.get(0)).optional()?;
+    conn.execute_batch("BEGIN IMMEDIATE;
+        CREATE TABLE journal_fills_v13 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          entry_id INTEGER NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
+          side TEXT NOT NULL CHECK(side IN ('buy','sell','opening','split')),
+          date TEXT NOT NULL, price REAL NOT NULL CHECK(price > 0),
+          shares REAL NOT NULL CHECK(shares > 0), fee REAL, sort_order INTEGER NOT NULL DEFAULT 0);
+        INSERT INTO journal_fills_v13 SELECT * FROM journal_fills;
+        DROP TABLE journal_fills;
+        ALTER TABLE journal_fills_v13 RENAME TO journal_fills;
+        CREATE INDEX idx_journal_fills_entry ON journal_fills(entry_id,sort_order,id);
+        ")?;
+    conn.execute("UPDATE sqlite_sequence SET seq=MAX(seq,?1) WHERE name='journal_fills'",[previous_seq.unwrap_or(0)])?;
+    conn.execute_batch("PRAGMA user_version=13; COMMIT;")?;
+    Ok(())
+}
+
+
 fn verify_tables(conn: &Connection, required: &[&str]) -> Result<()> {
     let missing = missing_tables(conn, required)?;
     if missing.is_empty() {
@@ -538,10 +561,11 @@ mod tests {
     }
 
     fn create_legacy_tables(conn: &Connection) {
-        for table in LEGACY_REQUIRED_TABLES {
-            conn.execute_batch(&format!("CREATE TABLE {table}(id INTEGER);"))
+        for table in LEGACY_REQUIRED_TABLES.iter().filter(|t|**t!="journal_fills") {
+            conn.execute_batch(&format!("CREATE TABLE {table}(id INTEGER PRIMARY KEY);"))
                 .expect("create required table");
         }
+        conn.execute_batch("CREATE TABLE journal_fills(id INTEGER PRIMARY KEY,entry_id INTEGER,side TEXT CHECK(side IN ('buy','sell')),date TEXT,price REAL,shares REAL,fee REAL,sort_order INTEGER)").unwrap();
     }
 
     #[test]

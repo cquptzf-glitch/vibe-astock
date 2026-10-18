@@ -56,12 +56,16 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export interface LibraryFilter { keyword: string; category: string; unreadOnly: boolean }
+export interface LibraryFilter { keyword: string; category: string; unreadOnly: boolean; from?: string; to?: string; status?: string; symbol?: string }
 
 /** 本地过滤:标题、正文、分类、股票代码都参与检索;多个词必须同时命中。 */
 export function filterDocuments(items: DocumentItem[], filter: LibraryFilter): DocumentItem[] {
   const words = filter.keyword.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
   return items.filter((item) => (!filter.category || item.category === filter.category)
+    && (!filter.from || item.updated_at.slice(0,10) >= filter.from)
+    && (!filter.to || item.updated_at.slice(0,10) <= filter.to)
+    && (!filter.status || item.status === filter.status)
+    && (!filter.symbol || (item.symbol ?? "").includes(filter.symbol.trim()))
     && (!filter.unreadOnly || item.status !== "read")
     && words.every((word) => [item.title, item.body, item.category, item.symbol ?? ""].join(" ").toLocaleLowerCase().includes(word)));
 }
@@ -80,6 +84,11 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [archiveDays,setArchiveDays]=useState(90);
+  const [archiveNotice,setArchiveNotice]=useState("");
+  async function archivePolicy(enabled:boolean){
+    try{const result=await api<{changed:number}>("/mobile/documents/policy",{method:"POST",body:JSON.stringify({kind,days:archiveDays,category:filter.category,enabled})});setArchiveNotice(enabled?`已启用归档规则，本次归档 ${result.changed} 条；以后打开资料库时自动整理。` : "已停用归档规则。");await load(kind);}catch(e){setError(e instanceof Error?e.message:String(e));}
+  }
 
   async function load(nextKind = kind) {
     setLoading(true);
@@ -203,6 +212,7 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
       </div>
       {error && <div className="mobile-error">{error}</div>}
       {kind === "report" && <ReportImport onSaved={() => void load(kind)} />}
+      <details><summary>日期、状态检索与自动归档</summary><div className="rw-form"><label>更新起日<input type="text" placeholder="YYYY-MM-DD" value={filter.from??""} onChange={(e)=>setFilter({...filter,from:e.target.value})} /></label><label>更新止日<input type="text" placeholder="YYYY-MM-DD" value={filter.to??""} onChange={(e)=>setFilter({...filter,to:e.target.value})} /></label><label>关联代码<input value={filter.symbol??""} onChange={(e)=>setFilter({...filter,symbol:e.target.value})} /></label><label>状态<WebSelect value={filter.status??""} onChange={(e)=>setFilter({...filter,status:e.target.value})}><option value="">所有状态</option><option value="active">使用中</option><option value="archived">已归档</option><option value="read">已读</option><option value="unread">未读</option></WebSelect></label><label>超过多少天未更新自动归档<input inputMode="numeric" value={archiveDays} onChange={(e)=>setArchiveDays(Number(e.target.value))} /></label><p>规则应用于当前资料类型{filter.category?`的「${filter.category}」分类`:"的所有分类"}；收件箱未读内容不自动归档。原文保留，可按「已归档」检索并编辑恢复。</p><button type="button" onClick={()=>void archivePolicy(true)}>启用并应用规则</button><button type="button" onClick={()=>void archivePolicy(false)}>停用规则</button>{archiveNotice&&<p role="status">{archiveNotice}</p>}</div></details>
 
       <div className="library-toolbar">
         <button type="button" className="library-editor-toggle" aria-expanded={editorOpen} onClick={() => (editorOpen && !editingId ? setEditorOpen(false) : editingId ? resetEditor() : setEditorOpen(true))}>

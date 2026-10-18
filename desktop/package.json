@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:mobile": "tsc --noEmit && vite build --mode mobile",
+    "preview:mobile": "vite preview --mode mobile",
     "preview": "vite preview",
     "pretest": "node ../scripts/check-node.mjs",
     "test": "node --test test/*.test.ts",

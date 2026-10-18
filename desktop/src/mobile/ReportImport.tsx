@@ -56,10 +56,23 @@ export function ReportImport({ onSaved }: { onSaved: () => void }) {
     setError("");
     setDraft(null);
     if (file.size > MAX_FILE_BYTES) { setError("文件超过 2 MB,请拆开再导入"); return; }
-    const out = draftOf(file.name, decodeFile(await file.arrayBuffer()));
-    if ("error" in out) { setError(out.error); return; }
-    setDraft(out);
-    setTitle(out.title);
+    setBusy(true);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let out: ReportDraft | { error: string };
+      if (/\.(pdf|docx|xlsx|xls|xlsb|ods)$/i.test(file.name)) {
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 16384) binary += String.fromCharCode(...bytes.subarray(i, i + 16384));
+        const response = await fetch("/api/mobile/documents/parse", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, data: btoa(binary) }) });
+        const data = await response.json() as { body?: string; message?: string };
+        if (!response.ok || !data.body) throw new Error(data.message ?? "文件没有解析出正文");
+        out = draftOf(file.name.replace(/\.[^.]+$/, ".txt"), data.body);
+        if (!("error" in out)) out.title = file.name.replace(/\.[^.]+$/, "").slice(0, 80);
+      } else out = draftOf(file.name, decodeFile(bytes.buffer));
+      if ("error" in out) { setError(out.error); return; }
+      setDraft(out); setTitle(out.title);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
   };
   const save = async () => {
     if (!draft) return;
@@ -78,9 +91,9 @@ export function ReportImport({ onSaved }: { onSaved: () => void }) {
   return <section className="report-import" aria-label="从文件导入研报">
     <button type="button" className="ri-toggle" aria-expanded={open} onClick={() => setOpen(!open)}><FileUp size={15} /> 从文件导入研报(先预览)</button>
     {open && <div className="ri-body-wrap">
-      <p className="ri-meta">选一个文本文件(.txt / .md / .csv / .json,≤ 2 MB):先看预览,再保存。PDF、Word、Excel 手机端不解析正文,请先复制出文字或导出成文本。文件只在本机读取,不上传、不发给 AI。</p>
-      <button type="button" className="ri-pick" onClick={() => fileRef.current?.click()}><FileUp size={13} /> 选文件</button>
-      <input ref={fileRef} type="file" accept=".txt,.md,.markdown,.csv,.tsv,.json,text/plain,text/markdown,text/csv,application/json" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
+      <p className="ri-meta">支持文本、PDF、DOCX、Excel 与 ODS，≤ 2 MB；先预览再保存。正文在本机解析，不发给 AI。扫描 PDF 需先做 OCR；旧 DOC 请另存为 DOCX。</p>
+      <button type="button" className="ri-pick" disabled={busy} onClick={() => fileRef.current?.click()}><FileUp size={13} /> {busy ? "解析中…" : "选文件"}</button>
+      <input ref={fileRef} type="file" accept=".txt,.md,.markdown,.csv,.tsv,.json,.pdf,.docx,.xlsx,.xls,.xlsb,.ods" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
       {error && <p className="intra-warn" role="alert">{error}</p>}
       {draft && <ReportPreview draft={draft} title={title} category={category} symbol={symbol} busy={busy} onTitle={setTitle} onCategory={setCategory} onSymbol={setSymbol} onSave={() => void save()} onCancel={() => setDraft(null)} />}
     </div>}

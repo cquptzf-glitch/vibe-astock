@@ -87,7 +87,7 @@ test("新栏目路由可解析与反解析，工作台每个条目都有对应�
 test("每日复盘与回测页面仍可独立渲染", async () => {
   await withRenderer(async (r) => {
     const { BacktestPanel } = await r.load("/src/mobile/BacktestPanel.tsx");
-    assert.match(textOf(r.html(BacktestPanel, {})), /本地日线策略回测/);
+    assert.match(textOf(r.html(BacktestPanel, {})), /用对话完成历史假设核对/);
     const { DailyReviewPanel } = await r.load("/src/mobile/DailyReviewPanel.tsx");
     const daily = r.html(DailyReviewPanel, { onOpenSymbol: () => undefined });
     assert.match(daily, /日复盘/);

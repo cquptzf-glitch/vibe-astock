@@ -122,6 +122,20 @@ pub async fn mobile_api(
     let route = request.path.split('?').next().unwrap_or("").to_string();
     let method = request.method.to_uppercase();
 
+    if route=="/mobile/monitor/background" {
+        if !matches!(method.as_str(),"GET"|"POST"){return Ok(response_error(405,"method","仅支持 GET/POST"));}
+        let action=if method=="GET"{"status"}else{request.body["action"].as_str().unwrap_or("status")};
+        let mut config=json!({"action":action});
+        if action=="start" {
+            if state.offline(){return Ok(response_error(503,"offline_mode","请先在设置中关闭离线模式"));}
+            let scope=request.body["scope"].as_str().unwrap_or("watch");
+            let codes=match state.background_symbols(scope).await {Ok(v)=>v,Err(e)=>return Ok(response_error(400,"monitor_universe",e.to_string()))};
+            if codes.is_empty(){return Ok(response_error(400,"monitor_universe","没有可订阅的股票,请先添加自选"));}
+            config=json!({"action":action,"scope":scope,"symbols":codes,"interval_seconds":request.body["interval_seconds"].as_u64().unwrap_or(60).clamp(30,300),"threshold_pct":request.body["threshold_pct"].as_f64().unwrap_or(1.5).clamp(0.5,20.0),"max_bytes_mb":request.body["max_bytes_mb"].as_u64().unwrap_or(50).clamp(5,500),"stop_battery_pct":request.body["stop_battery_pct"].as_u64().unwrap_or(15).clamp(5,50)});
+        }
+        return match app.vibe_reminders().monitor(&config) {Ok(value)=>Ok(MobileApiResponse{status:200,body:value}),Err(e)=>Ok(response_error(500,"background_monitor",e.to_string()))};
+    }
+
     if method == "GET" && route == "/mobile/reminders/status" {
         return match app.vibe_reminders().status() {
             Ok(status) => Ok(MobileApiResponse {
@@ -132,12 +146,19 @@ pub async fn mobile_api(
             Err(error) => Ok(response_error(500, "reminder_scheduler", error.to_string())),
         };
     }
+    if route=="/mobile/cache"&&method=="POST"{
+        let offline=request.body["offline"]==true;
+        let response=state.handle(request).await;
+        if response.status==200{if offline{let _=app.vibe_reminders().monitor(&json!({"action":"stop"}));}let _=sync_reminders(&app,&state);}
+        return Ok(response);
+    }
 
     // 统一清除全部本地数据:SQLite 由 Core 清;这里再删 Android Keystore 里的 API Key,并按清空后的规则重新同步提醒调度(取消所有已排的提醒)
     if route == "/mobile/data/clear" && method == "POST" {
         let mut response = state.handle(request).await;
         if response.status == 200 {
             let key_result = secure_ai::delete(&app);
+            let _ = app.vibe_reminders().monitor(&json!({"action":"stop"}));
             let sync_result = sync_reminders(&app, &state);
             if let Some(object) = response.body.as_object_mut() {
                 object.insert("keystore_cleared".to_string(), Value::Bool(key_result.is_ok()));
@@ -154,6 +175,7 @@ pub async fn mobile_api(
     }
 
     if (route == "/mobile/reminders" && (method == "POST" || method == "DELETE"))
+        || (route.starts_with("/mobile/calendar") && (method == "POST" || method == "DELETE"))
         || (route == "/mobile/backup/import" && method == "POST")
     {
         let mut response = state.handle(request).await;
@@ -262,7 +284,8 @@ pub async fn mobile_api(
         return Ok(state.handle(request).await);
     }
 
-    if method == "POST" && (route == "/mobile/ai/review" || route == "/mobile/ai/chat" || route == "/mobile/ai/chat/stream" || route == "/mobile/ai/recognize") {
+    if method == "POST" && (route == "/mobile/ai/review" || route == "/mobile/ai/chat" || route == "/mobile/ai/chat/stream" || route == "/mobile/ai/chat/tools" || route == "/mobile/ai/recognize" || route == "/mobile/ai/backtest" || route == "/mobile/ai/workflow") {
+        if state.offline()&&(route!="/mobile/ai/workflow"||request.body["action"]=="advance"){return Ok(response_error(503,"offline_mode","当前为离线模式,请先恢复联网"));}
         let key = match secure_ai::key_for_current_provider(&app, &state) {
             Ok(value) => value,
             Err(error) => return Ok(response_error(500, "secure_storage", error)),

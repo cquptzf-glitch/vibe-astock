@@ -1,6 +1,8 @@
 import { CalendarDays, CheckCircle2, Circle, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { WebSelect, DateField } from "./controls";
 import { useEffect, useMemo, useState } from "react";
+import { ExchangeCalendar } from "./ExchangeCalendar";
+import "./research-workflow.css";
 
 type EventKind = "company" | "ledger" | "macro" | "reminder";
 type EventStatus = "open" | "done";
@@ -69,6 +71,24 @@ export function CalendarPanel() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState("");
+
+  async function syncSources() {
+    setSyncing(true); setError(""); setSyncNote("");
+    try {
+      const result = await api<{ count: number; gaps: { source: string; message: string }[]; note: string }>("/mobile/calendar/sync", { method: "POST", body: JSON.stringify({ symbol: symbol.trim() }) });
+      setSyncNote(`已同步 ${result.count} 项。${result.note}${result.gaps.map((g) => `${g.source}：${g.message}`).join("；")}`);
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setSyncing(false); }
+  }
+  async function remind(item: CalendarEvent, enabled: boolean) {
+    try {
+      const result = await api<{ scheduler?: { supported?: boolean } }>("/mobile/calendar/reminder", { method: "POST", body: JSON.stringify({ id: item.id, enabled, hour: 9 }) });
+      setSyncNote(enabled ? `已设置「${item.title}」当天北京时间 09:00 后提醒。${result.scheduler?.supported === false ? "当前环境不支持原生调度。" : "需要允许系统通知，后台任务可能受省电影响而延迟。"}` : `已关闭「${item.title}」的提醒。`);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  }
 
   async function load() {
     setLoading(true);
@@ -161,6 +181,9 @@ export function CalendarPanel() {
         <button type="button" className={windowDays === 30 ? "active" : ""} onClick={() => setWindowDays(30)}>近 30 天</button>
         <button type="button" className={windowDays === 90 ? "active" : ""} onClick={() => setWindowDays(90)}>近 90 天</button>
       </div>
+      <ExchangeCalendar />
+      <button type="button" className="discovery-action" disabled={syncing} onClick={() => void syncSources()}>{syncing ? "正在同步公告与预约披露…" : symbol.trim() ? `同步 ${symbol.trim()} 公告与披露日期` : "同步自选公告与披露日期"}</button>
+      {syncNote && <p role="status" className="discovery-footnote">{syncNote}</p>}
 
       <article className="mobile-quote-card calendar-editor">
         <div className="mobile-card-label"><CalendarDays size={13} /> 新增事件</div>
@@ -198,6 +221,7 @@ export function CalendarPanel() {
                   <span>{KIND_LABEL[item.kind]}{item.symbol ? ` · ${item.symbol}` : ""}{item.overdue ? " · 已逾期" : ""}</span>
                   {item.detail && <p>{item.detail}</p>}
                 </div>
+                {item.status === "open" && <><button type="button" className="discovery-action" onClick={() => void remind(item, true)}>当天提醒</button><button type="button" className="discovery-action" onClick={() => void remind(item, false)}>取消提醒</button></>}
                 <button type="button" className="mobile-delete" onClick={() => void remove(item.id)} aria-label={`删除 ${item.title}`}><Trash2 size={15} /></button>
               </div>
             ))}

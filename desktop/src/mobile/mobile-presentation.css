@@ -175,3 +175,8 @@ html[data-mobile-density="compact"] .mobile-app .mobile-metrics > div:last-child
 @media (max-width: 359px) {
   html[data-mobile-density="compact"] .mobile-app .mobile-metrics > div:last-child:nth-child(3n + 1) { grid-column: auto; }
 }
+
+.public-page-buttons{position:fixed;right:14px;bottom:calc(88px + env(safe-area-inset-bottom));display:flex;gap:6px;z-index:24}
+.public-page-buttons button{border:1px solid var(--line,#8793a4);border-radius:24px;background:var(--surface,#fff);color:var(--text,#172536);padding:9px 12px;box-shadow:0 3px 12px #0002}
+.public-share-preview{position:fixed;inset:8% 8px 90px;overflow:auto;z-index:50;background:var(--surface,#fff);padding:12px;border:1px solid var(--line,#8793a4);border-radius:12px}
+html[data-theme="dark"] .public-page-buttons button,html[data-theme="dark"] .public-share-preview{background:#14202c;color:#edf2f8}

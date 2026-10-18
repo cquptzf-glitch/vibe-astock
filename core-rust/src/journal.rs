@@ -29,7 +29,7 @@ pub fn init(db_path: &Path) -> Result<()> {
          CREATE TABLE IF NOT EXISTS journal_fills (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
            entry_id INTEGER NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
-           side TEXT NOT NULL CHECK(side IN ('buy', 'sell')),
+           side TEXT NOT NULL CHECK(side IN ('buy', 'sell', 'opening', 'split')),
            date TEXT NOT NULL,
            price REAL NOT NULL CHECK(price > 0),
            shares REAL NOT NULL CHECK(shares > 0),
@@ -47,6 +47,7 @@ pub fn view(db_path: &Path) -> Result<Value> {
     let conn = open(db_path)?;
     let settings = crate::journal_settings::load(db_path)?;
     let (fees, fees_default) = (settings.fees, settings.fees_default);
+    let settled: std::collections::HashMap<_,_> = crate::journal_risk::load_entries(db_path)?.into_iter().enumerate().map(|(i,e)| (e.id,crate::journal_risk::settle(e,&fees,i))).collect();
     let mut stmt = conn.prepare(
         "SELECT id, kind, symbol, name, date, playbook, as_planned,
                 planned_stop, planned_target, note, pnl_pct, created_at, updated_at
@@ -88,7 +89,8 @@ pub fn view(db_path: &Path) -> Result<Value> {
         } else {
             Vec::new()
         };
-        let metrics = metrics(&entry, &fills);
+        let mut metrics = metrics(&entry, &fills);
+        if let Some(r) = settled.get(&entry.id) { metrics.realized_pct=r.pnl_pct; metrics.realized_pnl=r.realized_pnl; metrics.closed=r.closed; metrics.open_shares=r.open_shares; }
         if let Some(pct) = metrics.realized_pct {
             scored += 1;
             if pct > 0.0 {
@@ -334,7 +336,7 @@ fn metrics(entry: &EntryRaw, fills: &[Value]) -> Metrics {
         let side = fill.get("type").and_then(Value::as_str).unwrap_or("");
         let price = fill.get("price").and_then(Value::as_f64).unwrap_or(0.0);
         let shares = fill.get("shares").and_then(Value::as_f64).unwrap_or(0.0);
-        if side == "buy" {
+        if matches!(side, "buy" | "opening") {
             buy_cost += price * shares;
             buy_shares += shares;
         } else if side == "sell" {
@@ -365,8 +367,14 @@ fn metrics(entry: &EntryRaw, fills: &[Value]) -> Metrics {
 
 fn validate_fill_balance(fills: &[Fill]) -> Result<()> {
     let mut balance = 0.0;
-    for fill in fills {
-        if fill.side == "buy" {
+    let mut ordered: Vec<_> = fills.iter().collect();
+    ordered.sort_by(|a,b|a.date.cmp(&b.date).then((a.side!="split").cmp(&(b.side!="split"))).then(a.sort_order.cmp(&b.sort_order)));
+    for fill in ordered {
+        if fill.side == "split" {
+            if balance <= 0.0 { return Err(anyhow!("送转拆股当时没有持仓")); }
+            balance *= fill.price;
+        } else if matches!(fill.side.as_str(), "buy" | "opening") {
+            if fill.side=="opening" && balance>0.000_001{return Err(anyhow!("已有持仓不能重复建立期初"));}
             balance += fill.shares;
         } else {
             balance -= fill.shares;
@@ -374,19 +382,22 @@ fn validate_fill_balance(fills: &[Fill]) -> Result<()> {
                 return Err(anyhow!("卖出股数不能超过此前买入股数"));
             }
         }
+        if !balance.is_finite()||balance>1e15{return Err(anyhow!("结转股数超过可计算范围"));}
     }
     Ok(())
 }
 
 fn parse_fill(value: &Value, sort_order: usize) -> Result<Fill> {
     let side = value.get("type").and_then(Value::as_str).unwrap_or("");
-    if side != "buy" && side != "sell" {
-        return Err(anyhow!("成交类型只能是 buy 或 sell"));
+    if !matches!(side, "buy" | "sell" | "opening" | "split") {
+        return Err(anyhow!("成交类型只能是 buy / sell / opening / split"));
     }
     let date = required_date(value.get("date").and_then(Value::as_str).unwrap_or(""))?;
     let price = positive_required(value.get("price"), "成交价")?;
     let shares = positive_required(value.get("shares"), "股数")?;
-    let fee = optional_number(value.get("fee"), "费用")?;
+    if side == "split" && (shares != 1.0 || !(0.001..=1000.0).contains(&price)) { return Err(anyhow!("送转比例为新股数/原股数，范围 0.001–1000，数量字段必须为 1")); }
+    if matches!(side,"split"|"opening") && optional_number(value.get("fee"),"费用")?.is_some_and(|v|v!=0.0){return Err(anyhow!("期初持仓和送转不产生费用；实际费用请按对应成交记录"));}
+    let fee = if matches!(side,"split"|"opening") { Some(0.0) } else { optional_number(value.get("fee"), "费用")? };
     if fee.is_some_and(|v| v < 0.0) {
         return Err(anyhow!("费用不能是负数"));
     }

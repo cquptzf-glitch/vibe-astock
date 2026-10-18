@@ -14,9 +14,9 @@ export function useDiscoveryData<T>(path: string) {
     setState((previous) => ({ path, data: previous.path === path ? previous.data : null, loading: true, error: "" }));
     void fetch("/api" + path, { headers: { Accept: "application/json" }, signal: controller.signal })
       .then(async (response) => {
-        const body = await response.json() as T & { message?: string };
+        const body = await response.json() as T & { message?: string; _cache?: { stale?: boolean; message?: string; saved_at?: string } };
         if (!response.ok) throw new Error(body.message || "数据源暂不可用，请重试");
-        if (current) setState({ path, data: body, loading: false, error: "" });
+        if (current) setState({ path, data: body, loading: false, error: body._cache?.stale ? `${body._cache.message ?? "旧缓存"} · 保存于 ${body._cache.saved_at ?? "时间未知"}` : "" });
       })
       .catch((error: unknown) => {
         if (current) setState({ path, data: null, loading: false, error: error instanceof Error ? error.message : String(error) });

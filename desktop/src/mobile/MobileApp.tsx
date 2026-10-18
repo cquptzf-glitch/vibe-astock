@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type ComponentType, type LazyExoticComponent, type ReactNode } from "react";
 import { ArrowLeft, BookmarkPlus, ChevronRight, RefreshCw, Search, Star } from "lucide-react";
 
+import { PublicPageActions } from "./PublicPageActions";
 import { clearAiPage, PERSONAL_PAGES, queueAiPrompt } from "./aiPageContext";
 import { EmotionTodayPanel, FirstBoardPanel, HomeEmotionBrief, LadderPanel, LimitUpTablePanel, MarketFactsPanel, ThemesPanel } from "./EmotionPanels";
 import { MarketOverview } from "./MarketOverview";
@@ -412,7 +413,7 @@ export function MobileApp() {
       case "firstBoard": return <FirstBoardPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
       case "seal": return <MarketFactsPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
       case "themes": return <ThemesPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
-      case "marketReview": return <MarketPanel onOpenSymbol={openFromList} />;
+      case "marketReview": return <MarketPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
       case "structure": return <StructurePanel />;
       case "samples": return <SamplesPanel />;
       case "weekly": return <WeeklyPanel onOpenSymbol={openFromList} onAskAi={askAi} />;
@@ -458,6 +459,7 @@ export function MobileApp() {
         )}
         {error && <div className="mobile-error">{error}</div>}
         <Suspense fallback={<div className="mobile-empty" role="status">加载中…</div>}>{renderPage()}</Suspense>
+      <PublicPageActions key={page} page={page} onAsk={askAi} />
       </main>
 
       <WorkspaceNav page={page} onNavigate={go} unreadMessages={unreadMessages} />

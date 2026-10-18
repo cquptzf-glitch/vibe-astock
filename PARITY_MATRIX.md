@@ -92,3 +92,21 @@ Android APK PASS
 8. Keep holdings derived from journal fills; do not add a second positions truth store.
 9. Keep AI API keys out of SQLite/localStorage and backups; use the Android Keystore boundary.
 10. Do not bundle Node or Python runtimes into the production APK to obtain parity.
+
+
+## 0.1.35 mobile expansion (2026-10-18)
+
+| Area | Mobile implementation | Evidence | Status |
+| --- | --- | --- | --- |
+| AI staged research / debate / emotion / weekly / industry | research_workflow + research-methodology.json | resume/cancel/late-result/math rejection/retry/archive tests; browser workflow | Implemented mobile snapshot workflow; full desktop calc/DAG parity pending |
+| Statements / consensus / valuation | research_extended | parser tests; live Sina/THS/Baidu probes | Implemented; provider continuity and real-device UX pending |
+| Advanced backtest | backtest_advanced / backtest_rules / ai_backtest | deterministic resampling, WFO no future dependence, rebalance cash bounds; live single/multi run | Implemented subset; historical ST/IPO automatic metadata still absent |
+| Corporate actions / opening positions | journal_fills v13 + unified settle; backup v11 | FIFO/partial sell/restore/no fake cash flow tests | Implemented; split MFE excluded rather than guessed |
+| Scan / Android service | market_scan + MarketMonitorService | parsing and native source compile | Full-market quote/minute sampling; exchange tick feed and device lifecycle unverified |
+| Calendar / event reminders | calendar_sources + native rules | complete-month validation, reminder/backup/done state tests; live SZSE | Implemented SZSE month semantics; special exchange-specific coverage pending |
+| Documents / controlled chat | document_import + chat_tools/chat_documents | file parsers, arithmetic round trip, budget, citation refusal tests | Implemented bounded retrieval; scanned PDFs/OCR and original PDF page citations not supported |
+| Public-page assistant / share / offline | PublicPageActions / provider_cache | SSR/Edge and offline API tests | Implemented text-summary cards and labeled historical cache |
+| Supply-chain / event probability | industry_revenue / probability / Kalshi GPU ladder | parsing tests; quote types, source gaps explicit | Implemented bounded scans; Kalshi transport/live monthly-revenue acceptance pending |
+| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 174-screen smoke | Frontend verified locally; final APK awaits CI |
+
+Validation remains scoped: local Core/frontend checks do not certify Android lifecycle, official signing, full legacy parity or all public providers. See ANDROID_REMAINING.md for outstanding items and release receipts.

@@ -223,6 +223,16 @@ async fn fetch_eastmoney_quote(client: &Client, symbol: &SymbolKey) -> Result<Va
 }
 
 pub(crate) async fn fetch_kline(client: &Client, symbol: &SymbolKey, bars: usize) -> Result<Value> {
+    match fetch_kline_primary(client,symbol,bars).await{
+        Ok(result)=>Ok(result),
+        Err(error)=>{
+            let rows=crate::chart::backtest_fallback(client,symbol,bars).await?;
+            Ok(json!({"script":"fetch_kline","symbol":symbol.digits,"market":symbol.market.as_str(),"status":"partial","primary_source":"tencent","used_sources":["tencent"],"fetched_at":Utc::now().to_rfc3339(),"extra":{"rows":rows,"fallback_reason":format!("东财日线失败:{error}")},"missing":[],"errors":[]}))
+        }
+    }
+}
+
+async fn fetch_kline_primary(client: &Client, symbol: &SymbolKey, bars: usize) -> Result<Value> {
     let root = crate::discovery::get_json(client,
         "https://push2his.eastmoney.com/api/qt/stock/kline/get",
         &[("secid", symbol.eastmoney.clone()), ("fields1", "f1,f2,f3,f4,f5,f6".into()),

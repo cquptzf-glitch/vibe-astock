@@ -5,6 +5,7 @@ import test from "node:test";
 import { withRenderer } from "./helpers/render.ts";
 
 const historyFixture = JSON.parse(readFileSync(new URL("./fixtures/mobile-history-2026-10-16.json", import.meta.url), "utf8"));
+const marketFixture = JSON.parse(readFileSync(new URL("./fixtures/mobile-market-panel-2026-10-16.json", import.meta.url), "utf8"));
 const emotion = JSON.parse(readFileSync(new URL("./fixtures/mobile-emotion-2026-10-16.json", import.meta.url), "utf8")).emotion;
 
 test("今日情绪页文字:只写页面上有的读数,取不到的写原因", async () => {
@@ -88,6 +89,19 @@ test("盘面事实与涨停全表页文字:不可用的块写原因,涨停池超
     assert.ok(many.includes("另有 10 只未列出") && many.includes("炸板池 暂不可用(东财取不到)"), many);
     assert.ok(many.indexOf("| 5板") < many.indexOf("| 2板") && !many.includes("| 1板"), "连板高的在前");
     assert.equal(limitUpTableContext({ ...emotion, limit_up_rows: [], broken_rows: { available: false, reason: "x" }, limit_down_rows: { available: false, reason: "x" } }), null);
+  });
+});
+
+test("市场面板页文字:各块都写数字,取不到写原因,不是复盘日的数据标出来;不含个人数据", async () => {
+  await withRenderer(async (r) => {
+    const { marketPanelContext } = await r.load("/src/mobile/aiPageContext.ts");
+    const text = marketPanelContext(marketFixture);
+    for (const part of [`复盘日 ${marketFixture.date}`, "主要指数", "上证指数", "成交额:最新", "两融余额", "国债收益率", "沪深 300 估值", "全球市场", "行业资金", "龙虎榜", "只描述已经发生的市场状态"]) assert.ok(text.includes(part), part + "\n" + text);
+    assert.ok(text.includes("1.56万亿") || text.includes("15554") || text.includes("亿"), "成交额带单位");
+    const gappy = marketPanelContext({ ...marketFixture, trend: { available: false, reason: "东财取不到" }, amount: { available: false, reason: "x" }, margin: { available: false, reason: "y" }, bond: { available: false, reason: "z" },
+      board_flow: { ...marketFixture.board_flow, matches_review_day: false }, notes: ["某指数缺失"] });
+    for (const part of ["主要指数:暂不可用(东财取不到)", "成交额:暂不可用(x)", "两融:暂不可用(y)", "国债收益率:暂不可用(z)", "行业资金(不是复盘日的数据)", "说明:某指数缺失"]) assert.ok(gappy.includes(part), part);
+    assert.ok(!/持仓|我的交易|成本价/.test(text));
   });
 });
 

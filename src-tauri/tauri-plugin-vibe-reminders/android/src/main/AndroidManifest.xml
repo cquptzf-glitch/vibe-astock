@@ -2,4 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <application>
+        <service android:name="com.vibeastock.reminders.MarketMonitorService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <activity android:name="com.vibeastock.mobile.MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vibeastock" android:host="stock" />
+                <data android:scheme="vibeastock" android:host="calendar" />
+                <data android:scheme="vibeastock" android:host="research" />
+            </intent-filter>
+        </activity>
+    </application>
 </manifest>

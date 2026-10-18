@@ -195,6 +195,7 @@ pub(crate) fn compute_excursion(t: &Input, rows: &[Hl]) -> Computed {
 pub(crate) enum Eligibility {
     Ok(Input),
     NotClosed,
+    Split,
     Bj,
 }
 
@@ -203,6 +204,7 @@ pub(crate) fn eligibility(r: &Row) -> Eligibility {
     if r.e.kind != "episode" || !r.closed || !(r.avg_cost > 0.0) {
         return Eligibility::NotClosed;
     }
+    if r.e.fills.iter().any(|f|f.side=="split") {return Eligibility::Split;}
     if is_bj(&r.e.symbol) {
         return Eligibility::Bj;
     }
@@ -347,13 +349,14 @@ where
     Fut: Future<Output = Result<Vec<Hl>>>,
 {
     let recent = &rows[..rows.len().min(EXCURSION_LIMIT)];
-    let (mut not_closed, mut bj) = (0usize, 0usize);
+    let (mut not_closed, mut bj,mut known_splits) = (0usize, 0usize,0usize);
     let mut todo: Vec<Input> = Vec::new();
     for r in recent {
         match eligibility(r) {
             Eligibility::Ok(t) => todo.push(t),
             Eligibility::NotClosed => not_closed += 1,
             Eligibility::Bj => bj += 1,
+            Eligibility::Split => known_splits += 1,
         }
     }
     let conn = open(db)?;
@@ -393,7 +396,7 @@ where
         .buffer_unordered(CONCURRENCY)
         .collect()
         .await;
-    let (mut items, mut failures, mut split) = (Vec::new(), Vec::new(), 0usize);
+    let (mut items, mut failures, mut split) = (Vec::new(), Vec::new(), known_splits);
     let (mut intraday, mut cached_n) = (0usize, 0usize);
     // 保持输入顺序(稳定):按 key 对回 recent 里的顺序
     let order: HashMap<String, usize> = recent.iter().enumerate().map(|(i, r)| (format!("mobile:{}", r.e.id), i)).collect();

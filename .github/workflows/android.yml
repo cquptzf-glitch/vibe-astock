@@ -131,12 +131,15 @@ jobs:
       - name: Test frontend
         run: npm test --prefix desktop
 
+      - name: Build standalone mobile frontend
+        run: npm run build:mobile --prefix desktop
+
       - name: Verify compact and light mobile UI
         shell: bash
         run: |
           npm install --prefix "$RUNNER_TEMP/mobile-ui" --no-package-lock playwright@1.56.1
           "$RUNNER_TEMP/mobile-ui/node_modules/.bin/playwright" install --with-deps chromium
-          npm run preview --prefix desktop -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/mobile-ui-server.log" 2>&1 &
+          npm run preview:mobile --prefix desktop -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/mobile-ui-server.log" 2>&1 &
           UI_SERVER_PID=$!
           trap 'kill "$UI_SERVER_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do

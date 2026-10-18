@@ -16,7 +16,7 @@ struct SyncRulesRequest {
 pub struct VibeReminders<R: Runtime>(PluginHandle<R>);
 
 pub fn init<R: Runtime, C: DeserializeOwned>(
-    app: &AppHandle<R>,
+    _app: &AppHandle<R>,
     api: PluginApi<R, C>,
 ) -> Result<VibeReminders<R>> {
     let handle = api.register_android_plugin("com.vibeastock.reminders", "RemindersPlugin")?;
@@ -24,6 +24,9 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 }
 
 impl<R: Runtime> VibeReminders<R> {
+    pub fn monitor(&self, request:&Value)->Result<Value>{
+        self.0.run_mobile_plugin("monitor",SyncRulesRequest{snapshot_json:serde_json::to_string(request)?}).map_err(Into::into)
+    }
     pub fn sync_rules(&self, snapshot: &Value) -> Result<ReminderSyncStatus> {
         let rule_count = rule_count(snapshot);
         let request = SyncRulesRequest {

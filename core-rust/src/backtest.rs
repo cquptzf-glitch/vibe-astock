@@ -12,6 +12,10 @@ use crate::{journal_settings::{Fees, DEFAULT_FEES}, quote, symbol::normalize_sto
 use anyhow::{anyhow, Result};
 use reqwest::Client;
 use serde_json::{json, Map, Value};
+#[path = "backtest_advanced.rs"]
+mod advanced;
+#[path="backtest_rules.rs"]
+mod rules;
 
 const LOT: f64 = 100.0;
 const SYMBOLS_MAX: usize = 5;
@@ -21,7 +25,11 @@ struct Bar {
     date: String,
     open: f64,
     close: f64,
+    tradable: bool,
+    limit_override: Option<f64>,
 }
+
+impl Bar { fn limit(&self,fallback:Option<f64>)->Option<f64>{fallback?;match self.limit_override {Some(0.0)=>None,Some(v)=>Some(v),None=>fallback}} }
 
 #[derive(Debug, Clone, PartialEq)]
 enum Strategy {
@@ -173,7 +181,7 @@ fn simulate(data: &[Bar], strategy: &Strategy, costs: Costs, initial: f64, stop_
     let (mut blocked_buys, mut blocked_sells) = (0usize, 0usize);
     for i in warmup..data.len() {
         let bar = &data[i];
-        if i > warmup {
+        if i > warmup && bar.tradable {
             let (want_in, mut want_out) = strategy.decide(&closes, &rsi, i);
             let mut reason = "信号";
             if let (Some(sl), Some((_, px, _))) = (stop_loss_pct, entry.as_ref()) {
@@ -184,8 +192,8 @@ fn simulate(data: &[Bar], strategy: &Strategy, costs: Costs, initial: f64, stop_
             }
             // 涨跌停:开盘价贴着涨停价买不进、贴着跌停价卖不出(0.1% 容差吸收取整);信号保留,下一根开盘再试
             let gap = bar.open / data[i - 1].close - 1.0;
-            let buy_blocked = limit_pct.is_some_and(|l| gap >= l - 0.001);
-            let sell_blocked = limit_pct.is_some_and(|l| gap <= -l + 0.001);
+            let buy_blocked = bar.limit(limit_pct).is_some_and(|l| gap >= l - 0.001);
+            let sell_blocked = bar.limit(limit_pct).is_some_and(|l| gap <= -l + 0.001);
             if shares == 0.0 && want_in && buy_blocked {
                 blocked_buys += 1;
             } else if shares > 0.0 && want_out && sell_blocked {
@@ -584,9 +592,11 @@ fn optimize_value(data: &[Bar], base: &Strategy, costs: Costs, initial: f64, sto
 
 pub async fn run(client: &Client, body: &Value) -> Result<Value> {
     let symbols = parse_symbols(body)?;
+    let market_rules=rules::parse(body,&symbols)?;
+    let (start_date,end_date)=rules::range(body)?;
     let strategy = parse_strategy(body)?;
     let (costs, costs_detail) = parse_costs(body)?;
-    let bars = uint(body, "bars", 500, strategy.warmup() as u64 + 5, 1000)? as usize;
+    let bars = uint(body, "bars", 500, strategy.warmup() as u64 + 5, 4000)? as usize;
     let initial = num(body, "initial_capital", 100_000.0, f64::MIN_POSITIVE, 100_000_000.0)
         .map_err(|_| anyhow!("initial_capital 必须在 0 到 1 亿元之间"))?;
     let stop = match body.get("stop_loss_pct") {
@@ -596,17 +606,37 @@ pub async fn run(client: &Client, body: &Value) -> Result<Value> {
     let want_experiment = body.get("experiment").and_then(Value::as_bool).unwrap_or(false);
     let limit_check = body.get("limit_check").and_then(Value::as_bool).unwrap_or(true);
     let want_optimize = body.get("optimize").and_then(Value::as_bool).unwrap_or(false);
+    let rebalance=uint(body,"rebalance_every",0,0,252)?;
+    if rebalance>0&&symbols.len()<2{return Err(anyhow!("再平衡需要至少两只股票"));}
+    if body["walk_forward"]==true&&symbols.len()>1{return Err(anyhow!("滚动样本外仅支持单只股票"));}
     if (want_experiment || want_optimize) && symbols.len() > 1 {
         return Err(anyhow!("参数实验和样本外检验只支持单只股票"));
     }
 
+    let calendar=crate::chart::index_closes(client,"1.000300",4000).await;
+    let mut provenance=Vec::new();
     let mut all: Vec<(crate::symbol::SymbolKey, Vec<Bar>)> = Vec::new();
     for key in &symbols {
-        let envelope = quote::fetch_kline(client, key, bars).await?;
+        let envelope = quote::fetch_kline(client, key, if start_date.is_some()||end_date.is_some(){4000}else{bars}).await?;
         let raw_rows = envelope.pointer("/extra/rows").and_then(Value::as_array).ok_or_else(|| anyhow!("{} 的 K 线返回缺少 rows", key.digits))?;
-        all.push((key.clone(), raw_rows.iter().filter_map(parse_bar).collect()));
+        let mut data:Vec<Bar>=raw_rows.iter().filter_map(parse_bar).collect();
+        if start_date.as_ref().is_some_and(|s|data.first().is_none_or(|b|&b.date>s)){return Err(anyhow!("{} 的行情没有覆盖请求起点，未把后来的样本冒充完整区间",key.digits));}
+        provenance.push(json!({"symbol":key.digits,"source":envelope["primary_source"],"status":envelope["status"],"fetched_at":envelope["fetched_at"],"fallback_reason":envelope["extra"]["fallback_reason"]}));
+        if data.len()!=raw_rows.len(){return Err(anyhow!("{} 存在无效 K 线，未静默跳过后计算",key.digits));}
+        if let Ok(calendar)=&calendar{data=rules::complete_calendar(&data,calendar);}
+        data.retain(|b|start_date.as_ref().is_none_or(|s|&b.date>=s)&&end_date.as_ref().is_none_or(|e|&b.date<=e));
+        rules::apply(&key.digits,&mut data,&market_rules);
+        all.push((key.clone(), data));
     }
-    build_result(&all, &strategy, costs, costs_detail, initial, stop, want_experiment, limit_check, want_optimize)
+    let mut result=build_result(&all, &strategy, costs, costs_detail, initial, stop, want_experiment, limit_check, want_optimize)?;
+    advanced::enhance(client,body,&mut result,&all,&strategy,costs,initial,stop,limit_check).await?;
+    result["data_sources"]=json!(provenance);
+    result["requested_range"]=json!({"start":start_date,"end":end_date,"note":"取得区间含预热期；实际策略区间为 period，不把未取得的日期当成已经回测。"});
+    result["market_rules"]=json!({"explicit_intervals":market_rules.len(),"note":"创业板按改革日期区分幅度；ST、上市初期与重新上市需提供带日期的 market_rules(0 表示无限制)。没有完整历史制度数据时仅按板块近似，不能用于精确成交可达性判断。"});
+    result["suspension"]["calendar_available"]=json!(calendar.is_ok());
+    result["suspension"]["calendar_error"]=json!(calendar.err().map(|e|e.to_string()));
+    result["suspension"]["note"]=json!("零量及指数日历内缺失日禁止成交，最近已知收盘估值；日历缺失时仅按已有日线计算并披露缺口。起止区间以取得的真实行情为准。");
+    Ok(result)
 }
 
 /// 取到行情后的全部计算(不碰网络,测试直接喂 K 线)
@@ -625,12 +655,7 @@ fn build_result(
     let aligned: Vec<Vec<Bar>> = if all.len() == 1 {
         vec![all[0].1.clone()]
     } else {
-        let mut common: Vec<String> = all[0].1.iter().map(|b| b.date.clone()).collect();
-        for (_, rows) in &all[1..] {
-            let set: std::collections::HashSet<&str> = rows.iter().map(|b| b.date.as_str()).collect();
-            common.retain(|d| set.contains(d.as_str()));
-        }
-        all.iter().map(|(_, rows)| rows.iter().filter(|b| common.contains(&b.date)).cloned().collect()).collect()
+        advanced::align_union(all)?
     };
     let share = initial / all.len() as f64;
     let mut sims = Vec::new();
@@ -756,10 +781,10 @@ fn parse_bar(row: &Value) -> Option<Bar> {
     let date = items.first()?.as_str()?.to_string();
     let open = items.get(1).and_then(number)?;
     let close = items.get(2).and_then(number)?;
-    if date.is_empty() || open <= 0.0 || close <= 0.0 {
+    if date.is_empty() || !open.is_finite() || !close.is_finite() || open <= 0.0 || close <= 0.0 {
         return None;
     }
-    Some(Bar { date, open, close })
+    Some(Bar { date, open, close, tradable:items.get(5).and_then(number).is_none_or(|v|v>0.0),limit_override:None })
 }
 
 fn number(value: &Value) -> Option<f64> {
@@ -809,7 +834,7 @@ mod tests {
     const NO_COST: Costs = Costs { fees: None, slippage_bps: 0.0, position_pct: 100.0 };
 
     fn bar(day: usize, open: f64, close: f64) -> Bar {
-        Bar { date: format!("2026-01-{:02}", day + 1), open, close }
+        Bar { date: format!("2026-01-{:02}", day + 1), open, close, tradable:true,limit_override:None }
     }
 
     /// 先横盘 40 根再单边上涨 40 根,开盘价 = 前一收盘

@@ -112,7 +112,7 @@ pub(crate) fn settle(e: Entry, fees: &Fees, index: usize) -> Row {
         return Row { pnl_pct: e.pnl_pct_manual, closed: e.pnl_pct_manual.is_some(), e, index, ..Row::default() };
     }
     let mut fills = e.fills.clone();
-    fills.sort_by(|a, b| a.date.cmp(&b.date));
+    fills.sort_by(|a, b| a.date.cmp(&b.date).then((a.side!="split").cmp(&(b.side!="split"))));
     let (mut pos, mut cost, mut pending_fee) = (0.0_f64, 0.0_f64, 0.0_f64);
     let (mut gross, mut r_cost, mut r_fee) = (0.0, 0.0, 0.0);
     let mut by_date: BTreeMap<String, f64> = BTreeMap::new();
@@ -121,7 +121,10 @@ pub(crate) fn settle(e: Entry, fees: &Fees, index: usize) -> Row {
     let mut peak_cost = 0.0_f64;
     let mut lots: std::collections::VecDeque<Lot> = std::collections::VecDeque::new();
     for f in &fills {
-        if f.side == "buy" {
+        if f.side == "split" {
+            pos *= f.price;
+            for lot in &mut lots { lot.shares *= f.price; lot.price /= f.price; }
+        } else if matches!(f.side.as_str(), "buy" | "opening") {
             let fee = f.fee.unwrap_or_else(|| fees.estimate("buy", f.price, f.shares));
             pos += f.shares;
             cost += f.price * f.shares;

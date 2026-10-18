@@ -53,6 +53,8 @@ const overview = {
 };
 const responses = {
   "/health": { ok: true, version: version + "-mobile" },
+  "/mobile/research/workflows": {tasks:[]},
+  "/mobile/cache": {offline:false,cached_responses:2,scope:"公开数据缓存"},
   "/mobile/watchlist": { items: watchlist },
   "/mobile/market-overview": overview,
   "/mobile/monitor": monitor,
@@ -100,7 +102,7 @@ const responses = {
   "/mobile/shortline/samples": samplesFixture,
 };
 const quote = { symbol: "600519", market: "SH", status: "ok", primary_source: "tencent", extra: { name: "贵州茅台", quote_date: "2026-10-16" }, evidence: [["price", 1329, "元"], ["change_pct", 1.22, "%"], ["pe_ttm", 19.81, "倍"], ["pb", 7.1, "倍"], ["turnover_pct", .31, "%"], ["total_market_cap", 16692.24, "亿元"]].map(([field, value, unit]) => ({ field, value, unit })) };
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, ...(process.env.VIBE_UI_CHANNEL ? { channel: process.env.VIBE_UI_CHANNEL } : {}) });
 const errors = [];
 try {
   for (const width of [360, 390, 768]) {
@@ -127,6 +129,15 @@ try {
           if (command === "mobile_api") {
             const request = args.request;
             const route = request.path.split("?")[0];
+            if(route==="/mobile/ai/workflow") {
+              if(request.body.action==="advance") {
+                window.__researchTask.results.push({stage:window.__researchTask.stages[window.__researchTask.results.length],paragraphs:[{text:"仅为合成的浏览器测试结论，存在资料缺口。",evidence:["E1"]}],checks:[{ok:true,level:"source",actual:20,claim:{label:"合成数值"}}],conditions:[],verified:true,model:"fixture",at:"2026-10-18"});
+                if(window.__researchTask.results.length===2)window.__researchTask.status="complete";
+                window.__researchTask.archive_id=99;
+              }else window.__researchTask={id:88,title:"合成流程测试",mode:"deep",date:"2026-10-18",status:"active",stages:["合成阶段甲","合成阶段乙"],results:[],revision:0,gaps:[{source:"合成源",reason:"未取得完整财务"}]};
+              return {status:200,body:structuredClone(window.__researchTask)};
+            }
+            if(route==="/mobile/research/workflows")return {status:200,body:{tasks:window.__researchTask?[structuredClone(window.__researchTask)]:[]}};
             if (route === "/fetch") return { status: 200, body: { envelope: request.body.endpoint === "kline" ? { ...quote, extra: { rows: klineRows } } : quote } };
             return { status: responses[route] ? 200 : 501, body: responses[route] || { message: "未提供界面测试样本" } };
           }
@@ -165,6 +176,22 @@ try {
       await page.getByLabel("对话列表").waitFor();
       await page.getByRole("button", { name: "新对话", exact: true }).waitFor();
       await assertWidth();
+      await page.getByLabel("允许公开数据与计算工具",{exact:false}).check();
+      await page.getByLabel("检索本机资料库",{exact:false}).check();
+      await page.getByRole("tab",{name:"研究 / 辩论 / 复盘",exact:true}).click();
+      await page.getByLabel("研究股票代码",{exact:true}).fill("600519");
+      await page.getByLabel("研究问题",{exact:true}).fill("仅测试合成流程");
+      await page.getByRole("button",{name:"创建新研究",exact:true}).click();
+      await page.getByRole("heading",{name:"合成流程测试",exact:true}).waitFor();
+      await page.getByRole("button",{name:"执行下一阶段",exact:true}).click();
+      await page.getByText("已完成 1/2 阶段",{exact:false}).waitFor();
+      await assertWidth();
+      await page.screenshot({path:path.join(out,width+"-"+theme+"-research-partial.png"),fullPage:true});
+      await page.getByRole("button",{name:"连续完成剩余阶段",exact:true}).click();
+      await page.getByText("全部阶段已完成",{exact:false}).waitFor();
+      await page.getByText("仅为合成的浏览器测试结论",{exact:false}).first().waitFor();
+      await assertWidth();
+      await page.screenshot({path:path.join(out,width+"-"+theme+"-research-complete.png"),fullPage:true});
       // 研报文件导入:选文本文件 → 预览 → 取消
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
       await page.locator(".directory-grid button", { hasText: "保存、查阅与检索报告正文" }).click();
@@ -439,8 +466,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 162, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 162 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 174, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, theme persistence/system switch, density, navigation and review pages, stock chart interactions, live watch, intraday, samples, journal risk, journal modes, journal review (inbox and excursion), journal environment, journal attribution, journal problems, market panel, structure, theme tree, previous broken boards; 174 screenshots.");
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
   const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);

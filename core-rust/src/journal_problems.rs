@@ -73,11 +73,14 @@ pub(crate) fn read_entries(conn: &Connection) -> Result<Vec<EntryRow>> {
 /// 按日期顺序重放(同一天按录入顺序):卖出比当时持有多的成交 → (成交 id, 当时持有, 卖出股数)。日期无效的单列
 pub(crate) fn fill_problems(fills: &[FillRow]) -> Vec<(i64, &'static str, String)> {
     let mut sorted: Vec<&FillRow> = fills.iter().filter(|f| valid_day(&f.date)).collect();
-    sorted.sort_by(|a, b| a.date.cmp(&b.date).then(a.sort_order.cmp(&b.sort_order)).then(a.id.cmp(&b.id)));
+    sorted.sort_by(|a, b| a.date.cmp(&b.date).then((a.side!="split").cmp(&(b.side!="split"))).then(a.sort_order.cmp(&b.sort_order)).then(a.id.cmp(&b.id)));
     let mut out: Vec<(i64, &'static str, String)> = fills.iter().filter(|f| !valid_day(&f.date)).map(|f| (f.id, "bad_date", format!("成交日期 {:?} 不是有效日期,没法按日期结算", f.date))).collect();
     let mut pos = 0.0_f64;
     for f in sorted {
-        if f.side == "buy" {
+        if f.side == "split" {
+            if pos <= EPS { out.push((f.id,"oversell",format!("{} 送转拆股时没有持仓",f.date))); }
+            pos *= f.price;
+        } else if matches!(f.side.as_str(), "buy" | "opening") {
             pos += f.shares;
         } else {
             if f.shares > pos + EPS {

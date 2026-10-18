@@ -112,6 +112,8 @@ export function AiChatPanel() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [documentsEnabled,setDocumentsEnabled]=useState(false);
+  const [toolsEnabled, setToolsEnabled] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [pendingUser, setPendingUser] = useState("");
   const [error, setError] = useState("");
@@ -165,17 +167,18 @@ export function AiChatPanel() {
     let unlisten: (() => void) | null = null;
     try {
       let result: ChatSendResult;
-      if (events) {
+      if (events && !toolsEnabled) {
         unlisten = await events.listen(DELTA_EVENT, (event) => {
           if (event.payload.request_id === requestId && event.payload.delta) setStreamText((t) => t + event.payload.delta);
         });
         result = await api<ChatSendResult>("/mobile/ai/chat/stream", { method: "POST", body: JSON.stringify({ content, thread_id: thread, request_id: requestId, page_context: pageContext }) });
       } else {
-        result = await api<ChatSendResult>("/mobile/ai/chat", { method: "POST", body: JSON.stringify({ content, thread_id: thread, page_context: pageContext }) });
+        result = await api<ChatSendResult>(toolsEnabled ? "/mobile/ai/chat/tools" : "/mobile/ai/chat", { method: "POST", body: JSON.stringify({ content, thread_id: thread, request_id: requestId, page_context: pageContext, tools_enabled: toolsEnabled, documents_enabled: toolsEnabled && documentsEnabled }) });
       }
       setMessages(result.history);
       setDraft("");
       setNotice(pageContext ? `已通过 ${result.model} 完成回复；按你的选择附带了页面「${pageContext.title}」的内容(只用于这一问);未附加自选、持仓、交易日志或日复盘数据。` : `已通过 ${result.model} 完成回复；未附加自选、持仓、交易日志或日复盘数据。`);
+      if (toolsEnabled) setNotice(`已通过 ${result.model} 完成受控工具对话，实际执行记录在回复末尾；未执行的工具不算成功。`);
       void api<ThreadList>("/mobile/ai/threads").then((list) => setThreads(list.threads)).catch(() => undefined);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -331,6 +334,8 @@ export function AiChatPanel() {
 
       {page && <label className="ai-chat-attach"><input type="checkbox" checked={attach} disabled={sending} onChange={(e) => setAttach(e.target.checked)} aria-label="附带当前页面" />
         <span>附带页面「{page.title}」的内容({page.text.length} 字)<small>只随这一问发给你配置的模型,不存进对话历史;个人成交、持仓、盈亏页面不会登记。</small></span></label>}
+      <label className="ai-chat-attach"><input type="checkbox" checked={toolsEnabled} disabled={sending} onChange={(e) => setToolsEnabled(e.target.checked)} /><span>允许公开数据与计算工具<small>只允许目录内取数与四则运算；本轮最多八次调用，完成后统一显示回复。</small></span></label>
+      {toolsEnabled && <label className="ai-chat-attach"><input type="checkbox" checked={documentsEnabled} disabled={sending} onChange={e=>setDocumentsEnabled(e.target.checked)} /><span>检索本机资料库<small>仅把匹配的正文片段交给模型；回答必须保留本轮 [资料:id] 引用。</small></span></label>}
       <div className="ai-chat-composer">
         <textarea
           value={draft}

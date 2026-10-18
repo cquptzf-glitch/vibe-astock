@@ -1538,3 +1538,24 @@ CI 与发布：代码 2d49f00 的 [Android CI #38983459066](https://github.com/c
 - **回测**(`core-rust/src/backtest.rs`):`Costs` 多了 `position_pct`(10–100,每次进场预算 = 空仓现金 × 比例)。`Sim` 多了 `bench`(同本金、从第一根交易日收盘买入持有的逐日权益,组合 = 各只相加),`monthly_table` 逐月链式计算(月初基准 = 上月最后一天权益,首月用本金;基准列同法),`drawdown_episodes` 取最深的 3 段(前高 / 谷底 / 恢复下标;起点前高是本金,日期写「期初」;没恢复 `recover_date` 为 null)。`optimize_value`:所有参数共用一个切分点(最长预热 + 剩余的 70%),样本内 = `data[..split]`,样本外 = 从 `split - 该参数预热` 起的切片(这样样本外第一个交易日正好是切分点,指标有足够历史);`best_in_sample` 取样本内收益最高的一格(并列取靠前),`oos_rank` = 它的样本外收益在全部参数里的名次。`optimize` 与 `experiment` 一样只支持单只,多只在联网前就拒绝(有测试)。
 - **前端**:`BacktestPanel` 新增仓位比例输入、样本外勾选、回撤 / 月度 / 样本内外三块结果表;`backtestCardRows` + `ShareCard.tsx` 新的通用 `RowsShareCard` 做回测分享图(标题固定「回测结果(历史假设)」)。`aiPageContext.ts` 新增 `marketFactsContext` / `limitUpTableContext`。
 - 真实行情没跑通的限制同 0.1.31(本机连东财日线被关闭 TLS):算法靠手算对账、合成数据和结构断言保证,**没有对真实行情核对过结果**。
+
+
+## 2026-10-18：0.1.35 功能扩展与未完边界
+
+按维护者「先把功能全部实现，交易数据发给模型的问题不用管」推进。保留前一轮自然语言回测草稿并接入正式运行；本轮没有重置既有交易/AI 数据规则。当前准确状态在 ANDROID_REMAINING.md 顶部，历史章节不再作为缺口来源。
+
+新增主要模块：`research_workflow`（固定阶段、受控证据、数字/引用审计、版本归档、取消回调隔离）、`research_extended`（Sina 三表、THS 汇总共识、Baidu 估值）、`backtest_advanced/backtest_rules`（CI/WFO/成本/再平衡/日历/历史规则覆盖）、`market_scan` 与 Android `MarketMonitorService`、`calendar_sources`、`provider_cache`、`document_import`、`chat_tools/chat_documents`、`industry_revenue`、`probability`、`journal_weekly`。研究提示规则快照在 core-rust/research-methodology.json，原宪法/SOP 变动须同步该文件。
+
+SQLite v13 在事务里重建 journal_fills CHECK，保留原成交 ID/顺序/FK，增加 opening/split；split.price 是新股数/原股数倍率，shares 固定 1、fee=0，原现金成交不改写。FIFO 批次按比例调整股数/单价，总成本不变；收益现金流中的 split 只调整对应轮次的股数增量，不能把整个股票总持仓重复乘倍率。journal 与 journal_review 统一使用 journal_risk::settle。备份 v11 含新方向并校验参数；旧备份仍支持。
+
+移动独立构建：desktop/src/mobileMain.tsx；Vite mode=mobile 的 HTML 入口替换必须 order=pre，否则仍会产出桌面路由。npm run build:mobile → dist-mobile，tauri.android.conf.json 指向该产物，CI 已增加独立构建/预览冒烟。
+
+本地已通过：Rust 287 + parity 1，前端 565，桌面/移动构建，Edge 174 张截图（新增流程全尺寸主题），Android ARM64 命令检查（需最终提交前核对）、原生服务 Android36 直接源码编译、外部深链 12 项断言。真实上游：三表/共识/估值/月历/GPU 现货/单多股票回测通过；Kalshi reqwest 返回 OS10054，不能记成功。真实模型长流程没有凭据验收。
+
+本机工程限制：JDK17 Windows AF_UNIX 的 PipeImpl.connect Invalid argument，用不存在的 .local/gradle-socket-fallback 作为 jdk.net.unixdomain.tmpdir 可让 JDK 回退 TCP（不要创建该目录）；此后 Gradle 被 dl.google.com 的 HTTPS 下载失败阻断。完整 APK Rust 链接时 SafeNet 把响应文件变成 E-SafeNet LOCK 密文，不能关闭或绕过该软件，改由 Linux CI 构建。ADB 无设备；正式发布密钥/AAB/HTTPS App Links 不具备验收条件。
+
+旧桌面全套默认并发出现权限命令超时等失败，低并发复核与 Python 环境补齐仍未通过；orchestrator 类型检查通过。不要宣称整个仓库全绿，等跨平台 CI 回执。未做隐私预扫描，沿用维护者对 Android 预览版的持续发布授权；未加入账户配置或日志产物。
+
+0.1.35 发布结果待补。后续优先剩余数据制度/逐笔源、桌面 calc/DAG 的完整等价、真机/原生测试和签名发行；不能将这批功能按钮可用等同全功能验收。
+
+补充：回测 UI 遵循 AGENTS.md 6.1，只保留 Agent 对话入口，删除旧参数表单；运行结果仍完整展示。迁移保留 journal_fills 的 AUTOINCREMENT 历史高水位，避免复用已删成交 ID。

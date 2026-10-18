@@ -6,6 +6,13 @@ import { textOf, withRenderer } from "./helpers/render.ts";
 const flat = (html: string) => textOf(html).replace(/\s+/g, "");
 const sq = (value: string) => value.replace(/\s+/g, "");
 
+test("回测页只提供 Agent 对话入口，参数通过补问确认",async()=>{
+  await withRenderer(async r=>{const {BacktestPanel}=await r.load("/src/mobile/BacktestPanel.tsx");const html=r.html(BacktestPanel,{});const text=textOf(html);
+    assert.match(text,/用对话完成历史假设核对/);assert.match(text,/让 AI 配置并运行/);
+    assert.doesNotMatch(html,/aria-label="股票代码"|aria-label="策略"|aria-label="日线根数"|<form/);
+  });
+});
+
 // 合成结果,不是真实行情
 const result = (over: Record<string, unknown> = {}) => ({
   status: "ok", symbol: "600001", market: "SH", symbols: ["600001"],
@@ -91,5 +98,29 @@ test("回测分享卡:标明历史假设,只放这次回测的读数;没有成�
     const text = flat(r.html(ResultView, { result: result() }));
     assert.ok(text.includes(sq("图片分享卡")) && text.includes(sq("生成回测结果(历史假设)分享图")) && text.includes(sq("不含自选与持仓")));
     assert.ok(!JSON.stringify(rows).includes("持仓") && !JSON.stringify(rows).includes("成交明细"));
+  });
+});
+
+test("自然语言回测的对话状态:补问记进历史、工具报错原样显示且历史不变、跑完清空、最多留 6 条", async () => {
+  await withRenderer(async (r) => {
+    const { reduceNl, NL_EMPTY, NlBacktestBox } = await r.load("/src/mobile/BacktestPanel.tsx");
+    const asked = reduceNl(NL_EMPTY, "回测一个策略", { status: "needs_info", question: "哪只股票?" });
+    assert.deepEqual(asked.state.history, [{ role: "user", content: "回测一个策略" }, { role: "assistant", content: "哪只股票?" }]);
+    assert.equal(asked.state.question, "哪只股票?");
+    assert.equal(asked.done, null);
+    const failed = reduceNl(asked.state, "茅台", { status: "tool_error", message: "回测工具没有运行成功:K 线不足" });
+    assert.equal(failed.state.error, "回测工具没有运行成功:K 线不足");
+    assert.equal(failed.state.history.length, 2, "报错不改历史");
+    assert.equal(failed.state.question, "");
+    let state = asked.state;
+    for (let i = 0; i < 4; i++) state = reduceNl(state, "再补" + i, { status: "needs_info", question: "q" + i }).state;
+    assert.equal(state.history.length, 6, "最多留 6 条");
+    assert.equal(state.history[5].content, "q3");
+    const ok = { status: "ok", report_markdown: "# 报告", result: result(), params_used: {}, ignored_params: [], resolved_symbols: ["600519"], saved_document_id: 7 };
+    const done = reduceNl(state, "茅台", ok);
+    assert.equal(done.done, ok);
+    assert.deepEqual(done.state, NL_EMPTY);
+    const html = flat(r.html(NlBacktestBox, { onDone: () => undefined }));
+    for (const part of ["用一句话回测", "让AI配置并运行", "不采信模型自己编的代码", "报告按真实结果生成并存进研究记录"]) assert.ok(html.includes(sq(part)), part);
   });
 });

@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::Utc;
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -10,6 +10,7 @@ const PLAYBOOKS: [&str; 6] = ["打板", "低吸", "接力", "半路", "套利", 
 pub fn view(db_path: &Path) -> Result<Value> {
     let conn = Connection::open(db_path).context("open mobile journal review sqlite")?;
     let fee_cfg = crate::journal_settings::load(db_path)?.fees;
+    let settled: std::collections::HashMap<_,_> = crate::journal_risk::load_entries(db_path)?.into_iter().enumerate().map(|(i,e)| (e.id,crate::journal_risk::settle(e,&fee_cfg,i))).collect();
     let mut stmt = conn.prepare(
         "SELECT id, kind, symbol, name, date, playbook, as_planned,
                 planned_stop, planned_target, pnl_pct
@@ -47,7 +48,9 @@ pub fn view(db_path: &Path) -> Result<Value> {
     for row in rows {
         let entry = row?;
         let metrics = if entry.kind == "episode" {
-            episode_metrics(&conn, entry.id, &fee_cfg)?
+            let r = &settled[&entry.id];
+            EpisodeMetrics { pnl_pct:r.pnl_pct, realized_pnl:r.realized_pnl, closed:r.closed, open_shares:r.open_shares,
+                avg_cost:(r.avg_cost>0.0).then_some(r.avg_cost), open_cost:Some(r.avg_cost*r.open_shares) }
         } else {
             EpisodeMetrics {
                 pnl_pct: entry.pnl_pct,
@@ -154,56 +157,6 @@ pub fn view(db_path: &Path) -> Result<Value> {
             "盈利因子只使用有成交金额的已结算记录；仅记盈亏%的补记不参与金额口径"
         ]
     }))
-}
-
-fn episode_metrics(conn: &Connection, entry_id: i64, fees_cfg: &crate::journal_settings::Fees) -> Result<EpisodeMetrics> {
-    let mut stmt = conn.prepare(
-        "SELECT side, price, shares, fee
-         FROM journal_fills WHERE entry_id = ?1 ORDER BY sort_order ASC, id ASC",
-    )?;
-    let fills = stmt.query_map(params![entry_id], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, f64>(1)?,
-            row.get::<_, f64>(2)?,
-            row.get::<_, Option<f64>>(3)?,
-        ))
-    })?;
-
-    let mut buy_amount = 0.0;
-    let mut sell_amount = 0.0;
-    let mut buy_shares = 0.0;
-    let mut sell_shares = 0.0;
-    let mut fees = 0.0;
-    for fill in fills {
-        let (side, price, shares, fee) = fill?;
-        if side == "buy" {
-            buy_amount += price * shares;
-            buy_shares += shares;
-        } else if side == "sell" {
-            sell_amount += price * shares;
-            sell_shares += shares;
-        }
-        fees += fee.unwrap_or_else(|| fees_cfg.estimate(&side, price, shares));
-    }
-
-    let open_shares = (buy_shares - sell_shares).max(0.0);
-    let closed = buy_shares > 0.0 && (buy_shares - sell_shares).abs() < 0.000_001;
-    let avg_cost = if buy_shares > 0.0 { Some(buy_amount / buy_shares) } else { None };
-    let open_cost = avg_cost.map(|cost| cost * open_shares);
-    let realized_pnl = if closed { Some(sell_amount - buy_amount - fees) } else { None };
-    let pnl_pct = realized_pnl.and_then(|pnl| {
-        if buy_amount > 0.0 { Some(pnl / buy_amount * 100.0) } else { None }
-    });
-
-    Ok(EpisodeMetrics {
-        pnl_pct: pnl_pct.map(round2),
-        realized_pnl: realized_pnl.map(round2),
-        closed,
-        open_shares,
-        avg_cost,
-        open_cost,
-    })
 }
 
 fn round2(value: f64) -> f64 {

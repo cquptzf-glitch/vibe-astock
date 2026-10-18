@@ -9,6 +9,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { fmtNumber, fmtPercent, fmtYuan } from "./discoveryData";
 import "./monitor.css";
 import { usePresentation } from "./presentation";
+import { MarketScannerPanel } from "./MarketScannerPanel";
+import "./research-workflow.css";
 
 export type AlertKind = "急拉" | "急跌" | "封板" | "开板";
 export interface WatchAlert { ts: string; code: string; name: string; kind: AlertKind; change_pct: number | null; price: number | null; pct: number | null; msg: string; sources: string[] }
@@ -289,6 +291,7 @@ export function MonitorPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) 
         <RefreshCw size={17} className={loading ? "spin" : ""} />
       </button>
     </div>
+    <MarketScannerPanel onOpen={onOpenSymbol} />
     {!data && (error
       ? <div className="monitor-error" role="alert">实时动态这次没取到:{error}。<button type="button" className="discovery-action" onClick={refresh}>重试</button></div>
       : <div className="monitor-empty" role="status"><RefreshCw size={18} className="spin" /> 正在取名单和几百只票的行情,第一次要几秒…</div>)}

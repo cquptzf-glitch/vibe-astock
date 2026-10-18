@@ -77,8 +77,14 @@ const apiProxy: Record<string, ProxyOptions> = {
   },
 };
 
-export default defineConfig({
+export default defineConfig(({mode}) => {
+  const mobileBuild = mode === "mobile";
+  return {
+  build: { outDir: mobileBuild ? "dist-mobile" : "dist" },
   plugins: [react(), {
+    name: "mobile-entry",
+    transformIndexHtml: { order: "pre", handler(html: string) { return mobileBuild ? html.replace('/src/main.tsx', '/src/mobileMain.tsx') : html; } },
+  }, {
     name: "vra-remote-access",
     // 直接在钩子里 use 的中间件排在 Vite 自己的静态文件与代理之前：没过口令什么都拿不到。
     configurePreviewServer(server) { for (const m of remoteGate) server.middlewares.use(m); },
@@ -124,4 +130,5 @@ export default defineConfig({
     allowedHosts: remote ? true : [],
     proxy: apiProxy,
   },
+  };
 });

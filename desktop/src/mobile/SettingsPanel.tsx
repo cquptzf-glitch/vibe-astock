@@ -17,6 +17,7 @@ import { askConfirm } from "./controls";
 import "./settings.css";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { AiReviewPanel } from "./AiReviewPanel";
+import { OfflineSettings } from "./OfflineSettings";
 
 type DataSummary = {
   source: string;
@@ -426,6 +427,7 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
           </section>
 
           <section className="settings-block">
+            <OfflineSettings />
             <div className="settings-heading"><Database size={16} /><strong>本地数据概览</strong></div>
             <div className="settings-list">
               <div><span>自选股</span><b>{data.counts.watchlist} 只</b></div>

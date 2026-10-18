@@ -1,0 +1,27 @@
+.rw-panel { display: grid; gap: 14px; min-width: 0; }
+.rw-form { display: grid; gap: 10px; }
+.rw-form label { display: grid; gap: 5px; font-size: 12px; }
+.rw-form input,.rw-form textarea { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: inherit; }
+.rw-form textarea { min-height: 90px; resize: vertical; }
+.rw-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rw-panel button { padding: 9px 12px; border: 1px solid var(--mobile-border); border-radius: 8px; color: inherit; background: var(--mobile-card); }
+.rw-panel button:disabled { opacity: .5; }
+.rw-progress { display: flex; flex-wrap: wrap; gap: 8px 22px; padding-left: 20px; font-size: 11px; }
+.rw-progress .done { color: var(--mobile-primary); }
+.rw-stage { padding: 12px; margin: 12px 0; border: 1px solid var(--mobile-border); border-radius: 10px; }
+.rw-stage p { line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rw-results h2,.rw-stage h3 { font-size: 14px; }
+.rw-results small { opacity: .65; font-size: 10px; overflow-wrap: anywhere; }
+.rw-error { color: var(--mobile-danger, #d55); overflow-wrap: anywhere; }
+.rw-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; font-size: 11px; }
+.rw-history { display: grid; gap: 6px; margin-top: 8px; }
+.rw-results details { font-size: 12px; line-height: 1.7; }
+.rw-statement-table { overflow-x: auto; max-width: 100%; }
+.rw-statement-table table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.rw-statement-table td,.rw-statement-table th { padding: 7px; border-bottom: 1px solid var(--mobile-border); text-align: right; white-space: nowrap; }
+.rw-statement-table td:first-child,.rw-statement-table th:first-child { text-align: left; }
+.exchange-month { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 3px; margin: 8px 0; }
+.exchange-month > span { display: flex; flex-direction: column; text-align: center; font-size: 11px; padding: 5px 0; }
+.exchange-month > .closed { opacity: .45; }
+.exchange-month > .open { background: var(--mobile-card); border: 1px solid var(--mobile-border); }
+.exchange-month small { font-size: 9px; }

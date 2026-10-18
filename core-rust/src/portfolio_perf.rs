@@ -42,6 +42,7 @@ pub(crate) enum Side {
     Buy,
     Sell,
     Dividend,
+    Split,
 }
 
 #[derive(Clone, Debug)]
@@ -62,11 +63,15 @@ pub(crate) struct Flow {
 pub(crate) fn flows_of(rows: &[journal_risk::Row], dividends: &[crate::portfolio::Dividend], fees: &journal_settings::Fees) -> Vec<Flow> {
     let mut out = Vec::new();
     for r in rows.iter().filter(|r| r.e.kind == "episode") {
-        for f in &r.e.fills {
-            let buy = f.side == "buy";
+        let mut ordered:Vec<_>=r.e.fills.iter().collect(); ordered.sort_by(|a,b|a.date.cmp(&b.date).then((a.side!="split").cmp(&(b.side!="split"))));
+        let mut position=0.0;
+        for f in ordered {
+            let split_delta=position*(f.price-1.0);
+            if f.side=="split" {position*=f.price;}else if f.side=="sell"{position=(position-f.shares).max(0.0);}else{position+=f.shares;}
+            let buy = matches!(f.side.as_str(), "buy" | "opening");
             out.push(Flow {
-                symbol: r.e.symbol.clone(), name: r.e.name.clone(), date: f.date.clone(), side: if buy { Side::Buy } else { Side::Sell },
-                shares: f.shares, price: f.price, fee: f.fee.unwrap_or_else(|| fees.estimate(&f.side, f.price, f.shares)), amount: 0.0, fee_estimated: f.fee.is_none(),
+                symbol: r.e.symbol.clone(), name: r.e.name.clone(), date: f.date.clone(), side: if f.side == "split" { Side::Split } else if buy { Side::Buy } else { Side::Sell },
+                shares: if f.side=="split" {split_delta}else{f.shares}, price: f.price, fee: f.fee.unwrap_or_else(|| fees.estimate(&f.side, f.price, f.shares)), amount: 0.0, fee_estimated: f.fee.is_none(),
             });
         }
     }
@@ -144,6 +149,7 @@ pub(crate) fn compute(flows: &[Flow], closes: &HashMap<String, BTreeMap<String, 
     let mut prev_close_by_symbol: HashMap<&str, (String, f64)> = HashMap::new();
     for day in &days {
         let todays = by_day.get(day).cloned().unwrap_or_default();
+        for f in todays.iter().filter(|f|f.side==Side::Split) { *shares.entry(f.symbol.as_str()).or_default() += f.shares; }
         let mut invest = 0.0;
         for f in todays.iter().filter(|f| f.side == Side::Buy) {
             invest += f.price * f.shares + f.fee;
@@ -154,9 +160,10 @@ pub(crate) fn compute(flows: &[Flow], closes: &HashMap<String, BTreeMap<String, 
         for s in &included {
             if let Some(c) = closes[*s].get(day) {
                 if let Some((pd, pc)) = prev_close_by_symbol.get(s) {
-                    let ratio = c / pc;
+                    let multiplier = todays.iter().find(|f|f.side==Side::Split && f.symbol==**s).map(|f|f.price).unwrap_or(1.0);
+                    let ratio = c * multiplier / pc;
                     if (ratio < JUMP_DOWN || ratio > JUMP_UP) && shares.get(s).copied().unwrap_or(0.0) > EPS {
-                        warnings.push(format!("{s} 在 {day} 收盘价比 {pd} 变了 {:.0}%:可能是送转拆股没有记录(手机端没有送转流水),这一段的市值和时间加权收益可能算错", (ratio - 1.0) * 100.0));
+                        warnings.push(format!("{s} 在 {day} 收盘价比 {pd} 变了 {:.0}%:可能是送转拆股没有记录(未记录或记录不完整),这一段的市值和时间加权收益可能算错", (ratio - 1.0) * 100.0));
                     }
                 }
                 prev_close_by_symbol.insert(s, (day.clone(), *c));
@@ -164,7 +171,7 @@ pub(crate) fn compute(flows: &[Flow], closes: &HashMap<String, BTreeMap<String, 
             }
         }
         let mut withdraw = 0.0;
-        for f in todays.iter().filter(|f| f.side != Side::Buy) {
+        for f in todays.iter().filter(|f| matches!(f.side, Side::Sell | Side::Dividend)) {
             if f.side == Side::Sell {
                 let got = f.price * f.shares - f.fee;
                 withdraw += got;

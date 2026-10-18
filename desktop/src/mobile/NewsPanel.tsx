@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useDiscoveryData, type ProviderFailure } from "./discoveryData";
 import { openPublicUrl } from "./externalLinks";
 import "./discovery-features.css";
+import { AnnouncementRadar, ProbabilityPanel } from "./NewsExtras";
 
 interface Catalog { industries: { key: string; name: string }[]; sources: { name: string; industry: string }[] }
 export interface NewsItem { title: string; summary: string; link: string | null; published: string | null; source: string; redline: string[] }
@@ -34,7 +35,7 @@ export function NewsResults({ data, keyword = "", redlineOnly = false, onOpen }:
   );
 }
 
-export function NewsPanel() {
+function IndustryNews() {
   const catalog = useDiscoveryData<Catalog>("/mobile/news/catalog");
   const [industry, setIndustry] = useState("ai");
   const [source, setSource] = useState("");
@@ -65,4 +66,9 @@ export function NewsPanel() {
       {result.data && <NewsResults data={result.data} keyword={keyword} redlineOnly={redlineOnly} onOpen={(url) => { void openPublicUrl(url).catch((error: unknown) => setOpenError(error instanceof Error ? error.message : "无法打开原文")); }} />}
     </section>
   );
+}
+
+export function NewsPanel(){
+  const [tab,setTab]=useState("rss");
+  return <><div className="mobile-stock-tabs" role="tablist" aria-label="资讯分类"><button role="tab" aria-selected={tab==="rss"} onClick={()=>setTab("rss")}>产业资讯</button><button role="tab" aria-selected={tab==="announcements"} onClick={()=>setTab("announcements")}>A 股公告</button><button role="tab" aria-selected={tab==="probability"} onClick={()=>setTab("probability")}>事件概率</button></div>{tab==="rss"?<IndustryNews/>:tab==="announcements"?<AnnouncementRadar/>:<ProbabilityPanel/>}</>;
 }

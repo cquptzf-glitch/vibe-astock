@@ -24,7 +24,7 @@ type Mode = "record" | "manual";
 type Planned = "" | "true" | "false";
 
 type FillDraft = {
-  type: "buy" | "sell";
+  type: "buy" | "sell" | "opening" | "split";
   date: string;
   price: string;
   shares: string;
@@ -33,7 +33,7 @@ type FillDraft = {
 
 type JournalFill = {
   id: number;
-  type: "buy" | "sell";
+  type: "buy" | "sell" | "opening" | "split";
   date: string;
   price: number;
   shares: number;
@@ -105,7 +105,7 @@ function chinaToday(): string {
   }).format(new Date());
 }
 
-function emptyFill(type: "buy" | "sell", date = chinaToday()): FillDraft {
+function emptyFill(type: FillDraft["type"], date = chinaToday()): FillDraft {
   return { type, date, price: "", shares: "", fee: "" };
 }
 
@@ -139,7 +139,7 @@ function fillPayload(fills: FillDraft[]): { payload?: Record<string, unknown>[];
   const payload: Record<string, unknown>[] = [];
   for (const fill of fills) {
     const price = numberOrNull(fill.price);
-    const shares = numberOrNull(fill.shares);
+    const shares = fill.type === "split" ? 1 : numberOrNull(fill.shares);
     const fee = numberOrNull(fill.fee);
     if (!fill.date || price === null || price <= 0 || shares === null || shares <= 0) {
       return { error: "每笔成交都要填写日期、大于 0 的成交价和股数。" };
@@ -157,19 +157,20 @@ function FillEditor({ fills, onChange }: { fills: FillDraft[]; onChange: (fills:
     <div className="journal-v2-fill-editor">
       {fills.map((fill, index) => (
         <div className="journal-v2-fill-line" key={`${index}-${fill.type}`}>
-          <button type="button" className={fill.type === "buy" ? "buy" : "sell"} onClick={() => update(index, { type: fill.type === "buy" ? "sell" : "buy" })}>
-            {fill.type === "buy" ? "买" : "卖"}
-          </button>
+          <WebSelect aria-label="成交类型" value={fill.type} onChange={e=>{const type=e.target.value as FillDraft["type"];update(index,{type,...(type==="split"?{price:"",shares:"1",fee:"0"}:type==="opening"?{fee:"0"}:{})});}}><option value="buy">买入</option><option value="sell">卖出</option><option value="opening">期初</option><option value="split">送转</option></WebSelect>
           <DateField value={fill.date} onChange={(event) => update(index, { date: event.target.value })} />
-          <input type={pwType} autoComplete="off" inputMode="decimal" placeholder="成交价" value={fill.price} onChange={(event) => update(index, { price: event.target.value })} />
-          <input type={pwType} autoComplete="off" inputMode="numeric" placeholder="股数" value={fill.shares} onChange={(event) => update(index, { shares: event.target.value })} />
-          <input type={pwType} autoComplete="off" inputMode="decimal" placeholder="费用(可空)" value={fill.fee} onChange={(event) => update(index, { fee: event.target.value })} />
+          <input type={pwType} autoComplete="off" inputMode="decimal" placeholder={fill.type==="split"?"新股数/原股数":fill.type==="opening"?"每股期初成本":"成交价"} value={fill.price} onChange={(event) => update(index, { price: event.target.value })} />
+          <input type={pwType} autoComplete="off" inputMode="numeric" placeholder="股数" disabled={fill.type==="split"} value={fill.type==="split"?"1":fill.shares} onChange={(event) => update(index, { shares: event.target.value })} />
+          <input type={pwType} autoComplete="off" inputMode="decimal" disabled={fill.type==="split"||fill.type==="opening"} placeholder="费用(可空)" value={fill.fee} onChange={(event) => update(index, { fee: event.target.value })} />
           <button type="button" className="remove" onClick={() => onChange(fills.filter((_, i) => i !== index))}><X size={14} /></button>
         </div>
       ))}
       <div className="journal-v2-fill-actions">
         <button type="button" onClick={() => onChange([...fills, emptyFill("buy")])}>+ 买入</button>
         <button type="button" onClick={() => onChange([...fills, emptyFill("sell")])}>+ 卖出</button>
+        <button type="button" onClick={() => onChange([...fills, emptyFill("opening")])}>+ 期初持仓</button>
+        <button type="button" onClick={() => onChange([...fills, emptyFill("split")])}>+ 送转拆股</button>
+        <small>送转比例填新股数 / 原股数，每十股转十股填 2；合股填 0.5。同日送转在买卖之前结转。</small>
       </div>
     </div>
   );
@@ -385,7 +386,7 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
               {row.planned_stop !== null && <span>止损 {priv(String(row.planned_stop))}</span>}
               {row.planned_target !== null && <span>目标 {priv(String(row.planned_target))}</span>}
             </div>
-            {row.fills.length > 0 && <div className="journal-v2-fills">{row.fills.map((fill) => <div key={fill.id}><b className={fill.type === "buy" ? "buy" : "sell"}>{fill.type === "buy" ? "买" : "卖"}</b><span>{fill.date}</span><strong>{priv(`${fill.price.toLocaleString("zh-CN", { maximumFractionDigits: 3 })} × ${fill.shares.toLocaleString("zh-CN")}`)}</strong><small>费 {pm(fill.fee)}{fill.fee_estimated ? " 估" : ""}</small></div>)}</div>}
+            {row.fills.length > 0 && <div className="journal-v2-fills">{row.fills.map((fill) => <div key={fill.id}><b className={fill.type === "buy" ? "buy" : "sell"}>{({buy:"买",sell:"卖",opening:"期初",split:"送转"})[fill.type]}</b><span>{fill.date}</span><strong>{priv(`${fill.type==="split"?"股数倍率 ":""}${fill.price.toLocaleString("zh-CN", { maximumFractionDigits: 3 })} × ${fill.shares.toLocaleString("zh-CN")}`)}</strong><small>费 {pm(fill.fee)}{fill.fee_estimated ? " 估" : ""}</small></div>)}</div>}
             {row.note && <p>{row.note}</p>}
             <div className="journal-v2-actions">
               <button onClick={() => startEdit(row)}><Edit3 size={14} />编辑</button>

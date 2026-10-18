@@ -8,6 +8,7 @@ const KINDS: [&str; 3] = ["note", "report", "inbox"];
 pub fn list(db_path: &Path, path: &str) -> Result<Value> {
     let kind = query_param(path, "kind").unwrap_or_else(|| "note".to_string());
     validate_kind(&kind)?;
+    apply_policy(db_path,&kind)?;
     let conn = open(db_path)?;
     let mut stmt = conn.prepare(
         "SELECT id, kind, category, title, body, status, source, symbol, created_at, updated_at
@@ -27,8 +28,35 @@ pub fn list(db_path: &Path, path: &str) -> Result<Value> {
             "updated_at": row.get::<_, String>(9)?,
         }))
     })?;
-    let items = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    let include_internal=query_param(path,"include_internal").as_deref()==Some("1");
+    let items:Vec<Value> = rows.collect::<rusqlite::Result<Vec<_>>>()?.into_iter().filter(|r|include_internal||!internal(r["source"].as_str().unwrap_or(""))).collect();
     Ok(json!({ "kind": kind, "count": items.len(), "items": items }))
+}
+
+fn internal(source:&str)->bool{source=="mobile_research_task"||source.starts_with("calendar_reminder:")||source.starts_with("mobile_library_policy:")}
+
+pub fn policy(db:&Path,body:&Value)->Result<Value>{
+    use rusqlite::OptionalExtension;
+    let kind=required_text(body,"kind",32)?;validate_kind(&kind)?;
+    let days=body["days"].as_u64().filter(|v|(7..=3650).contains(v)).ok_or_else(||anyhow!("归档时间应为 7–3650 天"))?;
+    let category=optional_text(body,"category",100)?.unwrap_or_default();
+    let source=format!("mobile_library_policy:{kind}");let conn=open(db)?;
+    let existing:Option<i64>=conn.query_row("SELECT id FROM mobile_documents WHERE source=?1",[&source],|r|r.get(0)).optional()?;
+    save(db,&json!({"id":existing,"kind":"note","title":format!("资料自动归档:{kind}"),"category":"本机设置","source":source,"body":json!({"kind":kind,"days":days,"category":category,"enabled":body["enabled"].as_bool().unwrap_or(true)}).to_string()}))?;
+    let changed=apply_policy(db,&kind)?;
+    Ok(json!({"changed":changed,"enabled":body["enabled"].as_bool().unwrap_or(true)}))
+}
+
+fn apply_policy(db:&Path,kind:&str)->Result<usize>{
+    use rusqlite::OptionalExtension;
+    let conn=open(db)?;
+    let config:Option<String>=conn.query_row("SELECT body FROM mobile_documents WHERE source=?1",[format!("mobile_library_policy:{kind}")],|r|r.get(0)).optional()?;
+    let Some(config)=config else{return Ok(0)};let config:Value=serde_json::from_str(&config)?;
+    if config["enabled"]!=true{return Ok(0);}
+    let days=config["days"].as_i64().filter(|n|(7..=3650).contains(n)).ok_or_else(||anyhow!("归档规则损坏"))?;
+    let cutoff=(chrono::Utc::now()-chrono::Duration::days(days)).to_rfc3339();
+    let category=config["category"].as_str().unwrap_or("");
+    Ok(conn.execute("UPDATE mobile_documents SET status='archived' WHERE kind=?1 AND updated_at<?2 AND (?3='' OR category=?3) AND status IN ('active','read') AND source<>'mobile_research_task' AND source NOT LIKE 'calendar_reminder:%' AND source NOT LIKE 'mobile_library_policy:%'",params![kind,cutoff,category])?)
 }
 
 pub fn save(db_path: &Path, body: &Value) -> Result<Value> {
@@ -96,7 +124,7 @@ pub fn clear(db_path: &Path, body: &Value) -> Result<Value> {
         return Err(anyhow!("清空文档前必须明确确认"));
     }
     let conn = open(db_path)?;
-    let count = conn.execute("DELETE FROM mobile_documents WHERE kind=?1", [&kind])?;
+    let count = conn.execute("DELETE FROM mobile_documents WHERE kind=?1 AND source<>'mobile_research_task' AND source NOT LIKE 'calendar_reminder:%' AND source NOT LIKE 'mobile_library_policy:%'", [&kind])?;
     Ok(json!({ "cleared": true, "kind": kind, "count": count }))
 }
 

@@ -8,7 +8,7 @@ class ReminderNavigationTest {
     @Test
     fun acceptsOnlyKnownNotificationDestinations() {
         for (route in listOf(
-            "/mobile/journal/daily", "/mobile/reminders",
+            "/mobile/journal/daily", "/mobile/reminders", "/mobile/discovery/calendar",
             "/mobile/stock/SH600519", "/mobile/stock/SZ000001", "/mobile/stock/BJ430047",
         )) {
             assertEquals(route, validReminderRoute(route))

@@ -1,0 +1,5 @@
+{
+  "build": {
+    "frontendDist": "../desktop/dist-mobile"
+  }
+}
