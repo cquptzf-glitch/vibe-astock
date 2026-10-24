@@ -131,11 +131,16 @@ try {
         }
         // 自绘控件的事件轨迹:面板关不掉时,失败信息里带上点击与面板出现/消失的先后
         window.__trace = [];
+        window.__sharedFiles = [];
+        window.__chartTextLog = [];
+        const originalFillText = CanvasRenderingContext2D.prototype.fillText;
+        CanvasRenderingContext2D.prototype.fillText = function(...args) { window.__chartTextLog.push(String(args[0])); return Reflect.apply(originalFillText,this,args); };
         const mark = (what) => { if (window.__trace.length < 60) window.__trace.push(Math.round(performance.now()) + " " + what); };
         document.addEventListener("click", (event) => mark("click " + (event.target?.tagName ?? "?") + "." + (event.target?.className?.baseVal ?? event.target?.className ?? "") + " [" + String(event.target?.textContent ?? "").slice(0, 12) + "]"), true);
         new MutationObserver((records) => { for (const r of records) for (const n of [...r.addedNodes, ...r.removedNodes]) if (n.classList?.contains("wc-layer")) mark((r.addedNodes.length && [...r.addedNodes].includes(n) ? "layer+" : "layer-")); }).observe(document, { childList: true, subtree: true });
         window.__TAURI__ = { core: { invoke: async (command, args) => {
           if (command === "take_reminder_navigation") return null;
+          if (command === "share_file") { window.__sharedFiles.push(structuredClone(args.request)); return {ok:true}; }
           if (command === "mobile_api") {
             const request = args.request;
             const route = request.path.split("?")[0];
@@ -172,6 +177,32 @@ try {
       const assertWidth = async () => {
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
         assert.equal(overflow, false, width + " " + theme + " horizontal overflow");
+      };
+      const assertChartShare = async (name, requiredText) => {
+        const card=page.getByRole("region",{name:"当前图表图片分享",exact:true});
+        await page.evaluate(()=>{window.__chartTextLog=[];});
+        await card.getByRole("button",{name:"生成当前图表分享图",exact:true}).click();
+        const image=card.locator("img");
+        await image.waitFor({timeout:10000}).catch(async error=>{throw new Error(name+": "+await card.innerText()+" | "+error.message);});
+        await page.waitForFunction(()=>{const image=document.querySelector('.chart-share-card img');return image?.complete&&image.naturalWidth>0;});
+        const info=await image.evaluate(img=>({src:img.src,width:img.naturalWidth,height:img.naturalHeight}));
+        assert.equal(info.width,1080);
+        assert.ok(info.height>300&&info.height<=3200,name+" bounded PNG dimensions");
+        const bytes=Buffer.from(info.src.split(",")[1],"base64");
+        assert.equal(bytes.subarray(0,8).toString("hex"),"89504e470d0a1a0a");
+        const painted=await page.evaluate(()=>window.__chartTextLog.join(""));
+        assert.ok(painted.includes(requiredText),name+" must retain provenance/caveat: "+painted);
+        assert.ok(painted.includes("来源：")&&painted.includes("不构成买卖建议"));
+        if(name==="kline") { const range=(await page.locator(".kc-svg").getAttribute("aria-label")).match(/至\s+(\S+)\s+共/); assert.ok(range&&painted.includes("读数时点："+range[1]),"panned chart legend must use the last visible bar"); }
+        await card.getByRole("button",{name:"分享这张图表",exact:true}).click();
+        const shared=await page.evaluate(()=>window.__sharedFiles.at(-1));
+        assert.equal(shared.mime,"image/png");
+        assert.equal(shared.data_base64,info.src.split(",")[1],"native bridge receives the exact preview image");
+        assert.match(shared.name,/^vibe-astock-chart-[a-zA-Z0-9_-]+\.png$/);
+        fs.mkdirSync(path.join(out,"chart-exports"),{recursive:true});
+        fs.writeFileSync(path.join(out,"chart-exports",`${width}-${theme}-${name}.png`),bytes);
+        await assertWidth();
+        await card.screenshot({path:path.join(out,`${width}-${theme}-${name}-share-preview.png`)});
       };
       await assertWidth();
       const navTops = await page.locator(".mobile-nav button").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top));
@@ -237,6 +268,7 @@ try {
       await page.getByText("600001 · 未完整覆盖",{exact:false}).click();
       await assertWidth();
       await page.screenshot({path:path.join(out,width+"-"+theme+"-backtest-historical-rules.png"),fullPage:true});
+      await assertChartShare("backtest","历史制度存在缺口");
       // 研报文件导入:选文本文件 → 预览 → 取消
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
       await page.locator(".directory-grid button", { hasText: "保存、查阅与检索报告正文" }).click();
@@ -318,8 +350,22 @@ try {
       await page.getByText("MACD(12,26,9) DIF", { exact: false }).waitFor();
       await assertWidth();
       await page.locator(".kc-card").screenshot({ path: path.join(out, width + "-" + theme + "-chart.png") });
+      const shareCard=page.getByRole("region",{name:"当前图表图片分享",exact:true});
+      await chart.evaluate(svg=>svg.parentElement.setAttribute("data-private","true"));
+      await shareCard.getByRole("button",{name:"生成当前图表分享图",exact:true}).click();
+      await shareCard.getByRole("status").filter({hasText:"当前没有可分享的公开图表"}).waitFor();
+      assert.equal(await shareCard.locator("img").count(),0);
+      await chart.evaluate(svg=>svg.parentElement.removeAttribute("data-private"));
+      await chart.evaluate(svg=>{const bad=document.createElementNS("http://www.w3.org/2000/svg","foreignObject");bad.id="test-forbidden-share";svg.append(bad);});
+      await shareCard.getByRole("button",{name:"生成当前图表分享图",exact:true}).click();
+      await shareCard.getByRole("status").filter({hasText:"图表包含不可分享的内容"}).waitFor();
+      await page.locator("#test-forbidden-share").evaluate(el=>el.remove());
+      await assertChartShare("kline","MACD");
+      await page.getByRole("button",{name:"BOLL",exact:true}).click();
+      assert.equal(await shareCard.locator("img").count(),0,"indicator changes invalidate the previous chart snapshot");
       await page.getByRole("tab", { name: "分时", exact: true }).click();
       await page.getByRole("img", { name: "分时图" }).waitFor();
+      await assertChartShare("intraday","价格 / 均价 / 成交量");
       await page.getByRole("tab", { name: "日K", exact: true }).click();
       // 盯盘栏目:实时动态的异动流与名单页签,名单页签单行横向滚动
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "盯盘", exact: true }).click();
@@ -511,8 +557,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 198, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, prior market/journal/research pages, calculation audits, industry import preview and save, historical backtest coverage; 198 screenshots.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 216, chart_png_exports: 18, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, prior market/journal/research pages, calculation audits, industry import preview and save, historical backtest coverage, K-line/intraday/backtest chart PNG previews and native share payloads; 216 screenshots and 18 chart PNG exports.");
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
   const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);

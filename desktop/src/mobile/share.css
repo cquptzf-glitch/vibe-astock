@@ -42,3 +42,9 @@
 .share-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 .mobile-app .share-actions button { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 12px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 12px; }
 .emo-card-head h2 svg { vertical-align: -2px; margin-right: 4px; }
+
+.chart-share-card { margin-top: 12px; padding: 10px; border: 1px solid var(--mobile-border); border-radius: 10px; color: var(--mobile-text); background: var(--mobile-soft); }
+.chart-share-card > p { display: flex; align-items: center; gap: 5px; margin: 0 0 8px; font-size: 12px; }
+.chart-share-card > button { min-height: 40px; padding: 6px 12px; border: 1px solid var(--mobile-border); border-radius: 8px; color: var(--mobile-text); background: var(--mobile-card); font-size: 12px; }
+.chart-share-card > small { display: block; margin-top: 8px; color: var(--mobile-muted); font-size: 11px; line-height: 1.6; }
+.chart-share-card button:disabled { opacity: .5; }

@@ -8,6 +8,7 @@ import {
   MINUTE_SLOTS, barChange, boll, fmtLots, fmtMoney, fmtPrice, kdj, ma, macd, minuteSlot, parseBars, rsi, type Bar,
 } from "./chartIndicators";
 import "./kline-chart.css";
+import { ChartShareCard } from "./ChartShareCard";
 
 type Tab = "intraday" | "five" | "day" | "week" | "month" | "minute";
 type MinutePeriod = "m60" | "m30" | "m15" | "m5";
@@ -152,13 +153,14 @@ function InfoStrip({ cells }: { cells: [string, ReactNode, string?][] }) {
 
 export interface KlineData { status: string; period: string; adjust: string; rows: unknown[]; dropped: number; source: string; fallback_reason: string | null; note: string; includes_today: boolean }
 
-export function KlineView(props: { data: KlineData; overlay: Overlay; sub: Sub; width: number; isMinute: boolean }) {
+export function KlineView(props: { data: KlineData; overlay: Overlay; sub: Sub; width: number; isMinute: boolean; symbol?: string; notice?: string }) {
   const bars = useMemo(() => parseBars(props.data.rows), [props.data]);
   if (bars.length < 2) return <div className="mobile-empty">K 线不足，暂时无法绘制</div>;
   return <KlineCanvas {...props} bars={bars} />;
 }
 
-function KlineCanvas({ data, overlay, sub, width, isMinute, bars }: { data: KlineData; overlay: Overlay; sub: Sub; width: number; isMinute: boolean; bars: Bar[] }) {
+function KlineCanvas({ data, overlay, sub, width, isMinute, bars, symbol, notice }: { data: KlineData; overlay: Overlay; sub: Sub; width: number; isMinute: boolean; bars: Bar[]; symbol?: string; notice?: string }) {
+  const chartRef = useRef<SVGSVGElement>(null);
   const closes = useMemo(() => bars.map((b) => b.close), [bars]);
   const ind = useMemo(() => ({
     ma5: ma(closes, 5), ma10: ma(closes, 10), ma20: ma(closes, 20), ma60: ma(closes, 60),
@@ -189,7 +191,7 @@ function KlineCanvas({ data, overlay, sub, width, isMinute, bars }: { data: Klin
   const hiIdx = start + view.reduce((best, b, i) => (b.high > view[best]!.high ? i : best), 0);
   const loIdx = start + view.reduce((best, b, i) => (b.low < view[best]!.low ? i : best), 0);
   const ci = cursor == null ? null : Math.min(end - 1, Math.max(start, cursor));
-  const at = ci ?? n - 1;
+  const at = ci ?? end - 1;
   const bar = bars[at]!;
   const ch = barChange(bars, at);
 
@@ -235,7 +237,7 @@ function KlineCanvas({ data, overlay, sub, width, isMinute, bars }: { data: Klin
       ["量", fmtLots(bar.volume)], ["额", fmtMoney(bar.amount)], ["换手", bar.turnover == null ? "—" : bar.turnover.toFixed(2) + "%"],
     ]} />
     <Legend items={mainLegend} />
-    <svg className="kc-svg" width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="img"
+    <svg ref={chartRef} className="kc-svg" width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="img"
       aria-label={`K 线图，显示 ${timeLabel(view[0]!.time)} 至 ${timeLabel(view[view.length - 1]!.time)} 共 ${view.length} 根`} {...gestures}>
       {grid.map((g, k) => <g key={k}><line className="kc-grid" x1={0} x2={width} y1={y(g)} y2={y(g)} /><text className="kc-axis" x={2} y={k === 0 ? y(g) + 10 : y(g) - 2}>{fmtPrice(g)}</text></g>)}
       {view.map((b, k) => {
@@ -296,6 +298,13 @@ function KlineCanvas({ data, overlay, sub, width, isMinute, bars }: { data: Klin
       <button type="button" aria-label="回到最新" disabled={offset === 0} onClick={() => { setOffset(0); setCursor(null); }}><ChevronsRight size={15} /></button>
       <span>{view.length} 根 · {timeLabel(view[0]!.time).slice(5)} ~ {timeLabel(view[view.length - 1]!.time).slice(5)}</span>
     </div>
+    <ChartShareCard chartRef={chartRef} identity={data} key={`${start}-${end}-${overlay}-${sub}-${cursor}-${symbol}-${notice}-${width}`} slug={`kline-${symbol ?? "stock"}-${data.period}`} spec={{
+      title: `${symbol ?? "个股"} · ${{day:"日K",week:"周K",month:"月K",m5:"5分钟K",m15:"15分钟K",m30:"30分钟K",m60:"60分钟K"}[data.period] ?? data.period}`,
+      subtitle: `${timeLabel(view[0]!.time)} → ${timeLabel(view[view.length - 1]!.time)} · ${view.length} 根 · ${data.adjust === "qfq" ? "前复权" : data.adjust === "none" ? "不复权" : data.adjust}`,
+      source: data.source,
+      details: [mainLegend.map(([label,value]) => `${label} ${value}`).join(" · "), subLegend.map(([label,value]) => `${label} ${value}`).join(" · "), `读数时点：${timeLabel(bar.time)} · 收 ${fmtPrice(bar.close)}`].filter(Boolean),
+      notes: [notice ?? "", data.includes_today ? "含当日K线，盘中读数可能变化。" : "", data.dropped ? `已剔除 ${data.dropped} 根异常数据。` : "", data.fallback_reason ? `数据源回退：${data.fallback_reason}` : "", data.note].filter(Boolean),
+    }} />
     {(data.fallback_reason || data.dropped > 0 || data.note) && <p className="kc-note">{[data.fallback_reason ? `已改用腾讯：${data.fallback_reason}` : "", data.dropped ? `剔除 ${data.dropped} 根异常数据` : "", data.note].filter(Boolean).join("；")}</p>}
   </div>;
 }
@@ -304,19 +313,20 @@ function KlineCanvas({ data, overlay, sub, width, isMinute, bars }: { data: Klin
 
 export interface IntradayData { status: string; days: { date: string; pre_close: number | null; points: [string, number, number | null, number, number][] }[]; source: string; fallback_reason: string | null }
 
-export function IntradayView({ data, width }: { data: IntradayData; width: number }) {
+export function IntradayView({ data, width, symbol, notice }: { data: IntradayData; width: number; symbol?: string; notice?: string }) {
   const days = data.days.filter((d) => d.points.length);
   const points = useMemo(() => days.flatMap((d, di) => d.points.flatMap(([t, price, avg, vol, amount]) => {
     const slot = minuteSlot(t);
     return slot == null ? [] : [{ day: di, date: d.date, time: t, slot: di * MINUTE_SLOTS + slot, price, avg, vol, amount }];
   })), [data]);
   if (!days.length || points.length < 2) return <div className="mobile-empty">还没有分时数据（未开盘、停牌或数据源暂不可用）</div>;
-  return <IntradayCanvas data={data} days={days} points={points} width={width} />;
+  return <IntradayCanvas data={data} days={days} points={points} width={width} symbol={symbol} notice={notice} />;
 }
 
 interface MinutePoint { day: number; date: string; time: string; slot: number; price: number; avg: number | null; vol: number; amount: number }
 
-function IntradayCanvas({ data, days, points, width }: { data: IntradayData; days: IntradayData["days"]; points: MinutePoint[]; width: number }) {
+function IntradayCanvas({ data, days, points, width, symbol, notice }: { data: IntradayData; days: IntradayData["days"]; points: MinutePoint[]; width: number; symbol?: string; notice?: string }) {
+  const chartRef = useRef<SVGSVGElement>(null);
   const [cursor, setCursor] = useState<number | null>(null);
   const PRICE = 190, GAP = 18, VOL = 64, H = PRICE + GAP + VOL;
   const slots = MINUTE_SLOTS * Math.max(days.length, 1);
@@ -352,7 +362,7 @@ function IntradayCanvas({ data, days, points, width }: { data: IntradayData; day
       ["量", fmtLots(at.vol)], ["额", fmtMoney(at.amount)], ["昨收", fmtPrice(dayBase)], ["当日量", fmtLots(totalVol)],
     ]} />
     <div className="kc-legend"><span className="price">价格</span><span className="avg">均价</span><span className="plain">{days.length > 1 ? `${days[0]!.date} ~ ${lastDay.date}` : lastDay.date}</span></div>
-    <svg className="kc-svg" width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="img" aria-label={days.length > 1 ? "五日分时图" : "分时图"} {...gestures}>
+    <svg ref={chartRef} className="kc-svg" width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="img" aria-label={days.length > 1 ? "五日分时图" : "分时图"} {...gestures}>
       {[max, (max + base) / 2, base, (min + base) / 2, min].map((v, k) => <g key={k}>
         <line className={k === 2 ? "kc-grid base" : "kc-grid"} x1={0} x2={width} y1={y(v)} y2={y(v)} />
         <text className={`kc-axis ${cls(v - base)}`} x={2} y={k === 0 ? y(v) + 10 : y(v) - 2}>{fmtPrice(v)}</text>
@@ -376,6 +386,12 @@ function IntradayCanvas({ data, days, points, width }: { data: IntradayData; day
         <rect x={0} y={y(at.price) - 8} width={52} height={16} rx={3} /><text x={26} y={y(at.price) + 4} textAnchor="middle">{fmtPrice(at.price)}</text>
       </g>}
     </svg>
+    <ChartShareCard chartRef={chartRef} identity={data} key={`${cursor ?? "latest"}-${symbol}-${notice}-${width}`} slug={`intraday-${symbol ?? "stock"}-${days.length}`} spec={{
+      title: `${symbol ?? "个股"} · ${days.length > 1 ? "五日分时" : "分时"}`,
+      subtitle: `${days[0]!.date} → ${lastDay.date} · 价格 / 均价 / 成交量`, source: data.source,
+      details: [`读数时点：${at.date} ${at.time} · 价格 ${fmtPrice(at.price)} · 均价 ${fmtPrice(at.avg)}`, `当日量 ${fmtLots(totalVol)} · 昨收基准 ${fmtPrice(dayBase)}`],
+      notes: [notice ?? "", data.fallback_reason ? `数据源回退：${data.fallback_reason}` : "", "盘中读数随数据源更新，不是交易所实时逐笔行情。"].filter(Boolean),
+    }} />
     {data.fallback_reason && <p className="kc-note">已改用东财：{data.fallback_reason}</p>}
   </div>;
 }
@@ -387,7 +403,7 @@ function KlineSection({ symbol, period, adjust, overlay, sub, width }: { symbol:
   return <>
     {result.loading && !result.data && <div className="mobile-empty"><RefreshCw size={15} className="spin" /> 正在加载 K 线…</div>}
     {result.error && <div className="mobile-error" role="alert">{result.error}<button className="discovery-action" onClick={result.refresh}>重试</button></div>}
-    {result.data && <KlineView key={`${period}-${adjust}`} data={result.data} overlay={overlay} sub={sub} width={width} isMinute={period.startsWith("m")} />}
+    {result.data && <KlineView key={`${period}-${adjust}`} data={result.data} overlay={overlay} sub={sub} width={width} isMinute={period.startsWith("m")} symbol={symbol} notice={result.error} />}
   </>;
 }
 
@@ -398,7 +414,7 @@ function IntradaySection({ symbol, days, width }: { symbol: string; days: 1 | 5;
   return <>
     {result.loading && !result.data && <div className="mobile-empty"><RefreshCw size={15} className="spin" /> 正在加载分时…</div>}
     {result.error && <div className="mobile-error" role="alert">{result.error}<button className="discovery-action" onClick={result.refresh}>重试</button></div>}
-    {result.data && <IntradayView data={result.data} width={width} />}
+    {result.data && <IntradayView data={result.data} width={width} symbol={symbol} notice={result.error} />}
   </>;
 }
 

@@ -1,9 +1,10 @@
 import { BarChart3, Loader2, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 
 import { RowsShareCard, type CardRow } from "./ShareCard";
 import { BacktestRuleAudit, type RuleCoverage } from "./BacktestRuleAudit";
 import "./backtest.css";
+import { ChartShareCard } from "./ChartShareCard";
 
 type Trade = { symbol?: string; entry_date: string; entry_price: number; exit_date: string; exit_price: number; shares: number; pnl: number; pnl_pct: number; fees: number; reason: string };
 type PerSymbol = { symbol: string; total_return_pct: number; max_drawdown_pct: number; buy_hold_return_pct: number; closed_trades: number; win_rate_pct: number | null; open_position: boolean };
@@ -150,7 +151,7 @@ function yuan(value: number | undefined): string {
   return value === undefined || !Number.isFinite(value) ? "—" : `${Math.round(value).toLocaleString("zh-CN")} 元`;
 }
 
-export function EquityCurve({ points }: { points: [string, number][] }) {
+export function EquityCurve({ points, chartRef }: { points: [string, number][]; chartRef?: RefObject<SVGSVGElement | null> }) {
   const values = points.map((point) => point[1]).filter(Number.isFinite);
   if (values.length < 2) return <div className="backtest-empty">权益曲线数据不足。</div>;
   const min = Math.min(...values);
@@ -165,7 +166,7 @@ export function EquityCurve({ points }: { points: [string, number][] }) {
   });
   return (
     <div className="backtest-chart-wrap">
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="backtest-chart" aria-label="策略权益曲线">
+      <svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="backtest-chart" aria-label="策略权益曲线">
         <line x1="6" x2={width - 6} y1={height - 8} y2={height - 8} />
         <polyline points={coords.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" vectorEffect="non-scaling-stroke" />
       </svg>
@@ -193,6 +194,7 @@ export function backtestCardRows(result: Result): CardRow[] {
 const sign = (value: string) => (value.startsWith("-") ? "down" : value === "—" ? "" : "up");
 
 export function ResultView({ result }: { result: Result }) {
+  const chartRef = useRef<SVGSVGElement>(null);
   const m = result.metrics;
   const summary = useMemo<SummaryRow[]>(() => [
     { label: "策略收益", value: pct(m.total_return_pct), signed: true },
@@ -215,7 +217,14 @@ export function ResultView({ result }: { result: Result }) {
       <article className="backtest-result">
         <div className="backtest-result-head"><div><strong>{result.strategy.name}</strong><span>{result.strategy.label ?? `MA${result.strategy.fast} / MA${result.strategy.slow}`}{result.strategy.stop_loss_pct ? ` · 止损 ${result.strategy.stop_loss_pct}%` : ""}</span></div><span className="backtest-badge">历史核对工具</span></div>
         <div className="backtest-metrics">{summary.map(({ label, value, signed }) => <div key={label}><span>{label}</span><strong className={signed ? sign(value) : ""}>{value}</strong></div>)}</div>
-        <EquityCurve points={result.equity_curve} />
+        <EquityCurve points={result.equity_curve} chartRef={chartRef} />
+        {result.equity_curve.filter(([, value]) => Number.isFinite(value)).length >= 2 && <ChartShareCard chartRef={chartRef} identity={result} slug="backtest-equity" spec={{
+          title: "回测策略权益曲线（历史假设）",
+          subtitle: `${result.equity_curve[0]?.[0] ?? "—"} → ${result.equity_curve[result.equity_curve.length - 1]?.[0] ?? "—"}`,
+          source: result.data_sources?.map(s => `${s.symbol} ${s.source} (${s.status}) ${s.fetched_at}${s.fallback_reason ? `；回退：${s.fallback_reason}` : ""}`).join("；") || "本轮回测工具返回，行情来源未提供",
+          details: backtestCardRows(result).map(row => `${row.label}：${row.value}`),
+          notes: ["历史模拟，非真实账户权益，不代表未来收益。", `执行：${result.strategy.execution}；费用：${result.strategy.fees}；复权：${result.strategy.adjustment}`, result.market_rules?.status === "ok" ? "历史制度：已取得本轮日状态，特殊制度仍有覆盖边界。" : result.market_rules?.status === "disabled" ? "历史制度：已关闭自动取数，使用近似规则。" : "历史制度存在缺口或未提供覆盖信息。", result.market_rules?.note ?? "", result.note, "完整假设、数据缺口和规则覆盖请查看原始报告。"].filter(Boolean),
+        }} /> }
       </article>
       {multi && (result.per_symbol?.length ?? 0) > 0 && <section className="backtest-block" aria-label="分标的结果">
         <h2>分标的结果({result.strategy.weighting})</h2>

@@ -1,10 +1,28 @@
 # Android / Rust migration parity matrix
 
+## 0.1.39 图表分享迁移（2026-10-25）
+
+本轮候选版本 0.1.39 / versionCode 1039，CI 与预览发布结果待补记；上一个已发布版本仍为 0.1.38。
+
+- 个股多周期 K 线、分时/五日分时、回测策略权益曲线支持生成真实 PNG：保留当前可见区间、指标、十字线、主题及来源，先预览再调用系统文件分享。回测曲线明确为历史假设，不是真实账户权益。
+- 图片完整保留源站回退、异常数据、缓存失败提示及历史规则覆盖说明；说明超出图片容量时拒绝导出，不静默裁掉缺口。只取显式图表 SVG，不抓整个页面，不加载外部图像。
+- K 线平移后无十字线时，信息和导出读数改用最后一根可见 K 线；数据、区间、指标或缓存提示变化后旧预览失效。
+- 本地前端 577 项通过，类型与桌面/移动构建通过；Edge 三尺寸 × 明暗主题 216 张截图及 18 张实际 PNG 导出通过。SQLite v13 / 业务备份 v11 不变，交易数据与模型处理保持现状。
+
+图表分享补齐以上三类；其他公开页仍用文字摘要卡。特殊历史制度、行业自动事实源/完整旧研究工作流等价、现金分红核算边界、源站连通/工程整理以及真机/正式身份仍未全部验收。用户已明确暂时没有设备，继续完成 CI 和预览交付。
+
+
 当前交付：**0.1.38 已发布（2026-10-19）**，功能构建 `b629dc5`；Android #39150050100 和跨平台 #39150049996 全部成功。最终包内版本 0.1.38 / 1038，APK 与固定证书一致。最新限制以 [ANDROID_REMAINING.md](ANDROID_REMAINING.md) 为准；完整最终回执在本文末。
 
 This file is the consolidation gate for the Android migration. The `android-mvp` branch is the single active Android development line. Legacy Node/Python behavior remains an oracle until the matching Rust path has frozen fixture/golden coverage and CI is green.
 
 For current unfinished scope, see `ANDROID_REMAINING.md`; development increments and verification evidence are recorded in `ANDROID_HANDOFF.md`.
+
+### 本地验证（0.1.39）
+
+前端 577 项通过，TypeScript 检查与桌面/独立移动构建通过；Edge 三尺寸 × 明暗主题 216 张截图、18 张实际 PNG 导出通过。核对 PNG 尺寸/签名、原生分享载荷与预览一致、K 线平移读数、指标切换失效、私有/嵌入内容拒绝；人工查看明暗图片。发行脚本 9 项通过。SQLite v13 / 业务备份 v11 保持不变。
+
+改动前本机 Windows 全量编排器基线 1291 通过 / 128 失败 / 14 跳过，类型检查通过；系统 Python 3.14 缺 numpy/mypy，Python 基线未通过。它们不计为本轮验证通过；未改编排器和 Python 业务代码，Linux/macOS 全套及 Windows 契约以新 CI 回执为准。既有全量 Rust fmt / 严格 Clippy 未通过仍保留。
 
 ## Branch consolidation
 
@@ -22,7 +40,7 @@ Desktop CI PASS
 Android APK PASS
 ```
 
-## Current mobile matrix — 0.1.37 (2026-10-18)
+## Current mobile matrix — 0.1.39 candidate (2026-10-25)
 
 | Area | Mobile implementation | Evidence | Status |
 | --- | --- | --- | --- |
@@ -31,16 +49,16 @@ Android APK PASS
 | Statements / consensus / valuation | research_extended | parser tests; live Sina/THS/Baidu probes | Implemented; provider continuity and real-device UX pending |
 | Historical market regimes | historical_metadata / backtest_rules / BacktestRuleAudit | live BaoStock ST + IPO probes; date/currency/status/paging rejection; deterministic regime tests | Implemented SH/SZ daily ST/tradestatus and IPO windows; BJ/relisting/delisting exceptions remain source gaps |
 | Industry measurement library | industry_library / IndustryLibrary | atomic import, dedup/conflicts, cutoff, backup, explicit research opt-in; SSR and browser import/save | Implemented user-curated observations across 20 sectors; not an independently verified full-market database |
-| Signed distribution / App Links | android-distribution.yml + scripts/android + native owned-host routing | 5 helper tests; native route checks; CI release-key fixture smoke pending | Build/configuration implemented; real owner key, hosted domain, store and device acceptance absent |
+| Signed distribution / App Links | android-distribution.yml + scripts/android + native owned-host routing | 9 helper tests; native route checks; 0.1.38 CI debug/release APK and AAB fixture smoke passed | Build/configuration implemented; real owner key, hosted domain, store and device acceptance absent |
 | Advanced backtest | backtest_advanced / backtest_rules / ai_backtest | deterministic resampling, WFO no future dependence, rebalance cash bounds; live single/multi run | Implemented SH/SZ historical ST/IPO metadata; special relisting/delisting/BJ source coverage remains partial |
 | Corporate actions / opening positions | journal_fills v13 + unified settle; backup v11 | FIFO/partial sell/restore/no fake cash flow tests | Implemented; registered splits normalize MFE prices/quantities to exit-share basis; unknown actions and cash-dividend caveats remain |
 | Scan / Android service | market_scan + MarketMonitorService | parsing and native source compile | Full-market quote/minute sampling; official month calendar gates native sampling and rollover stops; exchange tick feed and device lifecycle unverified |
 | Calendar / event reminders | calendar_sources + native rules | complete-month validation, reminder/backup/done state tests; live SZSE | Implemented SZSE month semantics; special exchange-specific coverage pending |
 | General AI chat | ai_chat + AiChatPanel / SQLite threads | native streaming/cancel/history and frontend regressions; cross-platform CI | Implemented streaming, stop, threads and bounded tools; real model/device quality not certified |
 | Documents / controlled chat | document_import + chat_tools/chat_documents | file parsers, arithmetic round trip, budget, citation refusal tests | Implemented bounded retrieval and original PDF-page citations (blank pages preserved, wrong/unrecalled pages rejected); scanned PDFs/OCR unsupported |
-| Public-page assistant / share / offline | PublicPageActions / provider_cache | SSR/Edge and offline API tests; manual refresh bypass and failed-envelope fallback regression | Implemented text-summary cards and labeled historical cache |
+| Public-page assistant / share / offline | PublicPageActions / provider_cache | SSR/Edge and offline API tests; manual refresh bypass and failed-envelope fallback regression | Implemented text-summary cards and labeled historical cache; K-line/intraday/backtest SVG chart PNG previews and exact native share payloads added in 0.1.39 |
 | Supply-chain / event probability | industry_revenue / probability / Kalshi GPU ladder | parsing tests; quote types, source gaps explicit | Implemented bounded scans; Kalshi/Polymarket transport failed locally; four live monthly-revenue providers passed |
-| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 198-screen smoke | 0.1.37 ARM64 check passes; candidate APK/release-AAB smoke pending; previous 0.1.36 preview passed; device acceptance pending |
+| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 216-screen / 18-PNG Edge smoke; Chromium CI pending | 0.1.38 preview APK, version and pinned signing checks passed; 0.1.39 candidate CI pending; device acceptance pending |
 
 Previous 0.1.36 verification (historical): Rust 300 + symbol parity 1; frontend 569; frozen Python oracle 388 cases; Edge screenshots 180; desktop/mobile builds pass. Android CI #39123017859 passed and published the preview; cross-platform fixture follow-up is recorded below.
 
