@@ -19,6 +19,7 @@ import { QuoteBoard } from "./QuoteBoard";
 import { StockInsightsPanel } from "./StockInsightsPanel";
 import { useMobileNavigation } from "./useMobileNavigation";
 import type { MobilePage } from "./mobileRoutes";
+import { workspaceGroup, type WorkspaceGroup } from "./workspace";
 import "./mobile.css";
 import "./mobile-presentation.css";
 import "./compact.css";
@@ -26,6 +27,7 @@ import "./discovery.css";
 import "./journal-workspace.css";
 import "./library.css";
 import "./shortline.css";
+import "./phone-layout.css";
 
 // 路由分包:首页和个股页以外的页面第一次进入时才加载(本机文件,几毫秒)。名字对应各文件里的具名导出
 function lazyPanel<M, K extends keyof M>(load: () => Promise<M>, name: K): LazyExoticComponent<M[K] extends ComponentType<infer P> ? ComponentType<P> : never> {
@@ -137,7 +139,12 @@ export function MobileApp() {
   const { route, navigate, back } = useMobileNavigation();
   const page = route.page;
   const isStock = page === "stock";
-  const go = (next: MobilePage) => navigate({ page: next });
+  const [directoryGroup, setDirectoryGroup] = useState<WorkspaceGroup | undefined>();
+  const go = (next: MobilePage) => {
+    if (next === "functions") setDirectoryGroup(page === "market" ? undefined : workspaceGroup(page));
+    navigate({ page: next });
+  };
+  useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }, [page, route.symbol, route.board]);
   const askAi = (question: string) => { queueAiPrompt(question); go("ai"); };
   // 个人页面(成交、持仓、盈亏)不给 AI:进入时清掉上一页留下的「附带当前页面」登记
   useEffect(() => { if (PERSONAL_PAGES.has(route.page)) clearAiPage(); }, [route.page]);
@@ -317,7 +324,7 @@ export function MobileApp() {
         inputMode="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="代码 / 名称 / 拼音，如 300308、430047、茅台"
+        placeholder="搜索股票：代码 / 名称 / 拼音"
         aria-label="股票搜索"
         autoComplete="off"
       />
@@ -384,18 +391,17 @@ export function MobileApp() {
 
   function renderPage(): ReactNode {
     switch (page) {
-      case "market": return <section className="mobile-section">
+      case "market": return <section className="mobile-section mobile-home">
+        <div className="home-start"><div><h1>今日工作台</h1><p>查行情、盯盘与记录</p></div><button type="button" onClick={() => go("messages")}>消息{unreadMessages > 0 && <span>{unreadMessages > 99 ? "99+" : unreadMessages}</span>}</button></div>
+        {searchBlock}
+        <HomeShortcuts onNavigate={go} />
+        <PublicPageActions page={page} onAsk={askAi} />
         <MarketOverview />
         <HomeEmotionBrief onOpen={() => go("emotion")} />
-        <HomeShortcuts onNavigate={go} />
         <WatchQuotesPanel watchlist={watchlist} limit={6} onOpenSymbol={openFromList} onOpenAll={() => go("watch")} />
-        <div className="mobile-section-title mobile-stock-search-heading">
-          <div><h1>个股行情</h1><p>支持沪深北代码、名称和拼音搜索；腾讯实时行情失败时自动降级东财。</p></div>
-        </div>
-        {searchBlock}
       </section>;
-      case "functions": return <FunctionDirectory onNavigate={go} />;
-      case "my": return <FunctionDirectory onNavigate={go} group="my" />;
+      case "functions": return <FunctionDirectory key={`functions-${directoryGroup ?? "all"}`} onNavigate={go} initialGroup={directoryGroup} />;
+      case "my": return <FunctionDirectory key="my" onNavigate={go} group="my" />;
       case "research": return <section className="mobile-section research-home">
         <div className="mobile-section-title"><div><h1>个股深挖</h1><p>行情、K 线结构、公司资料、财务、公告、研报、资金流、量价观察与所属板块。</p></div></div>
         {searchBlock}
@@ -447,7 +453,7 @@ export function MobileApp() {
     }
   }
 
-  const showBack = isStock || page === "board" || page === "functions";
+  const showBack = isStock || page === "board" || page === "functions" || page === "settings";
   return (
     <div className="mobile-app">
       <main className="mobile-main" data-page={page}>
@@ -458,8 +464,8 @@ export function MobileApp() {
           </button>
         )}
         {error && <div className="mobile-error">{error}</div>}
+        {page !== "market" && <PublicPageActions key={page} page={page} onAsk={askAi} />}
         <Suspense fallback={<div className="mobile-empty" role="status">加载中…</div>}>{renderPage()}</Suspense>
-      <PublicPageActions key={page} page={page} onAsk={askAi} />
       </main>
 
       <WorkspaceNav page={page} onNavigate={go} unreadMessages={unreadMessages} />

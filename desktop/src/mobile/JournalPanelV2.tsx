@@ -348,8 +348,6 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
         <small>未平仓 {openCount} 笔</small>
       </div>
 
-      <TradeImportCard onImported={() => void load()} />
-
       <button className="journal-v2-create-toggle" onClick={() => setShowCreate((value) => !value)}>
         <Plus size={16} /> 记一笔 {showCreate ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
       </button>
@@ -371,6 +369,8 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
           <button className="journal-v2-primary" onClick={() => void createEntry()} disabled={loading}><Save size={15} />保存</button>
         </div>
       )}
+
+      <TradeImportCard onImported={() => void load()} />
 
       <div className="journal-v2-list">
         {data?.rows.map((row) => (

@@ -98,6 +98,7 @@ const responses = {
   "/mobile/portfolio/perf": perfFixture,
   "/mobile/portfolio/xray": xrayFixture,
   "/mobile/portfolio/replay": replayFixture,
+  "/mobile/journal": { available:true, playbooks:[], summary:{entries:0,scored:0,closed:0,wins:0,win_rate:null,money_scored:0,net_pnl:null,planned_known:0,planned_count:0,execution_rate:null}, rows:[] },
   "/mobile/journal/import/preview": tradeImportFixture,
   "/mobile/review/structure": structureFixture,
   "/mobile/shortline/theme-tree": themeTreeFixture,
@@ -115,7 +116,7 @@ const quote = { symbol: "600519", market: "SH", status: "ok", primary_source: "t
 const browser = await chromium.launch({ headless: true, ...(process.env.VIBE_UI_CHANNEL ? { channel: process.env.VIBE_UI_CHANNEL } : {}) });
 const errors = [];
 try {
-  for (const width of [360, 390, 768]) {
+  for (const width of [320, 360, 390, 768]) {
     for (const theme of ["light", "dark"]) {
       const context = await browser.newContext({ viewport: { width, height: 850 }, deviceScaleFactor: 1, colorScheme: theme });
       const page = await context.newPage();
@@ -178,6 +179,33 @@ try {
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
         assert.equal(overflow, false, width + " " + theme + " horizontal overflow");
       };
+      const captureLayout = async (name) => {
+        fs.mkdirSync(path.join(out,"layout-previews"),{recursive:true});
+        await page.screenshot({path:path.join(out,"layout-previews",`${width}-${theme}-${name}.png`)});
+      };
+      const openSettings = async () => {
+        await page.getByRole("navigation", {name:"主导航"}).getByRole("button",{name:/^我的/}).click();
+        await page.locator(".directory-grid").getByRole("button", {name:/^应用设置/}).click();
+      };
+      const openWorkspaceTab = async (name) => {
+        const tab = page.locator(".group-tabs").getByRole("tab", {name, exact:true});
+        if (await tab.count() === 0) {
+          const groups = {
+            "市场复盘": ["今日情绪","连板天梯","涨停全表","首板名单","盘面事实","行业题材","市场面板"],
+            "复盘记录": ["每日复盘","明日验证","近 5 天","情绪历史","涨停样本","结构变化"],
+            "交易日志": ["交易日志","交易统计","风险与纪律","模式卡"],
+            "交易分析": ["复查","入场环境","看错还是没执行好","问题记录"],
+            "个股研究": ["个股深挖","候选池","历史回测","AI 助手"],
+            "产业资讯": ["板块轮动","产业研究","资讯雷达","产业信号"],
+          };
+          const section=Object.keys(groups).find(key=>groups[key].includes(name));
+          assert.ok(section,"known workspace section for "+name);
+          await page.locator(".workspace-sections").getByRole("button",{name:section,exact:true}).click();
+        }
+        await tab.click();
+        const sizes=await page.locator(".group-tabs button").evaluateAll(items=>items.map(item=>item.getBoundingClientRect().height));
+        assert.ok(sizes.every(height=>height>=44),"navigation touch targets stay at least 44px in compact mode");
+      };
       const assertChartShare = async (name, requiredText) => {
         const card=page.getByRole("region",{name:"当前图表图片分享",exact:true});
         await page.evaluate(()=>{window.__chartTextLog=[];});
@@ -206,9 +234,34 @@ try {
       };
       await assertWidth();
       const navTops = await page.locator(".mobile-nav button").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top));
-      assert.ok(navTops.length === 6 && Math.max(...navTops) - Math.min(...navTops) < 2, "bottom navigation must keep five groups and settings in one row");
+      assert.ok(navTops.length === 5 && Math.max(...navTops) - Math.min(...navTops) < 2, "bottom navigation must keep five primary groups in one row");
       await page.getByRole("region", { name: "情绪速览" }).getByText("炸板率", { exact: true }).waitFor();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-home.png"), fullPage: true });
+      assert.equal(await page.locator(".public-page-buttons").evaluate(el=>getComputedStyle(el).position),"static","page tools do not float over market readings");
+      await captureLayout("home");
+      const homePositions=await page.evaluate(()=>({search:document.querySelector(".mobile-search").getBoundingClientRect().top,shortcuts:document.querySelector(".home-shortcuts").getBoundingClientRect().top,market:document.querySelector(".mo-wrap").getBoundingClientRect().top}));
+      assert.ok(homePositions.search<homePositions.shortcuts&&homePositions.shortcuts<homePositions.market,"search and common actions precede market details");
+      assert.ok(await page.locator(".mobile-nav button").evaluateAll(items=>items.every(item=>item.getBoundingClientRect().height>=48)));
+      await page.getByRole("button",{name:"全部功能",exact:true}).click();
+      await page.getByRole("group",{name:"功能分类",exact:true}).getByRole("button",{name:"研究",exact:true}).click();
+      await page.getByLabel("搜索功能",{exact:true}).fill("GPU");
+      assert.equal(await page.locator(".directory-grid button").count(),1,"search respects the selected category");
+      await page.getByRole("button",{name:"清除功能搜索",exact:true}).click();
+      assert.equal(await page.locator(".directory-grid button").count(),8);
+      await assertWidth();
+      await page.screenshot({path:path.join(out,`${width}-${theme}-function-directory.png`),fullPage:true});
+      await captureLayout("functions");
+      await page.getByLabel("搜索功能",{exact:true}).fill("GPU");
+      await page.getByRole("navigation",{name:"主导航"}).getByRole("button",{name:/^我的/}).click();
+      await assertWidth();
+      assert.equal(await page.getByLabel("搜索功能",{exact:true}).inputValue(),"","entering My clears an unrelated directory search");
+      await page.screenshot({path:path.join(out,`${width}-${theme}-my-workspace.png`),fullPage:true});
+      await captureLayout("my");
+      await openSettings();
+      await page.getByRole("button",{name:"白色模式",exact:true}).waitFor();
+      assert.equal(await page.locator('.mobile-nav [aria-current="page"] > span').innerText(),"我的");
+      await page.getByRole("button",{name:"返回",exact:true}).click();
+      await page.getByRole("region",{name:"我的工作台",exact:true}).waitFor();
       // 消息(我的):启动时生成的消息列表 + 导航角标
       await page.getByLabel("2 条未读消息").waitFor();
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
@@ -219,7 +272,7 @@ try {
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-messages.png"), fullPage: true });
       // AI 对话:对话栏(多会话)与停止按钮所在的发送区
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^研究/ }).click();
-      await page.locator(".group-tabs").getByRole("tab", { name: "AI 助手", exact: true }).click();
+      await openWorkspaceTab("AI 助手");
       await page.getByLabel("对话列表").waitFor();
       await page.getByRole("button", { name: "新对话", exact: true }).waitFor();
       await assertWidth();
@@ -246,7 +299,7 @@ try {
       await page.getByText("证据和前序计算的来源路径",{exact:true}).click();
       await assertWidth();
       await page.screenshot({path:path.join(out,width+"-"+theme+"-calculation-audit.png"),fullPage:true});
-      await page.locator(".group-tabs").getByRole("tab",{name:"产业研究",exact:true}).click();
+      await openWorkspaceTab("产业研究");
       await page.getByRole("button",{name:"HBM",exact:true}).click();
       await page.getByRole("heading",{name:"合成样本厂 · 良率",exact:true}).waitFor();
       await page.getByText("出处与原文摘录",{exact:true}).click();
@@ -260,7 +313,7 @@ try {
       await page.getByRole("heading",{name:"合成样本厂 · 导入样本良率",exact:true}).waitFor();
       await assertWidth();
       await page.screenshot({path:path.join(out,width+"-"+theme+"-industry-library.png"),fullPage:true});
-      await page.locator(".group-tabs").getByRole("tab",{name:"历史回测",exact:true}).click();
+      await openWorkspaceTab("历史回测");
       await page.getByLabel("回测描述",{exact:true}).fill("仅运行合成浏览器回测样本");
       await page.getByRole("button",{name:"让 AI 配置并运行",exact:true}).click();
       await page.getByRole("region",{name:"历史交易制度覆盖"}).waitFor();
@@ -280,7 +333,7 @@ try {
       await page.getByRole("button", { name: "取消", exact: true }).click();
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^首页/ }).click();
       await page.locator(".mo-wrap").waitFor();
-      await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "设置", exact: true }).click();
+      await openSettings();
       await page.getByRole("button", { name: "白色模式", exact: true }).waitFor();
       assert.equal((await page.locator(".appearance-refresh .wc-select").innerText()).trim(), "仅手动刷新");
       assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
@@ -321,7 +374,7 @@ try {
       await page.getByText("沪深北成交", { exact: false }).waitFor();
       const comfortableHeight = await page.locator(".mo-wrap").evaluate((el) => el.getBoundingClientRect().height);
       assert.ok(comfortableHeight > compactHeight, "comfortable layout must show a real spacing difference");
-      await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "设置", exact: true }).click();
+      await openSettings();
       await page.getByRole("button", { name: "紧凑", exact: false }).click();
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "首页", exact: true }).click();
       await page.getByRole("button", { name: "贵州茅台", exact: false }).first().click();
@@ -377,7 +430,7 @@ try {
       assert.ok(watchTabTops.length === 5 && Math.max(...watchTabTops) - Math.min(...watchTabTops) < 2, "watch list tabs must stay in one row");
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-watch.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "我的自选", exact: true }).click();
+      await openWorkspaceTab("我的自选");
       await page.getByRole("region", { name: "我的自选" }).waitFor();
       await page.getByRole("tab", { name: "核心 2", exact: true }).click();
       await page.getByText("PE 20.4", { exact: false }).first().waitFor();
@@ -405,7 +458,7 @@ try {
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-screenshot-import.png"), fullPage: true });
       await page.getByRole("button", { name: "写入 1 条到自选", exact: false }).click();
       await page.getByText("已写入 1 条", { exact: false }).waitFor();
-      await page.locator(".group-tabs").getByRole("tab", { name: "我的持仓", exact: true }).click();
+      await openWorkspaceTab("我的持仓");
       await page.getByRole("region", { name: "已实现盈亏与现金分红" }).waitFor();
       await page.getByText("已实现盈亏", { exact: true }).first().waitFor();
       await page.getByRole("button", { name: "记一笔", exact: false }).click();
@@ -426,9 +479,9 @@ try {
       await page.getByRole("article", { name: "2020 年 3 月全球疫情冲击" }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-portfolio-analysis.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "实时动态", exact: true }).click();
+      await openWorkspaceTab("实时动态");
       await page.getByRole("heading", { name: "实时动态", exact: true }).waitFor();
-      await page.locator(".group-tabs").getByRole("tab", { name: "竞价与盘中", exact: true }).click();
+      await openWorkspaceTab("竞价与盘中");
       await page.getByRole("heading", { name: "竞价与盘中", exact: true }).waitFor();
       await page.getByText("周末休市,没有竞价", { exact: true }).waitFor();
       await assertWidth();
@@ -437,12 +490,20 @@ try {
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "复盘", exact: true }).click();
       await page.getByRole("heading", { name: "今日情绪", exact: true }).waitFor();
       await page.getByText("连续两日走强", { exact: true }).waitFor();
+      await page.locator(".group-tabs").getByRole("button",{name:"全部功能",exact:true}).click();
+      assert.equal(await page.getByRole("group",{name:"功能分类",exact:true}).getByRole("button",{name:"复盘",exact:true}).getAttribute("aria-pressed"),"true");
+      assert.equal(await page.locator(".directory-grid button").count(),21,"all market and journal tools remain reachable in the review directory");
+      await assertWidth();
+      await page.screenshot({path:path.join(out,`${width}-${theme}-review-directory.png`),fullPage:true});
+      await page.getByRole("button",{name:"返回",exact:true}).click();
+      await page.getByRole("heading",{name:"今日情绪",exact:true}).waitFor();
+      await captureLayout("review");
       // 图片分享卡:画出预览(不触发原生分享)
       await page.getByRole("button", { name: /^生成 .* 的分享图$/ }).click();
       await page.getByRole("img", { name: /情绪复盘分享图预览/ }).waitFor();
       assert.ok(await page.getByRole("img", { name: /情绪复盘分享图预览/ }).evaluate((img) => img.naturalWidth === 720), "分享图宽 720");
       const tabTops = await page.locator(".group-tabs [role=tab]").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top));
-      assert.ok(tabTops.length >= 9 && Math.max(...tabTops) - Math.min(...tabTops) < 2, "review sub-tabs must stay in one scrollable row");
+      assert.ok(tabTops.length === 7 && Math.max(...tabTops) - Math.min(...tabTops) < 2, "market review only shows its seven related pages in one scrollable row");
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-emotion.png"), fullPage: true });
       // 问 AI:点页面上的按钮 → 跳到 AI 对话,预填问题并勾选「附带当前页面」(只是勾选,不发送)
@@ -453,22 +514,22 @@ try {
       await assertWidth();
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "复盘", exact: true }).click();
       await page.getByRole("heading", { name: "今日情绪", exact: true }).waitFor();
-      await page.locator(".group-tabs").getByRole("tab", { name: "连板天梯", exact: true }).click();
+      await openWorkspaceTab("连板天梯");
       await page.getByText("新华传媒", { exact: true }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-ladder.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "情绪历史", exact: true }).click();
+      await openWorkspaceTab("情绪历史");
       await page.getByText("历史统计位置", { exact: true }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-history.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "市场面板", exact: true }).click();
+      await openWorkspaceTab("市场面板");
       await page.getByRole("heading", { name: "市场面板", exact: true }).waitFor();
       await page.getByText("主要指数", { exact: true }).first().waitFor();
       await page.getByRole("table", { name: "主要指数中长线" }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-market-panel.png"), fullPage: true });
       await page.getByRole("region", { name: "涨停分档卡片" }).waitFor();
-      await page.locator(".group-tabs").getByRole("tab", { name: "结构变化", exact: true }).click();
+      await openWorkspaceTab("结构变化");
       await page.getByRole("heading", { name: "结构变化", exact: true }).waitFor();
       await page.getByText("结构移位不等于制度变化", { exact: false }).first().waitFor();
       await page.getByRole("button", { name: "登记", exact: false }).click();
@@ -481,22 +542,34 @@ try {
       await page.waitForFunction(() => /^\s*\d{4}-\d{2}-\d{2}\s*$/.test(document.querySelector('[aria-label^="施行日期"]')?.textContent ?? ""));
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-structure.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "行业题材", exact: true }).click();
+      await openWorkspaceTab("行业题材");
       await page.getByRole("region", { name: "题材事件树卡片" }).waitFor();
       await page.getByText("题材归因来自源站编辑", { exact: false }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-theme-tree.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "盘面事实", exact: true }).click();
+      await openWorkspaceTab("盘面事实");
       await page.getByRole("region", { name: "昨日炸板股修复卡片" }).waitFor();
       await page.getByRole("table", { name: "昨日炸板反馈矩阵" }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-prev-broken.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "涨停样本", exact: true }).click();
+      await openWorkspaceTab("涨停样本");
       await page.getByText("首板 · 最后封板时间曲线", { exact: false }).waitFor();
       await page.getByText("事后名单", { exact: false }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-samples.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "交易日志", exact: true }).click();
+      await openWorkspaceTab("交易日志");
+      await page.getByRole("button", { name: "从表格导入成交与分红", exact: false }).waitFor();
+      await page.getByText("还没有交易记录",{exact:true}).waitFor();
+      assert.ok(await page.locator(".journal-v2").evaluate(el=>parseFloat(getComputedStyle(el).paddingLeft)>=8));
+      await captureLayout("journal");
+      await page.getByRole("button",{name:"记一笔",exact:true}).click();
+      await page.getByPlaceholder("股票代码",{exact:true}).waitFor();
+      await assertWidth();
+      const fields=await page.locator(".journal-v2-editor :is(input,button)").evaluateAll(items=>items.map(item=>item.getBoundingClientRect().height));
+      assert.ok(fields.every(height=>height>=44),"journal form keeps usable touch targets");
+      await page.getByRole("button",{name:"记一笔",exact:true}).click();
+      assert.equal(await page.locator(".group-tabs [role=tab]").count(),4,"journal navigation excludes market-only pages");
+      await page.screenshot({path:path.join(out,`${width}-${theme}-journal-navigation.png`),fullPage:true});
       await page.getByRole("button", { name: "从表格导入成交与分红", exact: false }).click();
       await page.getByRole("button", { name: "填入示例", exact: true }).click();
       await page.getByRole("button", { name: "预览", exact: true }).click();
@@ -504,7 +577,7 @@ try {
       await page.getByText("手机端暂不支持「送转」", { exact: false }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-trade-import.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "风险与纪律", exact: true }).click();
+      await openWorkspaceTab("风险与纪律");
       await page.getByRole("heading", { name: "风险与纪律", exact: true }).waitFor();
       await page.getByText("权益曲线与回撤", { exact: true }).waitFor();
       await page.getByRole("img", { name: "权益曲线", exact: false }).waitFor();
@@ -513,7 +586,7 @@ try {
       assert.equal(await page.getByLabel("单笔最大亏损", { exact: true }).inputValue(), "4");
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-risk.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "模式卡", exact: true }).click();
+      await openWorkspaceTab("模式卡");
       await page.getByRole("heading", { name: "模式卡", exact: true }).waitFor();
       await page.getByText("收紧封板时间", { exact: false }).first().waitFor();
       await page.getByRole("button", { name: "新建模式卡", exact: false }).click();
@@ -521,33 +594,33 @@ try {
       assert.equal(await page.getByLabel("什么情况下做", { exact: true }).inputValue(), "", "new cards are never prefilled");
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-modes.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "复查", exact: true }).click();
+      await openWorkspaceTab("复查");
       await page.getByRole("heading", { name: "复查", exact: true }).waitFor();
       await page.getByRole("list", { name: "复查清单" }).waitFor();
       await page.getByRole("table", { name: "逐笔最大浮盈浮亏" }).waitFor();
       await page.getByText("日线看不出最高点发生在盘中买入之前还是之后", { exact: false }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-excursion.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "入场环境", exact: true }).click();
+      await openWorkspaceTab("入场环境");
       await page.getByRole("heading", { name: "入场环境", exact: true }).waitFor();
       await page.getByRole("table", { name: "按当时板位" }).waitFor();
       await page.getByRole("table", { name: "逐笔入场环境" }).waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-env.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "看错还是没执行好", exact: true }).click();
+      await openWorkspaceTab("看错还是没执行好");
       await page.getByRole("heading", { name: "看错了,还是没执行好", exact: true, level: 1 }).waitFor();
       await page.getByRole("group", { name: "四格" }).waitFor();
       await page.getByText("判错 + 赚钱 · 运气", { exact: false }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-attribution.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "问题记录", exact: true }).click();
+      await openWorkspaceTab("问题记录");
       await page.getByRole("heading", { name: "问题记录", exact: true, level: 1 }).waitFor();
       await page.getByText("卖在买之前", { exact: false }).first().waitFor();
       await page.getByRole("button", { name: "改 卖出 2026-10-13", exact: true }).first().click();
       await page.getByLabel("成交价", { exact: true }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-problems.png"), fullPage: true });
-      await page.locator(".group-tabs").getByRole("tab", { name: "明日验证", exact: true }).click();
+      await openWorkspaceTab("明日验证");
       await page.getByText("写给下一场的条件", { exact: true }).waitFor();
       await page.getByRole("button", { name: "加一条", exact: false }).click();
       await page.getByLabel("第 1 条读数").waitFor();
@@ -557,8 +630,8 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [360, 390, 768], themes: ["light", "dark"], screenshots: 216, chart_png_exports: 18, page_errors: errors }, null, 2));
-  console.log("Mobile UI smoke passed: 6 viewport/theme combinations, prior market/journal/research pages, calculation audits, industry import preview and save, historical backtest coverage, K-line/intraday/backtest chart PNG previews and native share payloads; 216 screenshots and 18 chart PNG exports.");
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [320, 360, 390, 768], themes: ["light", "dark"], screenshots: 320, chart_png_exports: 24, layout_previews: 40, page_errors: errors }, null, 2));
+  console.log("Mobile UI smoke passed: 8 viewport/theme combinations, prior market/journal/research pages, calculation audits, industry import preview and save, historical backtest coverage, K-line/intraday/backtest chart PNG previews and native share payloads; 320 screenshots and 24 chart PNG exports.");
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
   const text = String(error && error.stack ? error.stack : error).split("\n").slice(0, 12).join("%0A").slice(0, 3500);

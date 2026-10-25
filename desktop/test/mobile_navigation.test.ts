@@ -51,14 +51,16 @@ test("通知 IPC 跨 StrictMode 重挂载不丢冷启动入口，后台点击只
   }
 });
 
-test("栏目子页签标出当前页，同组功能一屏可见，五个一级栏目对应桌面侧栏", async () => {
+test("栏目先分组再显示当前工作页签，五个主栏目保留全部功能入口", async () => {
   await withRenderer(async (r) => {
     const { GroupTabs, WorkspaceNav, FunctionDirectory } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
     const tabs = r.html(GroupTabs, { page: "backtest", onNavigate: () => undefined });
     assert.match(tabs, /aria-selected="true"[^>]*>历史回测/);
-    for (const label of ["个股深挖", "板块轮动", "资讯雷达", "产业信号", "候选池", "AI 助手"]) assert.ok(textOf(tabs).includes(label), label);
+    for (const label of ["个股研究", "产业资讯", "个股深挖", "候选池", "AI 助手"]) assert.ok(textOf(tabs).includes(label), label);
+    assert.ok(!textOf(tabs).includes("板块轮动"), "产业工具通过分组进入，不塞进个股页签");
     const review = textOf(r.html(GroupTabs, { page: "ladder", onNavigate: () => undefined }));
-    for (const label of ["今日情绪", "连板天梯", "涨停全表", "首板名单", "盘面事实", "行业题材", "每日复盘", "交易日志", "交易统计"]) assert.ok(review.includes(label), label);
+    for (const label of ["市场复盘", "复盘记录", "交易日志", "交易分析", "今日情绪", "连板天梯", "涨停全表", "首板名单", "盘面事实", "行业题材"]) assert.ok(review.includes(label), label);
+    assert.ok(!review.includes("交易统计"), "交易统计位于交易日志分组");
     assert.equal(r.html(GroupTabs, { page: "market", onNavigate: () => undefined }), "");
     const nav = r.html(WorkspaceNav, { page: "firstBoard", onNavigate: () => undefined });
     assert.deepEqual([...textOf(nav).matchAll(/首页|盯盘|复盘|研究|我的/g)].map((m) => m[0]), ["首页", "盯盘", "复盘", "研究", "我的"]);
@@ -66,6 +68,22 @@ test("栏目子页签标出当前页，同组功能一屏可见，五个一级�
     const my = textOf(r.html(FunctionDirectory, { onNavigate: () => undefined, group: "my" }));
     for (const label of ["事件日历", "提醒规则", "研究记录", "我的研报", "收件箱", "应用设置"]) assert.ok(my.includes(label), label);
     assert.ok(!my.includes("连板天梯"));
+  });
+});
+
+test("功能分组覆盖全部实际页面且不重复，目录可按栏目筛选并保留设置入口", async () => {
+  await withRenderer(async (r) => {
+    const { WORKSPACE_SECTIONS, WORKSPACE_ENTRIES } = await r.load("/src/mobile/workspace.ts");
+    const pages = WORKSPACE_SECTIONS.flatMap((section: { pages: string[] }) => section.pages);
+    assert.equal(new Set(pages).size, pages.length);
+    assert.deepEqual([...pages].sort(), WORKSPACE_ENTRIES.filter((entry: { page: string }) => entry.page !== "functions").map((entry: { page: string }) => entry.page).sort());
+    const { GroupTabs, FunctionDirectory } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
+    const journal = textOf(r.html(GroupTabs, { page: "records", onNavigate: () => undefined }));
+    for (const title of ["交易统计", "风险与纪律", "模式卡"]) assert.ok(journal.includes(title), title);
+    assert.ok(!journal.includes("连板天梯"));
+    const filtered = textOf(r.html(FunctionDirectory, { onNavigate: () => undefined, initialGroup: "research" }));
+    for (const title of ["个股深挖", "历史回测", "板块轮动", "产业研究"]) assert.ok(filtered.includes(title), title);
+    assert.ok(!filtered.includes("风险与纪律"));
   });
 });
 

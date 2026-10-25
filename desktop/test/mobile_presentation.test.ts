@@ -56,16 +56,16 @@ test("存储受限时仍能切换外观和手动刷新，损坏值回退到有�
   stop();
 });
 
-test("没有顶部栏:底部菜单是五个栏目加设置,设置页里有主题切换;快捷功能覆盖八个真实栏目", async () => {
+test("底部保留五个主栏目，设置归入我的，快捷功能覆盖八个真实栏目", async () => {
   await withRenderer(async (r) => {
     const { HomeShortcuts, ...header } = await r.load("/src/mobile/MobileHeader.tsx");
     assert.ok(!("MobileHeader" in header), "顶部软件信息栏已移除");
     const { WorkspaceNav } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
     const nav = r.html(WorkspaceNav, { page: "settings", onNavigate: () => undefined });
-    assert.equal((nav.match(/<button/g) ?? []).length, 6);
-    for (const label of ["首页", "盯盘", "复盘", "研究", "我的", "设置"]) assert.ok(textOf(nav).includes(label), label);
-    assert.equal((nav.match(/aria-current="page"/g) ?? []).length, 1, "在设置页时只有设置高亮");
-    assert.match(nav, /class="active" aria-current="page">.*<span>设置<\/span><\/button><\/nav>/);
+    assert.equal((nav.match(/<button/g) ?? []).length, 5);
+    for (const label of ["首页", "盯盘", "复盘", "研究", "我的"]) assert.ok(textOf(nav).includes(label), label);
+    assert.equal((nav.match(/aria-current="page"/g) ?? []).length, 1, "设置属于我的栏目");
+    assert.match(nav, /class="active" aria-current="page">.*<span>我的<\/span><\/button><\/nav>/);
     const links = textOf(r.html(HomeShortcuts, { onNavigate: () => undefined }));
     for (const label of ["实时动态", "今日情绪", "连板天梯", "涨停全表", "板块轮动", "个股深挖", "交易日志", "每日复盘", "全部功能"]) assert.ok(links.includes(label), label);
   });

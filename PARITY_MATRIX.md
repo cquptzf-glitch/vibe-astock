@@ -1,5 +1,24 @@
 # Android / Rust migration parity matrix
 
+## 当前入口：0.1.40 手机布局优化（2026-10-25，本地候选）
+
+本轮代码版本 0.1.40 / Android 配置 versionCode 1040；按维护者选择先完成本地界面预览，不等待 CI/APK。最后有发布回执的 APK 仍为 0.1.38，0.1.39 与本轮 0.1.40 均不能当作已发布安装包。此前 GitHub workflow_dispatch 返回 Actions has been disabled for this repository；本轮未再次调度或修改 Actions 权限。
+
+### 已完成
+
+- 底部保留首页、盯盘、复盘、研究、我的五个主栏目；设置归入“我的 / 应用与数据”，设置页保留返回入口与“我的”高亮。
+- 复盘分为市场复盘、复盘记录、交易日志、交易分析；研究分为个股研究、产业资讯。页签只展示当前分组，目录始终可达；全部 42 个目录入口（不含目录自身）各有唯一分组，原有路由未删除。
+- 首页前置股票搜索与常用功能，消息可直接打开；市场详情、情绪和自选行情随后展示。目录支持分类、关键词搜索、清除与从当前栏目带入分类。
+- 主要导航、搜索和目录筛选即使在紧凑模式仍保留至少 44px 触控区，底栏至少 48px；320px 目录改为单列，保留横竖安全区间距。页面切换回到顶部。
+- 问 AI / 分享图改为页面内工具栏，避免悬浮遮住行情。交易日志补边距，把“记一笔”作为主操作置于表格导入前，手机成交表单按两列排布。交易核算、保存逻辑和数据与模型处理未改。
+
+### 本地验证与交付
+
+前端 578 项、Rust Core 312 项 / 28 ignored、符号 parity 1 项及发行脚本 9 项通过；TypeScript、桌面与独立移动构建通过。Edge 四尺寸 320/360/390/768 × 明暗主题：320 张页面截图、24 张实际图表 PNG 和 40 张视口布局预览通过；检查导航触控区、目录分类/搜索/返回、设置归属、320px 表单与宽度、原有行情/研究/回测流程及分享载荷，人工检查明暗主题布局。
+
+本地截图来自公开冻结/合成数据，不是真实行情或用户账户，不等同于真机安装验收。未重跑未改动的编排器/Python 全套；上轮 Windows 契约 5 项失败、Python 环境缺依赖及全量 Rust fmt / 严格 Clippy 未通过的边界保留，不计作本轮通过。SQLite v13 / 业务备份 v11 不变；预览固定签名配置未改。历史数据、研究全量等价、核算边界、源站与真机/正式身份缺口继续保留。
+
+
 ## 0.1.39 图表分享迁移（2026-10-25）
 
 本轮候选版本 0.1.39 / versionCode 1039，本地完成、已推送；GitHub 平台拒绝启动 Actions，未发布。最后已发布版本仍为 0.1.38。
@@ -48,10 +67,11 @@ Desktop CI PASS
 Android APK PASS
 ```
 
-## Current mobile matrix — 0.1.39 candidate (2026-10-25)
+## Current mobile matrix — 0.1.40 local candidate (2026-10-25)
 
 | Area | Mobile implementation | Evidence | Status |
 | --- | --- | --- | --- |
+| Mobile navigation / layout | five primary tabs, scoped workspace sections, searchable directory, inline page tools, phone journal form | 578 frontend tests; 320 Edge screenshots across four widths and two themes, including 40 layout previews; all 42 directory entries covered once | Implemented and locally verified; device / APK / CI deferred |
 | Deterministic calc / evidence DAG | deterministic_calc 0.5.0 (24 functions), graph, research_calculations, CalculationAudit | 388 frozen Python cases with oracle source hashes; reject fabricated inputs/cycles/wrong claims/corrupt restores; cancellation/backup tests; 180-screen browser smoke | Pure function numerical parity verified within fixture scope; bounded mobile JSON DAG implemented; legacy file/CLI identity and full provider workflows not equivalent |
 | AI staged research / debate / emotion / weekly / industry | research_workflow + research-methodology.json | resume/cancel/late-result/math rejection/retry/archive tests; browser workflow | Implemented mobile snapshot workflow with evidence-bound calculation plans and durable audits; full desktop source/workflow parity pending |
 | Statements / consensus / valuation | research_extended | parser tests; live Sina/THS/Baidu probes | Implemented; provider continuity and real-device UX pending |
@@ -66,7 +86,7 @@ Android APK PASS
 | Documents / controlled chat | document_import + chat_tools/chat_documents | file parsers, arithmetic round trip, budget, citation refusal tests | Implemented bounded retrieval and original PDF-page citations (blank pages preserved, wrong/unrecalled pages rejected); scanned PDFs/OCR unsupported |
 | Public-page assistant / share / offline | PublicPageActions / provider_cache | SSR/Edge and offline API tests; manual refresh bypass and failed-envelope fallback regression | Implemented text-summary cards and labeled historical cache; K-line/intraday/backtest SVG chart PNG previews and exact native share payloads added in 0.1.39 |
 | Supply-chain / event probability | industry_revenue / probability / Kalshi GPU ladder | parsing tests; quote types, source gaps explicit | Implemented bounded scans; Kalshi/Polymarket transport failed locally; four live monthly-revenue providers passed |
-| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 216-screen / 18-PNG Edge smoke; Chromium CI blocked by GitHub | 0.1.38 preview APK, version and pinned signing checks passed; 0.1.39 CI blocked by GitHub platform; device acceptance pending |
+| Independent mobile artifact | mobileMain + Vite mobile pre-transform | builds + 320-screen / 24-PNG Edge smoke; current CI deferred by maintainer | 0.1.40 local frontend/layout verification passed; APK and CI deferred; 0.1.38 remains the last published preview; device acceptance pending |
 
 Previous 0.1.36 verification (historical): Rust 300 + symbol parity 1; frontend 569; frozen Python oracle 388 cases; Edge screenshots 180; desktop/mobile builds pass. Android CI #39123017859 passed and published the preview; cross-platform fixture follow-up is recorded below.
 

@@ -1,6 +1,6 @@
 import type { MobilePage } from "./mobileRoutes";
 
-// 五个一级栏目对应桌面版左侧栏:首页 / 盯盘 / 复盘(含交易日志) / 研究(产业资讯、产业研究、研究工具) / 我的(我的股票、资料库);设置是底部菜单里单独的第六项。
+// 五个一级栏目；设置留在「我的」，栏目中的功能再按日常工作分组。
 export type WorkspaceGroup = "overview" | "watch" | "review" | "research" | "my";
 export interface WorkspaceEntry { page: MobilePage; title: string; short: string; detail: string; group: WorkspaceGroup; keywords?: string }
 export const WORKSPACE_GROUPS: { id: WorkspaceGroup; title: string; detail: string; home: MobilePage }[] = [
@@ -55,6 +55,29 @@ export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "inbox", title: "收件箱", short: "收件", detail: "研究线索、未读过滤与处理状态", group: "my" },
   { page: "settings", title: "应用设置", short: "设置", detail: "外观、刷新、模型接入、通知与备份恢复", group: "my", keywords: "主题 备份 恢复" },
 ];
+export interface WorkspaceSection { id: string; group: WorkspaceGroup; title: string; detail: string; pages: MobilePage[] }
+export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
+  { id: "overview", group: "overview", title: "市场总览", detail: "先看市场，再开始今天的工作", pages: ["market"] },
+  { id: "watch", group: "watch", title: "盘中跟踪", detail: "行情、名单和实时观察", pages: ["monitor", "watch", "hold", "intraday", "risk"] },
+  { id: "market-review", group: "review", title: "市场复盘", detail: "情绪、梯队和盘面事实", pages: ["emotion", "ladder", "limitUp", "firstBoard", "seal", "themes", "marketReview"] },
+  { id: "review-records", group: "review", title: "复盘记录", detail: "每日记录、历史比较与明日验证", pages: ["daily", "verify", "weekly", "history", "samples", "structure"] },
+  { id: "journal", group: "review", title: "交易日志", detail: "记成交、看统计、检查纪律", pages: ["records", "review", "journalRisk", "journalModes"] },
+  { id: "journal-analysis", group: "review", title: "交易分析", detail: "复查交易、入场环境与执行归因", pages: ["journalExcursion", "journalEnv", "journalAttribution", "journalProblems"] },
+  { id: "stock-research", group: "research", title: "个股研究", detail: "查公司、筛候选、核对历史假设", pages: ["research", "candidate", "backtest", "ai"] },
+  { id: "industry-research", group: "research", title: "产业资讯", detail: "板块、产业链、新闻与供需线索", pages: ["rotation", "sector", "news", "signals"] },
+  { id: "app", group: "my", title: "应用与数据", detail: "外观、模型接入与备份恢复", pages: ["settings"] },
+  { id: "agenda", group: "my", title: "日程与提醒", detail: "消息、日历与提醒规则", pages: ["messages", "calendar", "reminders"] },
+  { id: "library", group: "my", title: "研究资料", detail: "保存研究记录、研报与待处理线索", pages: ["notes", "reports", "inbox"] },
+];
+export function sectionEntries(section: WorkspaceSection): WorkspaceEntry[] {
+  return section.pages.flatMap((page) => {
+    const entry = workspaceEntry(page);
+    return entry ? [entry] : [];
+  });
+}
+export function workspaceSection(page: MobilePage): WorkspaceSection | undefined {
+  return WORKSPACE_SECTIONS.find((section) => section.pages.includes(page));
+}
 export function workspaceEntry(page: MobilePage): WorkspaceEntry | undefined {
   return WORKSPACE_ENTRIES.find((entry) => entry.page === page);
 }
