@@ -205,8 +205,8 @@ export function CandidatePanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
         </div>
       )}
 
-      <article className="mobile-quote-card candidate-filter-card">
-        <div className="mobile-card-label"><SlidersHorizontal size={13} /> 筛选条件({enabledCount} 项启用)</div>
+      <details className="mobile-quote-card candidate-filter-card">
+        <summary><SlidersHorizontal size={16} /> 筛选条件({enabledCount} 项启用)</summary>
         <div className="candidate-mode" role="radiogroup" aria-label="条件组合方式">
           <button type="button" role="radio" aria-checked={mode === "all"} className={mode === "all" ? "active" : ""} onClick={() => setMode("all")}>满足全部</button>
           <button type="button" role="radio" aria-checked={mode === "any"} className={mode === "any" ? "active" : ""} onClick={() => setMode("any")}>满足任一</button>
@@ -241,7 +241,7 @@ export function CandidatePanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
         </div>
         {message && <p className="candidate-message" role="status">{message}</p>}
         <button type="button" className="candidate-run" onClick={() => void load()} disabled={loading}>{loading ? "取行情中…" : "重新取行情"}</button>
-      </article>
+      </details>
 
       <div className="candidate-sort">
         <WebSelect aria-label="排序" value={sort.key} onChange={(e) => setSort({ key: e.target.value as SortKey, dir: sort.dir })}>

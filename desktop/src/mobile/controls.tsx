@@ -48,7 +48,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   if (!open || !host) return null;
   return createPortal(<div className="wc-layer">
     <button type="button" className="wc-backdrop" aria-label="关闭" tabIndex={-1} onClick={onClose} />
-    <div className="wc-sheet" role="dialog" aria-label={title}><div className="wc-sheet-head"><strong>{title}</strong></div>{children}</div>
+    <div className="wc-sheet" role="dialog" aria-label={title}><div className="wc-sheet-head"><strong>{title}</strong><button type="button" onClick={onClose} aria-label="关闭面板">关闭</button></div>{children}</div>
   </div>, host);
 }
 

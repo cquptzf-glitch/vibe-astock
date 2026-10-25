@@ -1,3 +1,4 @@
+import { PageSections } from "./PageSections";
 import {
   BellRing,
   Database,
@@ -347,7 +348,8 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
         </button>
       </div>
 
-      <AppearanceSettings />
+      <PageSections label="设置分区" items={[{ id: "settings-appearance", label: "外观" }, { id: "mobile-model-settings", label: "模型", open: () => setShowModelSettings(true) }, { id: "settings-notifications", label: "通知" }, { id: "settings-backup", label: "备份" }]} />
+      <div id="settings-appearance"><AppearanceSettings /></div>
       <div className="settings-quick-links">
         <button type="button" onClick={() => setShowModelSettings((value) => !value)} aria-expanded={showModelSettings} aria-controls="mobile-model-settings"><KeyRound size={16} /> 模型 API 设置</button>
         {onOpenReminders && <button type="button" onClick={onOpenReminders}><BellRing size={16} /> 提醒规则设置</button>}
@@ -386,7 +388,7 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
             </div>
           </div>
 
-          <section className="settings-block">
+          <section className="settings-block" id="settings-notifications">
             <div className="settings-heading"><BellRing size={16} /><strong>通知</strong><span>{permissionLabel(notificationPermission, notificationSupported)}</span></div>
             <div className="settings-notification-body">
               <p>通知能力用于后续价格、持仓风险、盘中监控和复盘完成提醒。权限由 Android 系统管理。</p>
@@ -397,17 +399,7 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
             </div>
           </section>
 
-          <section className="settings-block">
-            <div className="settings-heading"><Trash2 size={16} /><strong>清除全部本地数据</strong><span>不可恢复</span></div>
-            <div className="settings-notification-body">
-              <p>一次清空这台手机上的全部本地数据:自选、交易日志与成交、分红、日复盘、AI 聊天与模型配置、资料库、日历、提醒、行情缓存,以及 Android Keystore 里的 API Key,并取消已排的提醒。要先留一份,请先导出备份。</p>
-              <div className="settings-actions">
-                <button className="danger" onClick={() => void clearAllData()} disabled={clearing}><Trash2 size={14} /> {clearing ? "正在清除…" : "清除全部本地数据"}</button>
-              </div>
-            </div>
-          </section>
-
-          <section className="settings-block">
+          <section className="settings-block" id="settings-backup">
             <div className="settings-heading"><HardDrive size={16} /><strong>备份与恢复</strong><span>{fileSupported ? "系统文件选择器" : "不可用"}</span></div>
             <div className="settings-notification-body">
               <p>导出版本化 JSON 备份：自选、交易日志、成交明细、市场日复盘和 AI 聊天历史。API Key、Android Keystore 密钥及模型配置始终排除；恢复也不会修改当前设备的模型凭据。</p>
@@ -456,6 +448,16 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
             <div className="settings-heading"><KeyRound size={16} /><strong>模型设置</strong></div>
             <p className="settings-tip">点击本页“模型 API 设置”直接展开配置表单，填写 Base URL、模型名称和 API Key。更换 Base URL 时，旧 Key 会自动清除，除非同时输入新的 Key。</p>
           </section>
+          <section className="settings-block settings-danger">
+            <div className="settings-heading"><Trash2 size={16} /><strong>清除全部本地数据</strong><span>不可恢复</span></div>
+            <div className="settings-notification-body">
+              <p>一次清空这台手机上的全部本地数据:自选、交易日志与成交、分红、日复盘、AI 聊天与模型配置、资料库、日历、提醒、行情缓存,以及 Android Keystore 里的 API Key,并取消已排的提醒。要先留一份,请先导出备份。</p>
+              <div className="settings-actions">
+                <button className="danger" onClick={() => void clearAllData()} disabled={clearing}><Trash2 size={14} /> {clearing ? "正在清除…" : "清除全部本地数据"}</button>
+              </div>
+            </div>
+          </section>
+
         </>
       )}
     </section>

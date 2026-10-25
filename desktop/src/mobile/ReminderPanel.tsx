@@ -1,5 +1,5 @@
 import { Bell, BellOff, RefreshCw, Save, Smartphone, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./reminders.css";
 
 type ReminderKind = "price_above" | "price_below" | "stop_near" | "target_near" | "daily_review";
@@ -71,6 +71,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export function ReminderPanel() {
   const [items, setItems] = useState<ReminderRule[]>([]);
   const [scheduler, setScheduler] = useState<SchedulerStatus | null>(null);
+  const editor = useRef<HTMLDetailsElement>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -103,6 +104,7 @@ export function ReminderPanel() {
   useEffect(() => { void load(); }, []);
 
   function edit(item: ReminderRule) {
+    if (editor.current) editor.current.open = true;
     setDraft({
       id: item.id,
       kind: item.kind,
@@ -209,7 +211,7 @@ export function ReminderPanel() {
         </div>
       </div>
 
-      <article className="mobile-quote-card reminder-editor">
+      <details ref={editor} className="mobile-quote-card reminder-editor"><summary>{draft.id ? `编辑提醒 #${draft.id}` : "新建提醒"}</summary>
         <div className="reminder-editor-head">
           <div className="mobile-card-label">{draft.id ? `编辑提醒 #${draft.id}` : "新建提醒"}</div>
           <label className="reminder-switch">
@@ -257,7 +259,7 @@ export function ReminderPanel() {
             </button>
           </div>
         </div>
-      </article>
+      </details>
 
       {error && <div className="mobile-error reminder-error">{error}</div>}
 

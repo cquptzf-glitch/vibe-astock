@@ -185,8 +185,8 @@ export function CalendarPanel() {
       <button type="button" className="discovery-action" disabled={syncing} onClick={() => void syncSources()}>{syncing ? "正在同步公告与预约披露…" : symbol.trim() ? `同步 ${symbol.trim()} 公告与披露日期` : "同步自选公告与披露日期"}</button>
       {syncNote && <p role="status" className="discovery-footnote">{syncNote}</p>}
 
-      <article className="mobile-quote-card calendar-editor">
-        <div className="mobile-card-label"><CalendarDays size={13} /> 新增事件</div>
+      <details className="mobile-quote-card calendar-editor">
+        <summary><CalendarDays size={16} /> 新增日历事件</summary>
         <div className="calendar-editor-grid">
           <DateField value={date} onChange={(event) => setDate(event.target.value)} />
           <WebSelect value={kind} onChange={(event) => setKind(event.target.value as EventKind)}>
@@ -199,7 +199,7 @@ export function CalendarPanel() {
         <button type="button" className="candidate-run" onClick={() => void save()} disabled={!title.trim() || saving}>
           <Plus size={14} /> {saving ? "保存中…" : "加入日历"}
         </button>
-      </article>
+      </details>
 
       {error && <div className="mobile-error discovery-message">{error}</div>}
       {!loading && events.length === 0 && <div className="mobile-empty">当前时间窗没有事件。</div>}

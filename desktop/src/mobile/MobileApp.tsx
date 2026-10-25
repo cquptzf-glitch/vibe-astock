@@ -17,6 +17,7 @@ import { StockDetailPanel } from "./StockDetailPanel";
 import { StockChart } from "./KlineChart";
 import { QuoteBoard } from "./QuoteBoard";
 import { StockInsightsPanel } from "./StockInsightsPanel";
+import { StockWorkspace } from "./StockWorkspace";
 import { useMobileNavigation } from "./useMobileNavigation";
 import type { MobilePage } from "./mobileRoutes";
 import { workspaceGroup, type WorkspaceGroup } from "./workspace";
@@ -28,6 +29,7 @@ import "./journal-workspace.css";
 import "./library.css";
 import "./shortline.css";
 import "./phone-layout.css";
+import "./page-layouts.css";
 
 // 路由分包:首页和个股页以外的页面第一次进入时才加载(本机文件,几毫秒)。名字对应各文件里的具名导出
 function lazyPanel<M, K extends keyof M>(load: () => Promise<M>, name: K): LazyExoticComponent<M[K] extends ComponentType<infer P> ? ComponentType<P> : never> {
@@ -351,7 +353,7 @@ export function MobileApp() {
   </>;
 
   const stockBlock = <section className="mobile-section">
-    {searchBlock}
+    <details className="stock-search-switch"><summary>查找其他股票</summary>{searchBlock}</details>
     {loading && <div className="mobile-empty" role="status">正在加载 {route.symbol} 行情…</div>}
     {!loading && error && (
       <button className="mobile-back" type="button" onClick={() => setQuoteRevision((value) => value + 1)}>重新加载行情</button>
@@ -372,11 +374,10 @@ export function MobileApp() {
           </div>
         </article>
 
-        <QuoteBoard key={"qb-" + activeSymbol} symbol={activeSymbol} />
-        <StockChart key={"kc-" + activeSymbol} symbol={activeSymbol} />
-        <StockDetailPanel quote={quote} rows={klineRows} />
-        <ResearchPanel symbol={activeSymbol} />
-        <StockInsightsPanel key={activeSymbol} symbol={activeSymbol} onOpenBoard={(board) => navigate({ page: "board", board })} />
+        <StockWorkspace key={activeSymbol}
+          quote={<><QuoteBoard symbol={activeSymbol} /><StockChart symbol={activeSymbol} /><StockDetailPanel quote={quote} rows={klineRows} /></>}
+          company={<ResearchPanel symbol={activeSymbol} />}
+          insights={<StockInsightsPanel symbol={activeSymbol} onOpenBoard={(board) => navigate({ page: "board", board })} />} />
       </>
     )}
   </section>;
@@ -465,7 +466,7 @@ export function MobileApp() {
         )}
         {error && <div className="mobile-error">{error}</div>}
         {page !== "market" && <PublicPageActions key={page} page={page} onAsk={askAi} />}
-        <Suspense fallback={<div className="mobile-empty" role="status">加载中…</div>}>{renderPage()}</Suspense>
+        <div className="mobile-page-body" data-layout-page={page}><Suspense fallback={<div className="mobile-empty" role="status">加载中…</div>}>{renderPage()}</Suspense></div>
       </main>
 
       <WorkspaceNav page={page} onNavigate={go} unreadMessages={unreadMessages} />

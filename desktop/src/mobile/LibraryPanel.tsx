@@ -200,7 +200,7 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
   const unread = items.filter((item) => item.status !== "read").length;
 
   return (
-    <section className="mobile-section">
+    <section className="mobile-section library-page">
       <div className="mobile-section-title">
         <div>
           <h1>{meta.title}</h1>
@@ -211,8 +211,17 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
         </button>
       </div>
       {error && <div className="mobile-error">{error}</div>}
-      {kind === "report" && <ReportImport onSaved={() => void load(kind)} />}
-      <details><summary>日期、状态检索与自动归档</summary><div className="rw-form"><label>更新起日<input type="text" placeholder="YYYY-MM-DD" value={filter.from??""} onChange={(e)=>setFilter({...filter,from:e.target.value})} /></label><label>更新止日<input type="text" placeholder="YYYY-MM-DD" value={filter.to??""} onChange={(e)=>setFilter({...filter,to:e.target.value})} /></label><label>关联代码<input value={filter.symbol??""} onChange={(e)=>setFilter({...filter,symbol:e.target.value})} /></label><label>状态<WebSelect value={filter.status??""} onChange={(e)=>setFilter({...filter,status:e.target.value})}><option value="">所有状态</option><option value="active">使用中</option><option value="archived">已归档</option><option value="read">已读</option><option value="unread">未读</option></WebSelect></label><label>超过多少天未更新自动归档<input inputMode="numeric" value={archiveDays} onChange={(e)=>setArchiveDays(Number(e.target.value))} /></label><p>规则应用于当前资料类型{filter.category?`的「${filter.category}」分类`:"的所有分类"}；收件箱未读内容不自动归档。原文保留，可按「已归档」检索并编辑恢复。</p><button type="button" onClick={()=>void archivePolicy(true)}>启用并应用规则</button><button type="button" onClick={()=>void archivePolicy(false)}>停用规则</button>{archiveNotice&&<p role="status">{archiveNotice}</p>}</div></details>
+      <div className="library-toolbar library-filters">
+        <div className="mobile-filter-row">
+          <input type="search" aria-label="检索资料" placeholder="检索标题、正文、代码；多个词用空格" value={filter.keyword} maxLength={80}
+            onChange={(event) => setFilter({ ...filter, keyword: event.target.value })} />
+          {categories.length > 0 && <WebSelect aria-label="分类筛选" value={filter.category} onChange={(event) => setFilter({ ...filter, category: event.target.value })}>
+            <option value="">全部分类</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}
+          </WebSelect>}
+          {kind === "inbox" && <label className="discovery-check"><input type="checkbox" checked={filter.unreadOnly} onChange={(event) => setFilter({ ...filter, unreadOnly: event.target.checked })} />只看未读（{unread}）</label>}
+        </div>
+        <p className="mobile-filter-note">共 {items.length} 条，显示 {shown.length} 条</p>
+      </div>
 
       <div className="library-toolbar">
         <button type="button" className="library-editor-toggle" aria-expanded={editorOpen} onClick={() => (editorOpen && !editingId ? setEditorOpen(false) : editingId ? resetEditor() : setEditorOpen(true))}>
@@ -235,17 +244,8 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
         </div>}
       </div>
 
-      <div className="library-toolbar">
-        <div className="mobile-filter-row">
-          <input type="search" aria-label="检索资料" placeholder="检索标题、正文、代码；多个词用空格" value={filter.keyword} maxLength={80}
-            onChange={(event) => setFilter({ ...filter, keyword: event.target.value })} />
-          {categories.length > 0 && <WebSelect aria-label="分类筛选" value={filter.category} onChange={(event) => setFilter({ ...filter, category: event.target.value })}>
-            <option value="">全部分类</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}
-          </WebSelect>}
-          {kind === "inbox" && <label className="discovery-check"><input type="checkbox" checked={filter.unreadOnly} onChange={(event) => setFilter({ ...filter, unreadOnly: event.target.checked })} />只看未读（{unread}）</label>}
-        </div>
-        <p className="mobile-filter-note">共 {items.length} 条，显示 {shown.length} 条</p>
-      </div>
+      {kind === "report" && <ReportImport onSaved={() => void load(kind)} />}
+      <details className="library-advanced"><summary>日期、状态检索与自动归档</summary><div className="rw-form"><label>更新起日<input type="text" placeholder="YYYY-MM-DD" value={filter.from??""} onChange={(e)=>setFilter({...filter,from:e.target.value})} /></label><label>更新止日<input type="text" placeholder="YYYY-MM-DD" value={filter.to??""} onChange={(e)=>setFilter({...filter,to:e.target.value})} /></label><label>关联代码<input value={filter.symbol??""} onChange={(e)=>setFilter({...filter,symbol:e.target.value})} /></label><label>状态<WebSelect value={filter.status??""} onChange={(e)=>setFilter({...filter,status:e.target.value})}><option value="">所有状态</option><option value="active">使用中</option><option value="archived">已归档</option><option value="read">已读</option><option value="unread">未读</option></WebSelect></label><label>超过多少天未更新自动归档<input inputMode="numeric" value={archiveDays} onChange={(e)=>setArchiveDays(Number(e.target.value))} /></label><p>规则应用于当前资料类型{filter.category?`的「${filter.category}」分类`:"的所有分类"}；收件箱未读内容不自动归档。原文保留，可按「已归档」检索并编辑恢复。</p><button type="button" onClick={()=>void archivePolicy(true)}>启用并应用规则</button><button type="button" onClick={()=>void archivePolicy(false)}>停用规则</button>{archiveNotice&&<p role="status">{archiveNotice}</p>}</div></details>
 
       <div className="mobile-watch-list" style={{ marginTop: 12 }}>
         {loading && items.length === 0 ? (

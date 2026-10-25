@@ -1,0 +1,27 @@
+// Synthetic UI examples only: no personal trades or live provider calls.
+const stats={label:"合成样本",trades:4,scored:4,wins:2,losses:1,flats:1,win_rate:0.5,avg_pct:1,avg_win_pct:4,avg_loss_pct:-2,payoff_ratio:2,best_pct:5,worst_pct:-2,money_scored:4,net_pnl:100,profit_factor:2};
+const rotationRow={rank:1,code:"BK0475",name:"合成板块",change_pct:1.2,main_net_yuan:120000000,main_pct:2,leader:"合成样本",up_count:8,down_count:2,rotation_signal:"persistent"};
+const flow={time:"2026-10-16",date:"2026-10-16",main_net:1000000,small_net:-1000000,mid_net:0,large_net:400000,super_net:600000};
+export const layoutResponses={
+ "/mobile/stock/fund-flow":{status:"ok",mode:"daily",rows:[flow],latest:flow,count:1,stale:false,method:"合成分类",source:"合成源",unit:"元"},
+ "/mobile/stock/boards":{status:"ok",items:[{code:"BK0475",name:"合成关联板块",change_pct:1}],total:1,dropped:0,truncated:false,note:"合成关联",source:"合成源"},
+ "/mobile/research/statements":{statements:{income:[{period:"2026-06-30",items:[{label:"合成营业收入",value:123456,raw:123456,unit:"元"}],yoy_pct:{}}]},errors:[],note:"合成完整三表展示样本"},
+ "/mobile/research/valuation":{series:{pe_ttm:{rows:[["2026-10-15",20],["2026-10-16",21]],latest:21,date:"2026-10-16",positive_samples:2,percentile_pct:null,min:20,max:21}},errors:[],note:"合成估值样本，样本不足"},
+ "/mobile/research/consensus":{rows:[{year:2026,institutions:2,mean:3,min:2,max:4,thin_sample:true}],missing_years:[2027],note:"合成一致预期样本"},
+ "/mobile/news/probability":{items:[{id:"1",module:"合成模块",venue:"合成市场",title:"合成事件概率",leg:"是",prob:0.5,price_type:"last",volume_24h:100,close:"2026-12-31",url:null}],failures:[],sampled_at:"2026-10-16",scope:"仅合成测试",note:"不代表实际市场概率"},
+ "/mobile/journal/weekly":{start:"2026-10-12",end:"2026-10-16",buys:2,sells:1,openings:1,splits:0,buy_amount:10000,sell_amount:12000,closed:1,planned:1,unplanned:0,performance:{net_pnl:200,win_rate:1},note:"合成统计"},
+ "/mobile/shortline/risk":{status:"ok",kind:"anomaly",date:"2026-10-16",stale:false,page:1,pages:1,has_more:false,dropped:0,items:[{symbol:"600519",name:"合成异常样本",change_pct:2,deviation_pct:10,days:3,rule:"合成公开记录",is_today:true,start:"2026-10-16",end:"2026-10-20",state:"active"}],source:"合成源",note:"仅为界面样本"},
+ "/mobile/rotation":{status:"ok",source:"合成源",board_type:"concept",fetched_at:"2026-10-16",summary:{persistent_count:1,new_hot_count:0,cooling_count:0,persistent:[rotationRow],new_hot:[],cooling:[]},today:{period:"today",total:1,rows:[rotationRow]},five_day:{period:"5d",total:1,rows:[rotationRow]}},
+ "/mobile/industry/gpu-rent":{status:"ok",source:"合成源",errors:[],method:"仅为排版样本",guard:"不代表实际租金",scope:"合成样本",items:[{gpu:"B200",status:"ok",points:[[1790812800,6],[1791504000,6.4]],latest:6.4,asof_ts:1791504000,change_7d_pct:6.7,message:"合成界面测试"}]},
+ "/mobile/boards/detail":{status:"ok",code:"BK0475",source:"合成源",errors:[],quote:{name:"合成板块",price:1234,change_pct:1.2,amount_yuan:120000000,asof_ts:1791504000},history:{rows:[{date:"2026-10-15",close:1200},{date:"2026-10-16",close:1234}]},constituents:{items:[{symbol:"600519",name:"合成成员",price:100,change_pct:1.2,amount_yuan:12000000,turnover_pct:2,main_net_yuan:100000}],total:1,page:1,has_more:false,dropped:0,page_breadth:{up:1,down:0,flat:0,unknown:0}}},
+ "/mobile/shortline/limit-up":{date:"2026-10-16",stale:false,count:1,items:[{code:"600519",name:"合成涨停样本",limit_days:1,industry:"合成行业"}]},
+ "/mobile/daily-review":{date:"2026-10-16",saved:true,observation:"合成市场观察",tomorrow_check:"合成验证条件",created_at:"2026-10-16",updated_at:"2026-10-16",storage:"synthetic"},
+ "/mobile/reminders":{count:1,items:[{id:1,kind:"price_above",symbol:"600519",name:"合成提醒规则",threshold:100,tolerance_pct:1,enabled:true,cooldown_minutes:60,review_hour:null,quote_key:null,created_at:"2026-10-16",updated_at:"2026-10-16"}]},
+ "/mobile/reminders/status":{scheduled:true,rule_count:1,interval_minutes:15},
+ "/mobile/documents":{kind:"note",count:1,items:[{id:1,kind:"note",category:"合成分类",title:"合成布局测试记录",body:"仅用于界面验证的合成正文。".repeat(60),status:"active",source:"synthetic",symbol:"600519",created_at:"2026-10-16",updated_at:"2026-10-16"}]},
+ "/mobile/news/catalog":{industries:[{key:"semi",name:"半导体"}],sources:[{name:"合成资讯源",industry:"semi"}]},
+ "/mobile/news":{status:"ok",items:[{title:"合成产业资讯样本",summary:"只用于界面测试，保留来源、日期和正文入口。",link:"https://example.com",published:"2026-10-16",source:"合成资讯源",redline:["产业"]}],sources_tried:1,sources_ok:1,failures:[],fetched_at:"2026-10-16"},
+ "/mobile/calendar/month":{month:"2026-10",days:Array.from({length:31},(_,i)=>({date:`2026-10-${String(i+1).padStart(2,"0")}`,is_open:i%7<5})),source:"合成月历",note:"仅用于界面排版，不代表真实开休市安排"},
+ "/mobile/calendar":{from:"2026-10-01",to:"2026-10-31",today:"2026-10-16",count:1,items:[{id:1,date:"2026-10-16",kind:"reminder",title:"合成事件：检查公开资料与验证条件",detail:"合成详细说明，验证手机端长文字及当天提醒、取消提醒和删除按钮。",symbol:"600519",status:"open",source:"synthetic",created_at:"2026-10-16",updated_at:"2026-10-16"}]},
+ "/mobile/journal/review":{available:true,source:"synthetic",generated_at:"2026-10-16",performance:stats,recent_10:stats,discipline:{planned:stats,unplanned:stats,unknown:0},playbooks:[stats],risk:{open_positions:0,open_cost_total:0,stop_covered:0,stop_coverage:null,planned_risk_total:null,without_stop:0,note:"合成统计"},positions:[],notes:["仅为布局测试的合成统计"]},
+};
