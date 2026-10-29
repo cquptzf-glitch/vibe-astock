@@ -2,6 +2,7 @@ import { CalendarDays, CheckCircle2, Circle, Plus, RefreshCw, Trash2 } from "luc
 import { WebSelect, DateField } from "./controls";
 import { useEffect, useMemo, useState } from "react";
 import { ExchangeCalendar } from "./ExchangeCalendar";
+import { chinaToday } from "./emotionData";
 import "./research-workflow.css";
 
 type EventKind = "company" | "ledger" | "macro" | "reminder";
@@ -50,20 +51,32 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-function localDate(offsetDays = 0): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+export function calendarDate(offsetDays = 0, now = new Date()): string {
+  return chinaToday(new Date(now.getTime() + offsetDays * 86_400_000));
+}
+
+type SyncBatch = { count: number; gaps: { source: string; message: string }[]; note: string; processed_symbols: number; total_symbols: number; next_offset: number | null; watchlist_revision: string };
+export async function syncCalendarBatches(symbol: string, request: (body: Record<string, unknown>) => Promise<SyncBatch>, progress: (text: string) => void) {
+  let offset = 0; let revision = ""; let count = 0; const gaps: SyncBatch["gaps"] = [];
+  do {
+    const result = await request({ symbol, offset, ...(revision ? { watchlist_revision: revision } : {}) });
+    if (!Number.isSafeInteger(result.processed_symbols) || result.processed_symbols <= 0 || !Number.isSafeInteger(result.total_symbols) || result.total_symbols < offset + result.processed_symbols || typeof result.watchlist_revision !== "string" || !Array.isArray(result.gaps)) throw new Error("同步接口未返回完整批次信息，已同步的事件保留，请重试。");
+    if (revision && revision !== result.watchlist_revision) throw new Error("自选名单在同步期间发生变化，请重新同步。");
+    revision = result.watchlist_revision; count += result.count; gaps.push(...result.gaps);
+    const processed = offset + result.processed_symbols;
+    progress(`已检查 ${processed} / ${result.total_symbols} 只，保存 ${count} 项。${gaps.length ? `来源缺口：${gaps.map(g => `${g.source}：${g.message}`).join("；")}` : ""}`);
+    if (result.next_offset === null && processed === result.total_symbols) break;
+    if (result.next_offset !== processed || processed >= result.total_symbols) throw new Error("同步批次不连续，已同步的事件保留，请重试。");
+    offset = processed;
+  } while (true);
+  return { count, gaps };
 }
 
 export function CalendarPanel() {
   const [windowDays, setWindowDays] = useState<30 | 90>(30);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [today, setToday] = useState(localDate());
-  const [date, setDate] = useState(localDate());
+  const [today, setToday] = useState(calendarDate());
+  const [date, setDate] = useState(calendarDate());
   const [kind, setKind] = useState<EventKind>("reminder");
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
@@ -77,10 +90,10 @@ export function CalendarPanel() {
   async function syncSources() {
     setSyncing(true); setError(""); setSyncNote("");
     try {
-      const result = await api<{ count: number; gaps: { source: string; message: string }[]; note: string }>("/mobile/calendar/sync", { method: "POST", body: JSON.stringify({ symbol: symbol.trim() }) });
-      setSyncNote(`已同步 ${result.count} 项。${result.note}${result.gaps.map((g) => `${g.source}：${g.message}`).join("；")}`);
+      const result = await syncCalendarBatches(symbol.trim(), body => api<SyncBatch>("/mobile/calendar/sync", { method: "POST", body: JSON.stringify(body) }), setSyncNote);
+      setSyncNote(`已同步 ${result.count} 项。${result.gaps.length ? `部分来源未成功：${result.gaps.map(g => `${g.source}：${g.message}`).join("；")}` : symbol.trim() ? "已检查指定股票。" : "全部自选已检查。"}`);
       await load();
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    } catch (e) { await load(); setError(e instanceof Error ? e.message : String(e)); }
     finally { setSyncing(false); }
   }
   async function remind(item: CalendarEvent, enabled: boolean) {
@@ -94,8 +107,8 @@ export function CalendarPanel() {
     setLoading(true);
     setError("");
     try {
-      const from = localDate(-7);
-      const to = localDate(windowDays);
+      const from = calendarDate(-7);
+      const to = calendarDate(windowDays);
       const result = await api<CalendarResult>(`/mobile/calendar?from=${from}&to=${to}`);
       setEvents(result.items);
       setToday(result.today);

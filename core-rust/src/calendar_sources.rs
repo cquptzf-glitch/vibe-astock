@@ -4,6 +4,7 @@ use chrono::{Datelike, NaiveDate, Utc};
 use futures_util::{stream, StreamExt};
 use reqwest::Client;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashSet},
     path::Path,
@@ -105,22 +106,33 @@ pub(crate) fn appointments(root: &Value, symbol: &str) -> Result<Vec<Value>> {
     Ok(out)
 }
 
+const SYNC_BATCH: usize = 20;
+
+fn sync_batch(all: &[String], body: &Value) -> Result<(Vec<String>, usize, Option<usize>, String)> {
+    if all.is_empty() { return Err(anyhow!("请填写股票代码或先添加自选")); }
+    let revision = format!("{:x}", Sha256::digest(all.join(",").as_bytes()));
+    let offset = match body.get("offset") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_u64().and_then(|n| usize::try_from(n).ok()).ok_or_else(|| anyhow!("同步批次位置无效"))?,
+    };
+    if offset >= all.len() { return Err(anyhow!("同步批次超出自选列表")); }
+    if offset > 0 && body["watchlist_revision"].as_str() != Some(revision.as_str()) {
+        return Err(anyhow!("自选名单在同步期间发生变化，请重新同步"));
+    }
+    let end = offset.saturating_add(SYNC_BATCH).min(all.len());
+    Ok((all[offset..end].to_vec(), all.len(), (end < all.len()).then_some(end), revision))
+}
+
 pub async fn sync(client: &Client, db: &Path, body: &Value) -> Result<Value> {
     let explicit = body["symbol"].as_str().filter(|s| !s.trim().is_empty());
-    let symbols: Vec<String> = if let Some(s) = explicit {
+    let all: Vec<String> = if let Some(s) = explicit {
         vec![crate::normalize_stock_symbol(s)?.digits]
     } else {
-        storage::list(db)?["items"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .take(20)
-            .filter_map(|r| r["symbol"].as_str().map(str::to_string))
-            .collect()
+        storage::list(db)?["items"].as_array().into_iter().flatten()
+            .filter_map(|r| r["symbol"].as_str().map(str::to_string)).collect()
     };
-    if symbols.is_empty() {
-        return Err(anyhow!("请填写股票代码或先添加自选"));
-    }
+    let (symbols, total_symbols, next_offset, revision) = sync_batch(&all, body)?;
+    let processed_symbols = symbols.len();
     let results = stream::iter(symbols.into_iter().map(|symbol| async move {
         let filter = format!("(SECURITY_CODE=\"{symbol}\")");
         let params = [
@@ -198,7 +210,7 @@ pub async fn sync(client: &Client, db: &Path, body: &Value) -> Result<Value> {
         saved.push(calendar::save(db, &event)?);
     }
     Ok(
-        json!({"count":saved.len(),"items":saved,"gaps":gaps,"status":if gaps.is_empty(){"ok"}else{"partial"},"note":"同源公告/同股票报告期幂等更新,保留已处理状态;一次最多同步前二十只自选,也可逐只指定。"}),
+        json!({"count":saved.len(),"items":saved,"gaps":gaps,"status":if gaps.is_empty(){"ok"}else{"partial"},"processed_symbols":processed_symbols,"total_symbols":total_symbols,"next_offset":next_offset,"watchlist_revision":revision,"note":"同源公告/同股票报告期幂等更新,保留已处理状态;每批最多二十只,可继续同步剩余自选。"}),
     )
 }
 
@@ -265,6 +277,21 @@ pub fn notification_rules(db: &Path) -> Result<Vec<Value>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn watchlist_sync_covers_all_batches_and_rejects_changed_lists() {
+        let all: Vec<String> = (0..43).map(|n| format!("{n:06}")).collect();
+        let (first, total, next, revision) = sync_batch(&all, &json!({})).unwrap();
+        assert_eq!((first.len(), total, next), (20, 43, Some(20)));
+        let (middle, _, next, _) = sync_batch(&all, &json!({"offset":20,"watchlist_revision":revision})).unwrap();
+        assert_eq!((middle.len(), next), (20, Some(40)));
+        let (last, _, next, _) = sync_batch(&all, &json!({"offset":40,"watchlist_revision":revision})).unwrap();
+        assert_eq!((last.len(), next), (3, None));
+        assert_eq!([first, middle, last].concat(), all);
+        let mut changed = all.clone(); changed.reverse();
+        assert!(sync_batch(&changed, &json!({"offset":20,"watchlist_revision":revision})).is_err());
+        assert!(sync_batch(&all, &json!({"offset":43,"watchlist_revision":revision})).is_err());
+    }
+
     #[test]
     fn calendar_reminder_round_trips_through_backup_and_stops_when_event_is_done() {
         let app = crate::AppCore::new(std::env::temp_dir().join(format!(

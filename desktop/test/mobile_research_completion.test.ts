@@ -81,3 +81,33 @@ test("台股月营收历史保留跨年、缺月和同比基数", async () => {
     assert.match(textOf(html), /2026-01 1.5 \+25% \+50%/);
   });
 });
+
+
+test("日历日期窗口使用北京时间跨日和跨年", async () => {
+  await withRenderer(async r => {
+    const {calendarDate} = await r.load("/src/mobile/CalendarPanel.tsx");
+    const now = new Date("2026-12-31T16:30:00Z");
+    assert.equal(calendarDate(0, now), "2027-01-01");
+    assert.equal(calendarDate(-7, now), "2026-12-25");
+    assert.equal(calendarDate(30, now), "2027-01-31");
+  });
+});
+
+
+test("日历同步逐批覆盖全部自选并保留来源缺口", async () => {
+  await withRenderer(async r => {
+    const {syncCalendarBatches} = await r.load("/src/mobile/CalendarPanel.tsx");
+    const calls: Record<string, unknown>[] = []; const updates: string[] = [];
+    const request = async (body: Record<string, unknown>) => {
+      calls.push(body); const offset = Number(body.offset); const processed = Math.min(20, 43 - offset);
+      return {count:processed, gaps:offset === 20 ? [{source:"测试源",message:"限流"}] : [], note:"", processed_symbols:processed,total_symbols:43,next_offset:offset+processed<43?offset+processed:null,watchlist_revision:"same"};
+    };
+    const result = await syncCalendarBatches("", request, (s: string) => updates.push(s));
+    assert.deepEqual(calls.map(c => c.offset), [0, 20, 40]);
+    assert.equal(calls[1]!.watchlist_revision, "same");
+    assert.equal(result.count, 43); assert.equal(result.gaps[0].message, "限流");
+    assert.match(updates.at(-1)!, /43 \/ 43/);
+    assert.match(updates.at(-1)!, /测试源：限流/);
+    await assert.rejects(() => syncCalendarBatches("", async (body: Record<string, unknown>) => ({count:0,gaps:[],note:"",processed_symbols:20,total_symbols:43,next_offset:20,watchlist_revision:body.offset ? "changed" : "original"}), () => {}), /变化/);
+  });
+});

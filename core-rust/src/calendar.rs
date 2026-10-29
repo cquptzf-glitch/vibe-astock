@@ -8,7 +8,10 @@ use std::path::Path;
 const KINDS: [&str; 4] = ["company", "ledger", "macro", "reminder"];
 
 pub fn list(db_path: &Path, path: &str) -> Result<Value> {
-    let today = Utc::now().date_naive();
+    list_on(db_path, path, crate::emotion::now_china().0)
+}
+
+fn list_on(db_path: &Path, path: &str, today: NaiveDate) -> Result<Value> {
     let from = query_param(path, "from")
         .map(|value| parse_date(&value, "from"))
         .transpose()?
@@ -198,6 +201,22 @@ mod tests {
             );"
         ).unwrap();
         path
+    }
+
+    #[test]
+    fn china_midnight_changes_today_window_and_overdue_status() {
+        use chrono::{FixedOffset, TimeZone};
+        let path = temp_db();
+        save(&path, &json!({"date":"2026-10-28", "kind":"reminder", "title":"昨天"})).unwrap();
+        save(&path, &json!({"date":"2026-10-29", "kind":"reminder", "title":"今天"})).unwrap();
+        let utc = Utc.with_ymd_and_hms(2026, 10, 28, 16, 30, 0).single().unwrap();
+        let china_date = utc.with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap()).date_naive();
+        let listed = list_on(&path, "/mobile/calendar", china_date).unwrap();
+        assert_eq!(listed["today"], "2026-10-29");
+        assert_eq!(listed["from"], "2026-10-22");
+        assert_eq!(listed["items"][0]["overdue"], true);
+        assert_eq!(listed["items"][1]["overdue"], false);
+        let _ = fs::remove_file(path);
     }
 
     #[test]
