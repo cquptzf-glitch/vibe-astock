@@ -62,3 +62,22 @@ test("高级回测视图展示区间与滚动样本外，失败基准不画零",
     assert.match(text, /-0.20 至 1.20/); assert.match(text, /指数首日缺失/); assert.match(text, /各段样本外串联收益 \+3.00%/); assert.match(text, /-1.00%/);
   });
 });
+
+
+test("台股月营收历史保留跨年、缺月和同比基数", async () => {
+  await withRenderer(async (r) => {
+    const {IndustryRevenueView, revenueHistory} = await r.load("/src/mobile/IndustryRevenue.tsx");
+    const series = [["2025-01", 100000000], ["2025-12", 120000000], ["2026-01", 150000000], ["2026-03", 180000000]];
+    const history = revenueHistory(series);
+    assert.deepEqual(history.slice(0, 3).map((row: {period:string}) => row.period), ["2026-03", "2026-02", "2026-01"]);
+    assert.equal(history[0].mom, null);
+    assert.equal(history[1].amount, null);
+    assert.equal(history[2].mom, 25);
+    assert.equal(history[2].yoy, 50);
+    const html = r.html(IndustryRevenueView, {data: {companies: [{ticker:"2383",name:"合成公司",period:"2026-03",revenue_twd:180000000,mom_pct:null,yoy_pct:null,cumulative_yoy_pct:null,stale:false,lag_months:0,series}],errors:[],ccl_pcb_mom_difference_pp:null,note:"合成样本",source:"合成来源"}});
+    assert.match(html, /<summary>历史月营收/);
+    assert.match(html, /aria-label="合成公司历史月营收"/);
+    assert.match(textOf(html), /2026-02 — — —/);
+    assert.match(textOf(html), /2026-01 1.5 \+25% \+50%/);
+  });
+});

@@ -1,0 +1,7 @@
+.industry-revenue-history { margin-top: 12px; border-top: 1px solid var(--mobile-border); }
+.industry-revenue-history summary { min-height: 44px; padding: 10px 0; cursor: pointer; font-weight: 600; }
+.industry-revenue-history p { color: var(--mobile-muted); font-size: 12px; line-height: 1.6; }
+.industry-revenue-table { max-width: 100%; overflow-x: auto; }
+.industry-revenue-table table { width: 100%; min-width: 300px; border-collapse: collapse; font-size: 12px; }
+.industry-revenue-table th, .industry-revenue-table td { padding: 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--mobile-border); }
+.industry-revenue-table th:first-child { text-align: left; }
