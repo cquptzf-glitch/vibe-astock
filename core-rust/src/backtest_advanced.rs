@@ -90,6 +90,20 @@ pub(crate) fn sharpe_interval(curve: &[(String, f64)]) -> Value {
     json!({"available":true,"low":samples[samples.len()*25/1000],"high":samples[samples.len()*975/1000],"positive_share":samples.iter().filter(|v|**v>0.0).count()as f64/samples.len()as f64,"valid_samples":samples.len(),"replications":replications,"block_days":block,"seed":42,"confidence":0.95,"note":"循环分块重抽样,保留块内的日收益相关性;无风险利率按零计算,区间不代表未来收益。"})
 }
 
+/// Daily bars do not prove that a restricted position can be liquidated.
+fn segment_close_problem(data: &[Bar], sim: &Sim, limit: Option<f64>) -> Option<&'static str> {
+    if sim.open_shares <= 0.0 { return None; }
+    let last = data.last()?;
+    if !last.tradable { return Some("分段末日停牌，无法按收盘价平仓"); }
+    if sim.open_entry_date.as_deref() == Some(last.date.as_str()) { return Some("分段末日买入的股票受 T+1 限制，不能当日平仓"); }
+    if let Some(previous) = data.iter().rev().nth(1) {
+        if last.limit(limit, false).is_some_and(|band| last.close / previous.close - 1.0 <= -band + 0.001) {
+            return Some("分段末日收盘触及跌停，日线无法证明可以平仓");
+        }
+    }
+    None
+}
+
 pub(super) fn walk_forward(
     data: &[Bar],
     base: &Strategy,
@@ -135,6 +149,9 @@ pub(super) fn walk_forward(
         ) else {
             continue;
         };
+        if let Some(problem) = segment_close_problem(&data[split - best.warmup()..end], &sim, limit) {
+            return json!({"available":false,"reason":format!("{}（{}）；无法衔接后续检验段", problem, data[end-1].date),"completed_folds":folds,"train_bars":train,"test_bars":test,"note":"日线缺少足够的成交信息，不能假设受限持仓成功平仓。"});
+        }
         capital = sim.equity.last().map(|p| p.1).unwrap_or(capital);
         // Explicitly close at the segment boundary, charging both fee and slippage.
         if sim.open_shares > 0.0 {
@@ -502,6 +519,43 @@ fn rebalance_portfolio(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rolling_segment_refuses_suspended_t_plus_one_and_limit_down_closures() {
+        let mut data: Vec<Bar> = (0..15).map(|i| Bar {date:format!("d{i:03}"),open:10.0+i as f64,close:10.0+i as f64,tradable:true,limit_override:None}).collect();
+        let strategy = Strategy::SmaCross {fast:3,slow:10};
+        let costs = Costs {fees:None,slippage_bps:0.0,position_pct:100.0};
+        let held = simulate(&data, &strategy, costs, 100000.0, None, None).unwrap();
+        assert!(held.open_shares > 0.0);
+        assert_eq!(segment_close_problem(&data, &held, None), None);
+        data[14].tradable = false;
+        assert!(segment_close_problem(&data, &held, None).unwrap().contains("停牌"));
+        data[14].tradable = true;
+        data[14].close = data[13].close * 0.9;
+        assert!(segment_close_problem(&data, &held, Some(0.1)).unwrap().contains("跌停"));
+        for b in &mut data { b.tradable = false; }
+        data[14].tradable = true;
+        let bought_today = simulate(&data, &strategy, costs, 100000.0, None, None).unwrap();
+        assert!(bought_today.open_shares > 0.0);
+        assert!(segment_close_problem(&data, &bought_today, None).unwrap().contains("T+1"));
+    }
+
+    #[test]
+    fn walk_forward_does_not_report_total_when_first_boundary_is_suspended() {
+        let strategy = Strategy::SmaCross { fast: 3, slow: 10 };
+        let warmup = experiment_grid(&strategy).iter().map(Strategy::warmup).max().unwrap();
+        let end = warmup + 252 + 63;
+        let mut data: Vec<Bar> = (0..end+63).map(|i| Bar {
+            date: format!("d{i:04}"), open: 20.0 + i as f64 * 0.05,
+            close: 20.0 + i as f64 * 0.05, tradable: true, limit_override: None,
+        }).collect();
+        data[end-1].tradable = false;
+        let costs = Costs { fees: None, slippage_bps: 0.0, position_pct: 100.0 };
+        let result = walk_forward(&data, &strategy, costs, 100000.0, None, None);
+        assert_eq!(result["available"], false);
+        assert!(result["reason"].as_str().unwrap().contains("停牌"));
+        assert!(result.get("total_return_pct").is_none());
+    }
+
     #[test]
     fn rebalance_uses_shared_cash_and_changes_lot_positions_without_overspending() {
         let make = |slope: f64| {

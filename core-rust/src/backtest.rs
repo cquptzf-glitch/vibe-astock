@@ -151,6 +151,7 @@ struct Sim {
     slippage_cost: f64,
     open_shares: f64,
     open_entry: Option<f64>,
+    open_entry_date: Option<String>,
     skipped_cash: usize,
     /// 因开盘就在涨停价(买不进)/跌停价(卖不出)而没成交的次数
     blocked_buys: usize,
@@ -245,7 +246,8 @@ fn simulate(data: &[Bar], strategy: &Strategy, costs: Costs, initial: f64, stop_
         fees_paid,
         slippage_cost,
         open_shares: shares,
-        open_entry: entry.map(|(_, px, _)| px),
+        open_entry: entry.as_ref().map(|(_, px, _)| *px),
+        open_entry_date: entry.as_ref().map(|(date, _, _)| date.clone()),
         skipped_cash,
         blocked_buys,
         blocked_sells,
