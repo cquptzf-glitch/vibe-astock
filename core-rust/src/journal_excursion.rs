@@ -57,9 +57,9 @@ fn median(vals: &[f64]) -> f64 {
     crate::emotion::median(vals)
 }
 
-/// 北交所代码(4、8、92 开头):腾讯日 K 取不到
+/// 以统一证券代码契约识别北交所，避免误把基金和债券当作股票。
 pub(crate) fn is_bj(symbol: &str) -> bool {
-    symbol.starts_with('4') || symbol.starts_with('8') || symbol.starts_with("92")
+    normalize_stock_symbol(symbol).is_ok_and(|key| key.market == crate::symbol::Market::BJ)
 }
 
 /// 一天的行情:日期、最高、最低、收盘(不复权)
@@ -160,7 +160,9 @@ pub(crate) fn compute_excursion(t: &Input, rows: &[Hl]) -> Computed {
         }
         adjusted=normalized;adjusted.as_slice()
     };
-    if rows.windows(2).any(|w| w[1].close < w[0].close * SPLIT_RATIO) {
+    // 北交所一般涨跌幅限制较宽，不把普通 30% 下跌误当作送转。
+    let split_ratio = if is_bj(&t.symbol) { 0.69 } else { SPLIT_RATIO };
+    if rows.windows(2).any(|w| w[1].close < w[0].close * split_ratio) {
         return Computed::Split;
     }
     let high = rows.iter().map(|r| r.high).fold(f64::MIN, f64::max);
@@ -209,16 +211,12 @@ pub(crate) enum Eligibility {
     Ok(Input),
     NotClosed,
     Split,
-    Bj,
 }
 
 pub(crate) fn eligibility(r: &Row) -> Eligibility {
     let (Some(buy), Some(sell), Some(pnl)) = (r.first_buy.as_ref(), r.last_sell.as_ref(), r.pnl_pct) else { return Eligibility::NotClosed };
     if r.e.kind != "episode" || !r.closed || !(r.avg_cost > 0.0) {
         return Eligibility::NotClosed;
-    }
-    if is_bj(&r.e.symbol) {
-        return Eligibility::Bj;
     }
     let splits:Vec<_>=r.e.fills.iter().filter(|f|f.side=="split"&&&f.date>=buy&&&f.date<=sell).map(|f|(f.date.clone(),f.price)).collect();
     let cost=if splits.is_empty(){r4(r.avg_cost)}else{
@@ -307,6 +305,37 @@ async fn fetch_tencent(client: &Client, t: &Input) -> Result<Vec<Hl>> {
     rows_from_tencent(&root, &t.symbol, &t.buy, &t.sell)
 }
 
+/// 北交所使用东财不复权日线，拒绝坏行或缺失成交日，避免把残缺区间当完整数据。
+fn rows_from_eastmoney(root: &Value, t: &Input) -> Result<Vec<Hl>> {
+    let key = normalize_stock_symbol(&t.symbol)?;
+    let (bars, dropped, _) = crate::chart::parse_em_kline(root, &key)?;
+    if dropped > 0 { return Err(anyhow!("东财日线存在异常或重复行，不能按完整区间计算")); }
+    let rows: Vec<Hl> = bars.into_iter().filter(|b| b.0.as_str() >= t.buy.as_str() && b.0.as_str() <= t.sell.as_str())
+        .map(|(date, _o, close, high, low, ..)| Hl { date, high, low, close }).collect();
+    if rows.iter().any(|r| NaiveDate::parse_from_str(&r.date, "%Y-%m-%d").is_err()) {
+        return Err(anyhow!("东财日线日期格式无效"));
+    }
+    if rows.first().map(|r| r.date.as_str()) != Some(t.buy.as_str()) || rows.last().map(|r| r.date.as_str()) != Some(t.sell.as_str()) {
+        return Err(anyhow!("东财日线缺少买入日或卖出日，不能按完整区间计算"));
+    }
+    Ok(rows)
+}
+
+async fn fetch_eastmoney(client: &Client, t: &Input) -> Result<Vec<Hl>> {
+    let key = normalize_stock_symbol(&t.symbol)?;
+    let buy = NaiveDate::parse_from_str(&t.buy, "%Y-%m-%d")?;
+    let sell = NaiveDate::parse_from_str(&t.sell, "%Y-%m-%d")?;
+    if sell < buy || (sell - buy).num_days() > 780 { return Err(anyhow!("持有区间无效或超过两年，不能完整计算")); }
+    let root: Value = client.get("https://push2his.eastmoney.com/api/qt/stock/kline/get")
+        .query(&[("secid", key.eastmoney), ("klt", "101".into()), ("fqt", "0".into()),
+            ("beg", buy.format("%Y%m%d").to_string()), ("end", sell.format("%Y%m%d").to_string()),
+            ("lmt", "1000".into()), ("fields1", "f1,f2,f3".into()),
+            ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61".into())])
+        .header("Referer", "https://quote.eastmoney.com/").timeout(Duration::from_secs(12))
+        .send().await?.error_for_status()?.json().await?;
+    rows_from_eastmoney(&root, t)
+}
+
 // ---------------------------------------------------------------- 只读缓存(复查清单用)与逐笔取行情
 
 /// 只读缓存算(复查清单用):一次网络请求都不发。返回能算的(按行 key)与跳过的笔数(没缓存 / 缓存是卖出当天盘中取的)
@@ -361,7 +390,7 @@ pub(crate) fn summary(items: &[Item]) -> Value {
         "items": sorted.iter().map(|i| i.to_value()).collect::<Vec<_>>(),
         // 偏差必须和结论摆在一起
         "bias_note": format!("最大浮盈取的是日线高点,含「买入之前」的那部分 → 捕获率被系统性低估。其中 {same_day} 笔是同日进出,整段只能给上界。真实的最大浮盈落在每笔的「确定赚到过」与上界之间。最大浮亏同样包含入场前或离场后的日线低点,只能当最不利的边界,不能当实际持仓里的最大浮亏。"),
-        "caveat": "日线看不出极值发生在买入前或卖出后。已登记送转会把历史日线和买入股数换算到退出日股数口径，使用整轮平均买入成本比较价格路径；分批买卖时这不是逐日账户浮盈亏。未登记的疑似大比例送转仍排除。现金分红除息未复权，低点可能偏低，应核对原始流水。",
+        "caveat": "日线看不出极值发生在买入前或卖出后。已登记送转会把历史日线和买入股数换算到退出日股数口径，使用整轮平均买入成本比较价格路径；分批买卖时这不是逐日账户浮盈亏。未登记的疑似大比例送转仍排除。现金分红除息未复权，低点可能偏低，应核对原始流水；日线若遗漏持仓中间交易日，极值可能不完整。",
     })
 }
 
@@ -373,13 +402,12 @@ where
     Fut: Future<Output = Result<Vec<Hl>>>,
 {
     let recent = &rows[..rows.len().min(EXCURSION_LIMIT)];
-    let (mut not_closed, mut bj,mut known_splits) = (0usize, 0usize,0usize);
+    let (mut not_closed, mut known_splits) = (0usize, 0usize);
     let mut todo: Vec<Input> = Vec::new();
     for r in recent {
         match eligibility(r) {
             Eligibility::Ok(t) => todo.push(t),
             Eligibility::NotClosed => not_closed += 1,
-            Eligibility::Bj => bj += 1,
             Eligibility::Split => known_splits += 1,
         }
     }
@@ -455,7 +483,6 @@ where
     let not_counted: Vec<String> = [
         (not_closed > 0).then(|| format!("{not_closed} 笔还没卖光或没有成交明细")),
         (split > 0).then(|| format!("{split} 笔存在未登记或无法可靠换算的疑似送转")),
-        (bj > 0).then(|| format!("{bj} 笔是北交所(腾讯 K 线取不到)")),
         (failed > 0).then(|| format!("{failed} 笔行情没取到")),
         (uncached > 0).then(|| format!("{uncached} 笔还没取过行情")),
     ]
@@ -464,7 +491,7 @@ where
     .collect();
     let base = json!({
         "scanned": recent.len(),
-        "counts": {"not_closed": not_closed, "split": split, "bj": bj, "failed": failed, "uncached": uncached},
+        "counts": {"not_closed": not_closed, "split": split, "bj": 0, "failed": failed, "uncached": uncached},
         "cached": cached_n,
         "fetch_online": fetch_online,
         "failures": failures.iter().take(30).collect::<Vec<_>>(),
@@ -493,10 +520,10 @@ pub async fn view(client: &Client, db: &Path, path: &str) -> std::result::Result
     let a = journal_risk::analysis(db).map_err(crate::discovery::DiscoveryError::Upstream)?;
     let mut rows = a.rows;
     journal_risk::va_order(&mut rows);
-    let mut out = compute_with(db, &rows, fetch_online, Utc::now(), |t| async move { fetch_tencent(client, &t).await })
+    let mut out = compute_with(db, &rows, fetch_online, Utc::now(), |t| async move { if is_bj(&t.symbol) { fetch_eastmoney(client, &t).await } else { fetch_tencent(client, &t).await } })
         .await
         .map_err(crate::discovery::DiscoveryError::Upstream)?;
-    out["source"] = json!("腾讯不复权日 K,取到永久存本机");
+    out["source"] = json!("沪深：腾讯不复权日 K；北交所：东财不复权日 K。取到后永久存本机");
     out["generated_at"] = json!(Utc::now().to_rfc3339());
     Ok(out)
 }
@@ -620,6 +647,27 @@ mod tests {
         assert!(rows_from_tencent(&json!({"code": 0, "data": {"sh600001": {}}}), "600001", "a", "b").is_err());
     }
 
+    #[test]
+    fn beijing_eastmoney_bars_require_complete_identified_unadjusted_window() {
+        let t = Input { symbol:"920575".into(), ..input("2026-10-12", "2026-10-14", 0.0) };
+        let root = json!({"rc":0,"data":{"code":"920575","market":0,"klines":[
+            "2026-10-12,10,10,10.5,9.5,1000,10000",
+            "2026-10-13,10,7,10,7,1000,10000",
+            "2026-10-14,7,7.5,7.6,6.8,1000,10000"
+        ]}});
+        let bars = rows_from_eastmoney(&root, &t).unwrap();
+        assert_eq!(bars.len(), 3);
+        assert!(matches!(compute_excursion(&t, &bars), Computed::Item(_)), "北交所30%跌幅不能误报送转");
+        let mut missing = root.clone(); missing["data"]["klines"].as_array_mut().unwrap().pop();
+        assert!(rows_from_eastmoney(&missing, &t).is_err(), "不能把缺卖出日的序列当完整行情");
+        let mut wrong = root.clone(); wrong["data"]["code"] = json!("830001");
+        assert!(rows_from_eastmoney(&wrong, &t).is_err());
+        let mut bad = root.clone(); bad["data"]["klines"].as_array_mut().unwrap().push(json!("2026-10-13,bad"));
+        assert!(rows_from_eastmoney(&bad, &t).is_err());
+        let mut split = bars.clone(); split[1].close = 6.8;
+        assert!(matches!(compute_excursion(&t, &split), Computed::Split));
+    }
+
     fn db(label: &str) -> (crate::AppCore, std::path::PathBuf) {
         let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
         let dir = std::env::temp_dir().join(format!("vibe-jexc-{label}-{nonce}-{}", std::process::id()));
@@ -658,25 +706,25 @@ mod tests {
         // 只读缓存:什么都没取过 → 一次网络都不发,说明还没取过
         let cold = compute_with(&path, &rows, false, now, &fake).await.unwrap();
         assert_eq!(calls.load(Ordering::SeqCst), 0);
-        assert_eq!((cold["available"].clone(), cold["counts"]["uncached"].clone(), cold["counts"]["bj"].clone(), cold["counts"]["not_closed"].clone()), (json!(false), json!(2), json!(1), json!(1)));
+        assert_eq!((cold["available"].clone(), cold["counts"]["uncached"].clone(), cold["counts"]["bj"].clone(), cold["counts"]["not_closed"].clone()), (json!(false), json!(3), json!(0), json!(1)));
         assert!(cold["reason"].as_str().unwrap().contains("取行情并计算"));
-        // 取:两笔各一次
+        // 取:三笔各一次，含北交所
         let first = compute_with(&path, &rows, true, now, &fake).await.unwrap();
-        assert_eq!(calls.load(Ordering::SeqCst), 2);
-        assert_eq!((first["available"].clone(), first["trades"].clone(), first["cached"].clone()), (json!(true), json!(2), json!(0)));
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        assert_eq!((first["available"].clone(), first["trades"].clone(), first["cached"].clone()), (json!(true), json!(3), json!(0)));
         // 再取:全部来自缓存,不再发请求(永久缓存)
         let again = compute_with(&path, &rows, true, now, &fake).await.unwrap();
-        assert_eq!(calls.load(Ordering::SeqCst), 2);
-        assert_eq!(again["cached"], 2);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        assert_eq!(again["cached"], 3);
         // 只读缓存也能用了
-        assert_eq!(compute_with(&path, &rows, false, now, &fake).await.unwrap()["trades"], 2);
+        assert_eq!(compute_with(&path, &rows, false, now, &fake).await.unwrap()["trades"], 3);
         let (map, skipped) = cached_excursions(&path, &rows).unwrap();
-        assert_eq!((map.len(), skipped), (2, 0));
+        assert_eq!((map.len(), skipped), (3, 0));
         // 取失败:单笔记原因,不影响别的
         let (app2, dir2) = db("fail");
         let failing = |t: Input| async move { if t.symbol == "600001" { Err(anyhow!("网络断了")) } else { Ok(vec![hl(&t.buy, 10.5, 9.8, 10.0)]) } };
         let partial = compute_with(app2.db_path(), &rows, true, now, failing).await.unwrap();
-        assert_eq!((partial["trades"].clone(), partial["counts"]["failed"].clone(), partial["failures"][0]["why"].clone()), (json!(1), json!(1), json!("网络断了")));
+        assert_eq!((partial["trades"].clone(), partial["counts"]["failed"].clone(), partial["failures"][0]["why"].clone()), (json!(2), json!(1), json!("网络断了")));
         drop(app2);
         let _ = std::fs::remove_dir_all(dir2);
 
@@ -708,6 +756,17 @@ mod tests {
     fn row_open(id: i64) -> Row {
         let e = Entry { id, kind: "episode".into(), symbol: "600009".into(), date: "2026-10-14".into(), fills: vec![Fill { side: "buy".into(), date: "2026-10-14".into(), price: 10.0, shares: 100.0, fee: Some(0.0) }], ..Entry::default() };
         journal_risk::settle(e, &ZERO, id as usize)
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_beijing_eastmoney_probe() {
+        let client = Client::builder().timeout(Duration::from_secs(15)).build().unwrap();
+        let t = Input { symbol: "920575".into(), ..input("2026-10-08", "2026-10-16", 0.0) };
+        let rows = fetch_eastmoney(&client, &t).await.unwrap();
+        assert!(rows.len() >= 5);
+        assert_eq!(rows.first().unwrap().date, t.buy);
+        assert_eq!(rows.last().unwrap().date, t.sell);
     }
 
     #[tokio::test]
@@ -787,6 +846,7 @@ mod tests {
         crate::journal::act(&path, &json!({"action": "record", "symbol": "600113", "name": "样本M", "playbook": "低吸", "as_planned": true,
             "fills": [{"type": "buy", "date": "2026-10-16", "price": 9.5, "shares": 3000}]})).unwrap();
         crate::journal::act(&path, &json!({"action": "record", "symbol": "830001", "name": "北交样本", "fills": [{"type": "buy", "date": "2026-10-13", "price": 5.0, "shares": 1000, "fee": 0}, {"type": "sell", "date": "2026-10-14", "price": 5.2, "shares": 1000, "fee": 0}]})).unwrap();
+        bars.insert("830001".into(), vec![hl("2026-10-13", 5.2, 4.8, 5.0), hl("2026-10-14", 5.3, 5.1, 5.2)]);
         crate::journal::act(&path, &json!({"action": "manual", "symbol": "600114", "name": "样本补记", "date": "2026-09-18", "pnl_pct": 3.2})).unwrap();
         let a = journal_risk::analysis(&path).unwrap();
         let mut rows = a.rows;
@@ -801,9 +861,9 @@ mod tests {
         inbox["generated_at"] = json!("2026-10-17T02:00:00Z");
         let mut fetched = fetched;
         fetched["generated_at"] = json!("2026-10-17T02:00:00Z");
-        fetched["source"] = json!("腾讯不复权日 K,取到永久存本机");
+        fetched["source"] = json!("沪深：腾讯不复权日 K；北交所：东财不复权日 K。取到后永久存本机");
         let mut cold = cold;
-        cold["source"] = json!("腾讯不复权日 K,取到永久存本机");
+        cold["source"] = json!("沪深：腾讯不复权日 K；北交所：东财不复权日 K。取到后永久存本机");
         if let Ok(out) = std::env::var("VIBE_JOURNAL_EXCURSION_FIXTURE") {
             std::fs::write(out, serde_json::to_string_pretty(&json!({"cold": cold, "excursion": fetched, "inbox": inbox})).unwrap()).unwrap();
         }

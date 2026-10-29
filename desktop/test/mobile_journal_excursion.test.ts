@@ -51,9 +51,9 @@ test("最大浮盈浮亏:汇总用中位数,偏差说明与读数摆在一起,�
   await withRenderer(async (r) => {
     const { ExcursionCard } = await r.load("/src/mobile/JournalExcursionPanel.tsx");
     const text = flat(r.html(ExcursionCard, { data: fixture.excursion, busy: false, onFetch: noop }));
-    for (const part of ["捕获率中位数83.3%", "算了几笔12 笔", "赚钱但扛过 ≥5% 浮亏1 笔", "亏钱且没怎么涨过3 笔", "同日进出(只给上界)1 笔", "涨过却亏着走1 笔",
-      "最大浮盈取的是日线高点,含「买入之前」的那部分", "系统性低估", "日线看不出最高点发生在盘中买入之前还是之后", "遇到除息,低点会偏低", "疑似大比例送转", "几乎没吃到这段行情",
-      "这段涨过,但最后是亏损离场", "1 笔是北交所", "确定 +12%", "同日进出"]) {
+    for (const part of ["捕获率中位数75%", "算了几笔13 笔", "赚钱但扛过 ≥5% 浮亏1 笔", "亏钱且没怎么涨过3 笔", "同日进出(只给上界)1 笔", "涨过却亏着走1 笔",
+      "最大浮盈取的是日线高点,含「买入之前」的那部分", "系统性低估", "日线看不出极值发生在买入前或卖出后", "现金分红除息未复权，低点可能偏低", "疑似大比例送转", "几乎没吃到这段行情",
+      "这段涨过,但最后是亏损离场", "北交样本", "确定 +12%", "同日进出"]) {
       assert.ok(text.includes(sq(part)), part);
     }
     assert.ok(text.includes(sq("没算进来的:2 笔还没卖光或没有成交明细")));
@@ -69,7 +69,7 @@ test("最大浮盈浮亏:行情没取过时不联网、说明原因并给「取�
     const html = r.html(ExcursionCard, { data: fixture.cold, busy: false, onFetch: noop });
     const text = flat(html);
     assert.ok(text.includes(sq("取行情并计算")));
-    assert.ok(text.includes(sq("12 笔还没取过行情")));
+    assert.ok(text.includes(sq("13 笔还没取过行情")));
     assert.ok(text.includes(sq("行情还没取过")));
     const failed = structuredClone(fixture.excursion);
     failed.failures = [{ key: "mobile:3", symbol: "600103", name: "样本C", date: "2026-09-23", why: "网络断了" }];

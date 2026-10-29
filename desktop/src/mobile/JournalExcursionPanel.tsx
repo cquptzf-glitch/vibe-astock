@@ -75,7 +75,7 @@ export function ExcursionCard({ data, busy, onFetch }: { data: ExcursionData; bu
   const c = data.counts;
   const action = <div className="jr-actions"><button type="button" className="discovery-action" disabled={busy} onClick={onFetch}><RefreshCw size={13} className={busy ? "spin" : ""} />{c.uncached > 0 || c.failed > 0 ? "取行情并计算" : "重新取没定稿的"}</button></div>;
   return <Card title="最大浮盈浮亏" icon={<LineChart size={15} />}>
-    <p className="watch-hint">一笔的盈亏只说了终点,不说过程:最多曾赚到多少(最大浮盈)、最多曾亏到多少(最大浮亏)、实际落袋占最大浮盈的多少(捕获率)。只算卖光了的、有成交明细的沪深股票;用不复权日线对照你的成交成本。点「取行情并计算」才会联网,取到的永久存本机。</p>
+    <p className="watch-hint">一笔的盈亏只说了终点,不说过程:最多曾赚到多少(最大浮盈)、最多曾亏到多少(最大浮亏)、实际落袋占最大浮盈的多少(捕获率)。只算卖光了的、有成交明细的沪深北股票;用不复权日线对照你的成交成本。点「取行情并计算」才会联网,取到的永久存本机。</p>
     {action}
     {data.not_counted_note && <p className="watch-hint">没算进来的:{data.not_counted_note}。</p>}
     {data.intraday_note && <p className="intra-warn">{data.intraday_note}</p>}
@@ -114,8 +114,8 @@ export function JournalExcursionView({ inbox, excursion, busy, onFetch }: { inbo
     <ExcursionCard data={excursion} busy={busy} onFetch={onFetch} />
     <ul className="watch-notes" aria-label="口径说明">
       <li>成交、持仓与金额只留在本机,不进任何 AI;本页不登记页面上下文</li>
-      <li>只有清仓后的交易才算最大浮盈浮亏;手机端没有送转流水,期间单日收盘跌超 21% 的整轮按疑似送转不算(只能识别大比例送转)</li>
-      <li>北交所腾讯日 K 取不到,不算;数据只来自行情日线,不构成任何买卖建议</li>
+      <li>只有清仓后的交易才算最大浮盈浮亏;已登记送转按退出日股数口径换算；未登记的大比例送转仍可能使整轮无法计算</li>
+      <li>北交所使用东财不复权日线，行情缺失时列出原因；日线不能还原盘中极值先后</li>
     </ul>
   </div>;
 }

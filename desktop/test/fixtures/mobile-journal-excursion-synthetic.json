@@ -3,19 +3,19 @@
     "available": false,
     "cached": 0,
     "counts": {
-      "bj": 1,
+      "bj": 0,
       "failed": 0,
       "not_closed": 2,
       "split": 0,
-      "uncached": 12
+      "uncached": 13
     },
     "failures": [],
     "fetch_online": false,
     "intraday_note": null,
-    "not_counted_note": "2 笔还没卖光或没有成交明细;1 笔是北交所(腾讯 K 线取不到);12 笔还没取过行情",
+    "not_counted_note": "2 笔还没卖光或没有成交明细;13 笔还没取过行情",
     "reason": "行情还没取过 —— 点「取行情并计算」,取到的永久存本机",
     "scanned": 15,
-    "source": "腾讯不复权日 K,取到永久存本机"
+    "source": "沪深：腾讯不复权日 K；北交所：东财不复权日 K。取到后永久存本机"
   },
   "excursion": {
     "available": true,
@@ -23,10 +23,10 @@
     "bias_note": "最大浮盈取的是日线高点,含「买入之前」的那部分 → 捕获率被系统性低估。其中 1 笔是同日进出,整段只能给上界。真实的最大浮盈落在每笔的「确定赚到过」与上界之间。最大浮亏同样包含入场前或离场后的日线低点,只能当最不利的边界,不能当实际持仓里的最大浮亏。",
     "cached": 0,
     "capture_note": "其中 1 笔捕获率是负数 —— 那段确实涨过,但最后是亏损离场,比「没吃到」更差的一档(所以中位数可能是负的,不是算错了)。",
-    "capture_samples": 9,
-    "caveat": "日线看不出最高点发生在盘中买入之前还是之后。跨日持有时,中间完整交易日的高低点在持仓期内。这里用不复权日线对照你的成交成本:遇到除息,低点会偏低,应自己核对,不据此判断真实得失;期间疑似大比例送转的整轮不算(手机端没有送转流水,只能从日线看出单日跌超 21% 这种大比例送转)。",
+    "capture_samples": 10,
+    "caveat": "日线看不出极值发生在买入前或卖出后。已登记送转会把历史日线和买入股数换算到退出日股数口径，使用整轮平均买入成本比较价格路径；分批买卖时这不是逐日账户浮盈亏。未登记的疑似大比例送转仍排除。现金分红除息未复权，低点可能偏低，应核对原始流水；日线若遗漏持仓中间交易日，极值可能不完整。",
     "counts": {
-      "bj": 1,
+      "bj": 0,
       "failed": 0,
       "not_closed": 2,
       "split": 0,
@@ -55,8 +55,10 @@
         "mfe_pct": 4.0,
         "name": "样本L",
         "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": 3.33,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600112"
       },
       {
@@ -75,9 +77,33 @@
         "mfe_pct": 1.0,
         "name": "样本K",
         "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": -7.14,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600111"
+      },
+      {
+        "bars": 2,
+        "bars_inner": 0,
+        "capture_note": null,
+        "capture_rate": 0.667,
+        "certain_note": null,
+        "date": "2026-10-13",
+        "exit_date": "2026-10-14",
+        "give_back_pct": 2.0,
+        "key": "mobile:14",
+        "mae_certain": null,
+        "mae_pct": -4.0,
+        "mfe_certain": null,
+        "mfe_pct": 6.0,
+        "name": "北交样本",
+        "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
+        "realized_pct": 4.0,
+        "same_day": false,
+        "split_events": 0,
+        "symbol": "830001"
       },
       {
         "bars": 2,
@@ -95,8 +121,10 @@
         "mfe_pct": 5.0,
         "name": "样本J",
         "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": 4.55,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600110"
       },
       {
@@ -115,8 +143,10 @@
         "mfe_pct": 3.5,
         "name": "样本I",
         "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": 0.0,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600109"
       },
       {
@@ -135,8 +165,10 @@
         "mfe_pct": 6.0,
         "name": "样本H",
         "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": 5.0,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600108"
       },
       {
@@ -155,8 +187,10 @@
         "mfe_pct": 2.0,
         "name": "样本G",
         "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": -5.56,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600107"
       },
       {
@@ -175,8 +209,10 @@
         "mfe_pct": 10.0,
         "name": "样本F",
         "precision": "买卖日两头存疑,中间完整交易日可靠",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": 2.0,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600106"
       },
       {
@@ -195,8 +231,10 @@
         "mfe_pct": 4.58,
         "name": "样本E",
         "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": 4.17,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600105"
       },
       {
@@ -215,8 +253,10 @@
         "mfe_pct": 8.0,
         "name": "样本D",
         "precision": "上界(相邻两日,没有完整的中间交易日)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": -4.0,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600104"
       },
       {
@@ -235,8 +275,10 @@
         "mfe_pct": 6.0,
         "name": "样本C",
         "precision": "买卖日两头存疑,中间完整交易日可靠",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": 5.0,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600103"
       },
       {
@@ -255,8 +297,10 @@
         "mfe_pct": 1.5,
         "name": "样本B",
         "precision": "上界(同日进出,日线分不清高点在买入前还是后)",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": -4.0,
         "same_day": true,
+        "split_events": 0,
         "symbol": "600102"
       },
       {
@@ -275,20 +319,23 @@
         "mfe_pct": 12.0,
         "name": "样本A",
         "precision": "买卖日两头存疑,中间完整交易日可靠",
+        "price_basis": "不复权价格 / 整轮平均成本",
         "realized_pct": 6.0,
         "same_day": false,
+        "split_events": 0,
         "symbol": "600101"
       }
     ],
     "lost_with_move_count": 1,
-    "median_capture_rate": 0.833,
-    "median_give_back": 4.5,
-    "median_mae": -2.5,
-    "not_counted_note": "2 笔还没卖光或没有成交明细;1 笔是北交所(腾讯 K 线取不到)",
+    "median_capture_rate": 0.75,
+    "median_give_back": 3.5,
+    "median_mae": -3.0,
+    "not_counted_note": "2 笔还没卖光或没有成交明细",
     "same_day_count": 1,
     "scanned": 15,
-    "source": "腾讯不复权日 K,取到永久存本机",
-    "trades": 12
+    "source": "沪深：腾讯不复权日 K；北交所：东财不复权日 K。取到后永久存本机",
+    "split_adjusted_trades": 0,
+    "trades": 13
   },
   "inbox": {
     "available": true,

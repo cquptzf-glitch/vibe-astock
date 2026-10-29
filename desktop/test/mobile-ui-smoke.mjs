@@ -677,7 +677,7 @@ try {
       await page.getByRole("heading", { name: "复查", exact: true }).waitFor();
       await page.getByRole("list", { name: "复查清单" }).waitFor();
       await page.getByRole("table", { name: "逐笔最大浮盈浮亏" }).waitFor();
-      await page.getByText("日线看不出最高点发生在盘中买入之前还是之后", { exact: false }).first().waitFor();
+      await page.getByText("日线看不出极值发生在买入前或卖出后", { exact: false }).first().waitFor();
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-journal-excursion.png"), fullPage: true });
       await openWorkspaceTab("入场环境");
