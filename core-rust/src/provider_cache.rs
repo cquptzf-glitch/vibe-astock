@@ -144,13 +144,27 @@ pub fn response(
     }
     MobileApiResponse { status: 200, body }
 }
-pub fn finish(db: &Path,key: &str,saved: Option<(Value,bool,String)>,result: MobileApiResponse)->MobileApiResponse {
-    let envelope_failed=result.body["status"]=="failed" || result.body.get("error").is_some();
-    if result.status==200 && !envelope_failed {
-        let _=write(db,key,&result.body);
-    } else if result.status>=500 || (result.status==200 && envelope_failed) {
-        if let Some((body,_,at))=saved {
-            return response(body,true,false,at,format!("取数失败,显示上次公开数据快照:{}",result.body["message"].as_str().unwrap_or("数据源不可用")));
+pub fn finish(
+    db: &Path,
+    key: &str,
+    saved: Option<(Value, bool, String)>,
+    result: MobileApiResponse,
+) -> MobileApiResponse {
+    let envelope_failed = result.body["status"] == "failed" || result.body.get("error").is_some();
+    if result.status == 200 && !envelope_failed {
+        let _ = write(db, key, &result.body);
+    } else if result.status >= 500 || (result.status == 200 && envelope_failed) {
+        if let Some((body, _, at)) = saved {
+            return response(
+                body,
+                true,
+                false,
+                at,
+                format!(
+                    "取数失败,显示上次公开数据快照:{}",
+                    result.body["message"].as_str().unwrap_or("数据源不可用")
+                ),
+            );
         }
     }
     result
@@ -176,21 +190,49 @@ mod tests {
     use super::*;
     #[test]
     fn failed_envelopes_use_stale_snapshot_without_masking_request_errors() {
-        let root=std::env::temp_dir().join(format!("provider-failure-{}",chrono::Utc::now().timestamp_nanos_opt().unwrap()));
-        std::fs::create_dir_all(&root).unwrap();let db=root.join("test.sqlite");
-        write(&db,"public",&json!({"items":[1]})).unwrap();
-        for failed in [json!({"status":"failed"}),json!({"error":"upstream"})] {
-            let result=finish(&db,"public",read(&db,"public",0),MobileApiResponse {status:200,body:failed});
-            assert_eq!(result.body["items"],json!([1]));
-            assert_eq!(result.body["_cache"]["stale"],true);
-            assert!(read(&db,"public",0).unwrap().0.get("_cache").is_none());
+        let root = std::env::temp_dir().join(format!(
+            "provider-failure-{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let db = root.join("test.sqlite");
+        write(&db, "public", &json!({"items":[1]})).unwrap();
+        for failed in [json!({"status":"failed"}), json!({"error":"upstream"})] {
+            let result = finish(
+                &db,
+                "public",
+                read(&db, "public", 0),
+                MobileApiResponse {
+                    status: 200,
+                    body: failed,
+                },
+            );
+            assert_eq!(result.body["items"], json!([1]));
+            assert_eq!(result.body["_cache"]["stale"], true);
+            assert!(read(&db, "public", 0).unwrap().0.get("_cache").is_none());
         }
-        let bad_request=finish(&db,"public",read(&db,"public",0),MobileApiResponse {status:400,body:json!({"error":"invalid_symbol"})});
-        assert_eq!(bad_request.status,400);
-        let partial=finish(&db,"public",read(&db,"public",0),MobileApiResponse {status:200,body:json!({"status":"partial","items":[2]})});
-        assert_eq!(partial.body["items"],json!([2]));
-        assert_eq!(read(&db,"public",0).unwrap().0["items"],json!([2]));
-        let _=std::fs::remove_dir_all(root);
+        let bad_request = finish(
+            &db,
+            "public",
+            read(&db, "public", 0),
+            MobileApiResponse {
+                status: 400,
+                body: json!({"error":"invalid_symbol"}),
+            },
+        );
+        assert_eq!(bad_request.status, 400);
+        let partial = finish(
+            &db,
+            "public",
+            read(&db, "public", 0),
+            MobileApiResponse {
+                status: 200,
+                body: json!({"status":"partial","items":[2]}),
+            },
+        );
+        assert_eq!(partial.body["items"], json!([2]));
+        assert_eq!(read(&db, "public", 0).unwrap().0["items"], json!([2]));
+        let _ = std::fs::remove_dir_all(root);
     }
     #[tokio::test]
     async fn offline_api_uses_labeled_cache_and_keeps_local_data_available() {

@@ -89,7 +89,11 @@ pub fn save<R: Runtime>(app: &AppHandle<R>, base_url: &str, api_key: &str) -> Re
 }
 
 #[cfg(not(target_os = "android"))]
-pub fn save<R: Runtime>(_app: &AppHandle<R>, _base_url: &str, _api_key: &str) -> Result<(), String> {
+pub fn save<R: Runtime>(
+    _app: &AppHandle<R>,
+    _base_url: &str,
+    _api_key: &str,
+) -> Result<(), String> {
     Err("安全凭据存储仅在 Android 应用中启用".into())
 }
 

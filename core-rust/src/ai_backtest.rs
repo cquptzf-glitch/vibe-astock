@@ -38,7 +38,10 @@ const ALLOWED: [&str; 24] = [
     "walk_forward",
     "benchmark",
     "rebalance_every",
-    "market_rules", "start_date", "end_date", "historical_rules",
+    "market_rules",
+    "start_date",
+    "end_date",
+    "historical_rules",
 ];
 
 /// 给模型和前端看的工具目录:和 `backtest::run` 实际接受的字段与范围一致
@@ -372,8 +375,21 @@ pub(crate) fn report_markdown(
                 .unwrap_or_else(|| "—".to_string())
         ));
     }
-    for (key,title) in [("sharpe_interval","夏普区间"),("walk_forward","滚动样本外"),("benchmark","同期基准"),("cost_comparison","成本对照"),("suspension","停牌与日历"),("market_rules","历史制度边界"),("data_sources","实际行情来源")] {
-        if let Some(value)=result.get(key) {out.push_str(&format!("\n### {title}\n\n```json\n{}\n```\n",serde_json::to_string_pretty(value).unwrap_or_default()));}
+    for (key, title) in [
+        ("sharpe_interval", "夏普区间"),
+        ("walk_forward", "滚动样本外"),
+        ("benchmark", "同期基准"),
+        ("cost_comparison", "成本对照"),
+        ("suspension", "停牌与日历"),
+        ("market_rules", "历史制度边界"),
+        ("data_sources", "实际行情来源"),
+    ] {
+        if let Some(value) = result.get(key) {
+            out.push_str(&format!(
+                "\n### {title}\n\n```json\n{}\n```\n",
+                serde_json::to_string_pretty(value).unwrap_or_default()
+            ));
+        }
     }
     out.push_str(&format!(
         "\n> {}。以上只是历史假设核对,不构成买卖建议。\n",

@@ -35,24 +35,30 @@ fn list_on(db_path: &Path, path: &str, today: NaiveDate) -> Result<Value> {
          ORDER BY date ASC, status ASC, id ASC",
     )?;
     let today_text = today.format("%Y-%m-%d").to_string();
-    let rows = stmt.query_map(params![from.format("%Y-%m-%d").to_string(), to.format("%Y-%m-%d").to_string()], |row| {
-        let date: String = row.get(1)?;
-        let status: String = row.get(6)?;
-        let overdue = date < today_text && status != "done";
-        Ok(json!({
-            "id": row.get::<_, i64>(0)?,
-            "date": date,
-            "kind": row.get::<_, String>(2)?,
-            "title": row.get::<_, String>(3)?,
-            "detail": row.get::<_, String>(4)?,
-            "symbol": row.get::<_, Option<String>>(5)?,
-            "status": status,
-            "source": row.get::<_, String>(7)?,
-            "created_at": row.get::<_, String>(8)?,
-            "updated_at": row.get::<_, String>(9)?,
-            "overdue": overdue,
-        }))
-    })?;
+    let rows = stmt.query_map(
+        params![
+            from.format("%Y-%m-%d").to_string(),
+            to.format("%Y-%m-%d").to_string()
+        ],
+        |row| {
+            let date: String = row.get(1)?;
+            let status: String = row.get(6)?;
+            let overdue = date < today_text && status != "done";
+            Ok(json!({
+                "id": row.get::<_, i64>(0)?,
+                "date": date,
+                "kind": row.get::<_, String>(2)?,
+                "title": row.get::<_, String>(3)?,
+                "detail": row.get::<_, String>(4)?,
+                "symbol": row.get::<_, Option<String>>(5)?,
+                "status": status,
+                "source": row.get::<_, String>(7)?,
+                "created_at": row.get::<_, String>(8)?,
+                "updated_at": row.get::<_, String>(9)?,
+                "overdue": overdue,
+            }))
+        },
+    )?;
     let items = rows.collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(json!({
         "from": from.format("%Y-%m-%d").to_string(),
@@ -110,7 +116,10 @@ pub fn save(db_path: &Path, body: &Value) -> Result<Value> {
 }
 
 pub fn delete(db_path: &Path, body: &Value) -> Result<Value> {
-    let id = body.get("id").and_then(Value::as_i64).filter(|id| *id > 0)
+    let id = body
+        .get("id")
+        .and_then(Value::as_i64)
+        .filter(|id| *id > 0)
         .ok_or_else(|| anyhow!("id 必须是正整数"))?;
     let conn = open(db_path)?;
     let changed = conn.execute("DELETE FROM mobile_calendar_events WHERE id=?1", [id])?;
@@ -125,19 +134,22 @@ fn get(conn: &Connection, id: i64) -> Result<Value> {
         "SELECT id, date, kind, title, detail, symbol, status, source, created_at, updated_at
          FROM mobile_calendar_events WHERE id=?1",
         [id],
-        |row| Ok(json!({
-            "id": row.get::<_, i64>(0)?,
-            "date": row.get::<_, String>(1)?,
-            "kind": row.get::<_, String>(2)?,
-            "title": row.get::<_, String>(3)?,
-            "detail": row.get::<_, String>(4)?,
-            "symbol": row.get::<_, Option<String>>(5)?,
-            "status": row.get::<_, String>(6)?,
-            "source": row.get::<_, String>(7)?,
-            "created_at": row.get::<_, String>(8)?,
-            "updated_at": row.get::<_, String>(9)?,
-        })),
-    ).context("read saved calendar event")
+        |row| {
+            Ok(json!({
+                "id": row.get::<_, i64>(0)?,
+                "date": row.get::<_, String>(1)?,
+                "kind": row.get::<_, String>(2)?,
+                "title": row.get::<_, String>(3)?,
+                "detail": row.get::<_, String>(4)?,
+                "symbol": row.get::<_, Option<String>>(5)?,
+                "status": row.get::<_, String>(6)?,
+                "source": row.get::<_, String>(7)?,
+                "created_at": row.get::<_, String>(8)?,
+                "updated_at": row.get::<_, String>(9)?,
+            }))
+        },
+    )
+    .context("read saved calendar event")
 }
 
 fn open(db_path: &Path) -> Result<Connection> {
@@ -150,14 +162,23 @@ fn parse_date(value: &str, label: &str) -> Result<NaiveDate> {
 }
 
 fn required_text(body: &Value, key: &str, max: usize) -> Result<String> {
-    optional_text(body, key, max)?.filter(|value| !value.trim().is_empty())
+    optional_text(body, key, max)?
+        .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| anyhow!("{key} 不能为空"))
 }
 
 fn optional_text(body: &Value, key: &str, max: usize) -> Result<Option<String>> {
-    let Some(value) = body.get(key) else { return Ok(None); };
-    if value.is_null() { return Ok(None); }
-    let text = value.as_str().ok_or_else(|| anyhow!("{key} 必须是字符串"))?.trim().to_string();
+    let Some(value) = body.get(key) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let text = value
+        .as_str()
+        .ok_or_else(|| anyhow!("{key} 必须是字符串"))?
+        .trim()
+        .to_string();
     if text.chars().count() > max {
         return Err(anyhow!("{key} 超过最大长度 {max}"));
     }
@@ -180,10 +201,16 @@ fn query_param(path: &str, key: &str) -> Option<String> {
 mod tests {
     use super::*;
     use rusqlite::Connection;
-    use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn temp_db() -> std::path::PathBuf {
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let path = std::env::temp_dir().join(format!("vibe-calendar-{nonce}.sqlite3"));
         let conn = Connection::open(&path).unwrap();
         conn.execute_batch(
@@ -198,8 +225,9 @@ mod tests {
                 source TEXT NOT NULL DEFAULT 'manual',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
-            );"
-        ).unwrap();
+            );",
+        )
+        .unwrap();
         path
     }
 
@@ -207,10 +235,23 @@ mod tests {
     fn china_midnight_changes_today_window_and_overdue_status() {
         use chrono::{FixedOffset, TimeZone};
         let path = temp_db();
-        save(&path, &json!({"date":"2026-10-28", "kind":"reminder", "title":"昨天"})).unwrap();
-        save(&path, &json!({"date":"2026-10-29", "kind":"reminder", "title":"今天"})).unwrap();
-        let utc = Utc.with_ymd_and_hms(2026, 10, 28, 16, 30, 0).single().unwrap();
-        let china_date = utc.with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap()).date_naive();
+        save(
+            &path,
+            &json!({"date":"2026-10-28", "kind":"reminder", "title":"昨天"}),
+        )
+        .unwrap();
+        save(
+            &path,
+            &json!({"date":"2026-10-29", "kind":"reminder", "title":"今天"}),
+        )
+        .unwrap();
+        let utc = Utc
+            .with_ymd_and_hms(2026, 10, 28, 16, 30, 0)
+            .single()
+            .unwrap();
+        let china_date = utc
+            .with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap())
+            .date_naive();
         let listed = list_on(&path, "/mobile/calendar", china_date).unwrap();
         assert_eq!(listed["today"], "2026-10-29");
         assert_eq!(listed["from"], "2026-10-22");
@@ -222,14 +263,22 @@ mod tests {
     #[test]
     fn crud_roundtrip() {
         let path = temp_db();
-        let saved = save(&path, &json!({
-            "date":"2026-10-20", "kind":"reminder", "title":"验证假设", "symbol":"600519"
-        })).unwrap();
+        let saved = save(
+            &path,
+            &json!({
+                "date":"2026-10-20", "kind":"reminder", "title":"验证假设", "symbol":"600519"
+            }),
+        )
+        .unwrap();
         let id = saved["id"].as_i64().unwrap();
         assert_eq!(saved["symbol"], "600519");
-        let updated = save(&path, &json!({
-            "id":id, "date":"2026-10-21", "kind":"reminder", "title":"验证完成", "status":"done"
-        })).unwrap();
+        let updated = save(
+            &path,
+            &json!({
+                "id":id, "date":"2026-10-21", "kind":"reminder", "title":"验证完成", "status":"done"
+            }),
+        )
+        .unwrap();
         assert_eq!(updated["status"], "done");
         let listed = list(&path, "/mobile/calendar?from=2026-10-01&to=2026-10-31").unwrap();
         assert_eq!(listed["count"], 1);

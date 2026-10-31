@@ -281,8 +281,13 @@ mod tests {
     fn state_rows_never_infer_missing_status_or_accept_wrong_code_and_duplicate_date() {
         let row = json!(["2026-07-03", "sh.600000", "1", "1"]);
         assert!(
-            parse_days(&[row.clone()], "sh.600000", "2026-07-01", "2026-07-06").unwrap()
-                ["2026-07-03"]
+            parse_days(
+                std::slice::from_ref(&row),
+                "sh.600000",
+                "2026-07-01",
+                "2026-07-06"
+            )
+            .unwrap()["2026-07-03"]
                 .st
         );
         for rows in [

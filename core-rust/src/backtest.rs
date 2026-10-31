@@ -8,13 +8,17 @@
 //!  - 多标的是「等权、各自独立」:本金平均分,各跑各的,日期取各标的共有的交易日,不做再平衡。
 //!  - 参数实验是固定的一小格组合(不是自动寻优),只给「参数一动结果怎么变」的稳健性参考;挑最好那格当结论就是过拟合。
 
-use crate::{journal_settings::{Fees, DEFAULT_FEES}, quote, symbol::normalize_stock_symbol};
+use crate::{
+    journal_settings::{Fees, DEFAULT_FEES},
+    quote,
+    symbol::normalize_stock_symbol,
+};
 use anyhow::{anyhow, Result};
 use reqwest::Client;
 use serde_json::{json, Map, Value};
 #[path = "backtest_advanced.rs"]
 mod advanced;
-#[path="backtest_rules.rs"]
+#[path = "backtest_rules.rs"]
 mod rules;
 
 const LOT: f64 = 100.0;
@@ -26,10 +30,25 @@ struct Bar {
     open: f64,
     close: f64,
     tradable: bool,
-    limit_override: Option<(f64,f64)>,
+    limit_override: Option<(f64, f64)>,
 }
 
-impl Bar { fn limit(&self,fallback:Option<f64>,up:bool)->Option<f64>{fallback?;match self.limit_override {Some(band)=>{let v=if up{band.0}else{band.1};if v==0.0{None}else{Some(v)}},None=>fallback}} }
+impl Bar {
+    fn limit(&self, fallback: Option<f64>, up: bool) -> Option<f64> {
+        fallback?;
+        match self.limit_override {
+            Some(band) => {
+                let v = if up { band.0 } else { band.1 };
+                if v == 0.0 {
+                    None
+                } else {
+                    Some(v)
+                }
+            }
+            None => fallback,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 enum Strategy {
@@ -62,7 +81,9 @@ impl Strategy {
         match self {
             Strategy::SmaCross { fast, slow } => json!({"fast": fast, "slow": slow}),
             Strategy::Donchian { entry, exit } => json!({"entry": entry, "exit": exit}),
-            Strategy::Rsi { period, buy, sell } => json!({"period": period, "buy": buy, "sell": sell}),
+            Strategy::Rsi { period, buy, sell } => {
+                json!({"period": period, "buy": buy, "sell": sell})
+            }
         }
     }
 
@@ -88,15 +109,24 @@ impl Strategy {
         let prev = closes[i - 1];
         match self {
             Strategy::SmaCross { fast, slow } => {
-                let (Some(f), Some(s)) = (sma(&closes[..i], *fast), sma(&closes[..i], *slow)) else { return (false, false) };
+                let (Some(f), Some(s)) = (sma(&closes[..i], *fast), sma(&closes[..i], *slow))
+                else {
+                    return (false, false);
+                };
                 (prev > f && f > s, prev < f || f < s)
             }
             Strategy::Donchian { entry, exit } => {
                 if i < entry + 1 || i < exit + 1 {
                     return (false, false);
                 }
-                let high = closes[i - 1 - entry..i - 1].iter().copied().fold(f64::MIN, f64::max);
-                let low = closes[i - 1 - exit..i - 1].iter().copied().fold(f64::MAX, f64::min);
+                let high = closes[i - 1 - entry..i - 1]
+                    .iter()
+                    .copied()
+                    .fold(f64::MIN, f64::max);
+                let low = closes[i - 1 - exit..i - 1]
+                    .iter()
+                    .copied()
+                    .fold(f64::MAX, f64::min);
                 (prev > high, prev < low)
             }
             Strategy::Rsi { buy, sell, .. } => {
@@ -120,7 +150,9 @@ struct Costs {
 
 impl Costs {
     fn fee(&self, side: &str, price: f64, shares: f64) -> f64 {
-        self.fees.map(|f| f.estimate(side, price, shares)).unwrap_or(0.0)
+        self.fees
+            .map(|f| f.estimate(side, price, shares))
+            .unwrap_or(0.0)
     }
     fn buy_price(&self, open: f64) -> f64 {
         open * (1.0 + self.slippage_bps / 10_000.0)
@@ -163,10 +195,21 @@ struct Sim {
 }
 
 /// 纯计算:一只股票的日线 + 策略 + 成本 → 逐日权益与成交。`stop_loss_pct`:持仓收盘跌到成本价下方这个比例,下一开盘出场
-fn simulate(data: &[Bar], strategy: &Strategy, costs: Costs, initial: f64, stop_loss_pct: Option<f64>, limit_pct: Option<f64>) -> Result<Sim> {
+fn simulate(
+    data: &[Bar],
+    strategy: &Strategy,
+    costs: Costs,
+    initial: f64,
+    stop_loss_pct: Option<f64>,
+    limit_pct: Option<f64>,
+) -> Result<Sim> {
     let warmup = strategy.warmup();
     if data.len() < warmup + 2 {
-        return Err(anyhow!("有效 K 线不足,至少需要 {} 根,实际 {}", warmup + 2, data.len()));
+        return Err(anyhow!(
+            "有效 K 线不足,至少需要 {} 根,实际 {}",
+            warmup + 2,
+            data.len()
+        ));
     }
     let closes: Vec<f64> = data.iter().map(|b| b.close).collect();
     let rsi = match strategy {
@@ -193,8 +236,10 @@ fn simulate(data: &[Bar], strategy: &Strategy, costs: Costs, initial: f64, stop_
             }
             // 涨跌停:开盘价贴着涨停价买不进、贴着跌停价卖不出(0.1% 容差吸收取整);信号保留,下一根开盘再试
             let gap = bar.open / data[i - 1].close - 1.0;
-            let buy_blocked = bar.limit(limit_pct,true).is_some_and(|l| gap >= l - 0.001);
-            let sell_blocked = bar.limit(limit_pct,false).is_some_and(|l| gap <= -l + 0.001);
+            let buy_blocked = bar.limit(limit_pct, true).is_some_and(|l| gap >= l - 0.001);
+            let sell_blocked = bar
+                .limit(limit_pct, false)
+                .is_some_and(|l| gap <= -l + 0.001);
             if shares == 0.0 && want_in && buy_blocked {
                 blocked_buys += 1;
             } else if shares > 0.0 && want_out && sell_blocked {
@@ -221,7 +266,8 @@ fn simulate(data: &[Bar], strategy: &Strategy, costs: Costs, initial: f64, stop_
                 let px = costs.sell_price(bar.open);
                 let fee = costs.fee("sell", px, shares);
                 let proceeds = shares * px - fee;
-                let (entry_date, entry_px, buy_fee) = entry.take().unwrap_or((bar.date.clone(), px, 0.0));
+                let (entry_date, entry_px, buy_fee) =
+                    entry.take().unwrap_or((bar.date.clone(), px, 0.0));
                 cash += proceeds;
                 fees_paid += fee;
                 slippage_cost += (bar.open - px) * shares;
@@ -253,7 +299,10 @@ fn simulate(data: &[Bar], strategy: &Strategy, costs: Costs, initial: f64, stop_
         blocked_sells,
         start_close: data[warmup].close,
         final_close: data[data.len() - 1].close,
-        bench: data[warmup..].iter().map(|b| (b.date.clone(), initial * b.close / data[warmup].close)).collect(),
+        bench: data[warmup..]
+            .iter()
+            .map(|b| (b.date.clone(), initial * b.close / data[warmup].close))
+            .collect(),
     })
 }
 
@@ -273,18 +322,30 @@ fn curve_metrics(initial: f64, curve: &[(String, f64)]) -> Metrics {
             mdd = mdd.min(v / peak - 1.0);
         }
     }
-    let rets: Vec<f64> = curve.windows(2).filter(|w| w[0].1 > 0.0).map(|w| w[1].1 / w[0].1 - 1.0).collect();
+    let rets: Vec<f64> = curve
+        .windows(2)
+        .filter(|w| w[0].1 > 0.0)
+        .map(|w| w[1].1 / w[0].1 - 1.0)
+        .collect();
     let (annualized_pct, sharpe) = if rets.len() >= 30 {
         let years = rets.len() as f64 / 252.0;
         let ann = ((final_equity / initial).max(1e-9).powf(1.0 / years) - 1.0) * 100.0;
         let mean = rets.iter().sum::<f64>() / rets.len() as f64;
         let var = rets.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (rets.len() as f64 - 1.0);
         let sd = var.sqrt();
-        (Some(ann), (sd > 1e-12).then(|| mean / sd * 252.0_f64.sqrt()))
+        (
+            Some(ann),
+            (sd > 1e-12).then(|| mean / sd * 252.0_f64.sqrt()),
+        )
     } else {
         (None, None)
     };
-    Metrics { total_return_pct: (final_equity / initial - 1.0) * 100.0, max_drawdown_pct: mdd * 100.0, annualized_pct, sharpe }
+    Metrics {
+        total_return_pct: (final_equity / initial - 1.0) * 100.0,
+        max_drawdown_pct: mdd * 100.0,
+        annualized_pct,
+        sharpe,
+    }
 }
 
 fn trades_value(trades: &[Trade]) -> Vec<Value> {
@@ -320,7 +381,9 @@ fn uint(body: &Value, key: &str, default: u64, lo: u64, hi: u64) -> Result<u64> 
     match body.get(key) {
         None | Some(Value::Null) => Ok(default),
         Some(v) => {
-            let n = v.as_u64().ok_or_else(|| anyhow!("{key} 必须是 {lo}–{hi} 的整数"))?;
+            let n = v
+                .as_u64()
+                .ok_or_else(|| anyhow!("{key} 必须是 {lo}–{hi} 的整数"))?;
             if n < lo || n > hi {
                 return Err(anyhow!("{key} 必须在 {lo}–{hi} 之间"));
             }
@@ -333,7 +396,10 @@ fn num(body: &Value, key: &str, default: f64, lo: f64, hi: f64) -> Result<f64> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(default),
         Some(v) => {
-            let n = v.as_f64().filter(|n| n.is_finite()).ok_or_else(|| anyhow!("{key} 必须是 {lo}–{hi} 的数字"))?;
+            let n = v
+                .as_f64()
+                .filter(|n| n.is_finite())
+                .ok_or_else(|| anyhow!("{key} 必须是 {lo}–{hi} 的数字"))?;
             if n < lo || n > hi {
                 return Err(anyhow!("{key} 必须在 {lo}–{hi} 之间"));
             }
@@ -343,7 +409,11 @@ fn num(body: &Value, key: &str, default: f64, lo: f64, hi: f64) -> Result<f64> {
 }
 
 fn parse_strategy(body: &Value) -> Result<Strategy> {
-    match body.get("strategy").and_then(Value::as_str).unwrap_or("sma_cross") {
+    match body
+        .get("strategy")
+        .and_then(Value::as_str)
+        .unwrap_or("sma_cross")
+    {
         "sma_cross" => {
             let fast = uint(body, "fast", 10, 3, 60)? as usize;
             let slow = uint(body, "slow", 30, 10, 200)? as usize;
@@ -352,13 +422,22 @@ fn parse_strategy(body: &Value) -> Result<Strategy> {
             }
             Ok(Strategy::SmaCross { fast, slow })
         }
-        "donchian" => Ok(Strategy::Donchian { entry: uint(body, "entry", 20, 5, 120)? as usize, exit: uint(body, "exit", 10, 3, 60)? as usize }),
+        "donchian" => Ok(Strategy::Donchian {
+            entry: uint(body, "entry", 20, 5, 120)? as usize,
+            exit: uint(body, "exit", 10, 3, 60)? as usize,
+        }),
         "rsi" => {
             let buy = num(body, "buy", 30.0, 5.0, 45.0)?;
             let sell = num(body, "sell", 70.0, 55.0, 95.0)?;
-            Ok(Strategy::Rsi { period: uint(body, "period", 14, 5, 30)? as usize, buy, sell })
+            Ok(Strategy::Rsi {
+                period: uint(body, "period", 14, 5, 30)? as usize,
+                buy,
+                sell,
+            })
         }
-        other => Err(anyhow!("不认识的策略 {other:?}(可选 sma_cross / donchian / rsi)")),
+        other => Err(anyhow!(
+            "不认识的策略 {other:?}(可选 sma_cross / donchian / rsi)"
+        )),
     }
 }
 
@@ -373,10 +452,22 @@ fn parse_costs(body: &Value) -> Result<(Costs, Value)> {
             let get = |k: &str| -> Result<f64> {
                 m.get(k).and_then(Value::as_f64).filter(|v| v.is_finite() && *v >= 0.0).ok_or_else(|| anyhow!("fees 里的 {k} 必须是不小于 0 的数字(四项都要填:commission_rate / commission_min / stamp_tax_rate / transfer_fee_rate)"))
             };
-            let f = Fees { commission_rate: get("commission_rate")?, commission_min: get("commission_min")?, stamp_tax_rate: get("stamp_tax_rate")?, transfer_fee_rate: get("transfer_fee_rate")?, fifo: false };
-            for (k, v) in [("commission_rate", f.commission_rate), ("stamp_tax_rate", f.stamp_tax_rate), ("transfer_fee_rate", f.transfer_fee_rate)] {
+            let f = Fees {
+                commission_rate: get("commission_rate")?,
+                commission_min: get("commission_min")?,
+                stamp_tax_rate: get("stamp_tax_rate")?,
+                transfer_fee_rate: get("transfer_fee_rate")?,
+                fifo: false,
+            };
+            for (k, v) in [
+                ("commission_rate", f.commission_rate),
+                ("stamp_tax_rate", f.stamp_tax_rate),
+                ("transfer_fee_rate", f.transfer_fee_rate),
+            ] {
                 if v > 0.01 {
-                    return Err(anyhow!("fees 里的 {k} 看起来不像费率({v}),万 2.5 应填 0.00025"));
+                    return Err(anyhow!(
+                        "fees 里的 {k} 看起来不像费率({v}),万 2.5 应填 0.00025"
+                    ));
                 }
             }
             (Some(f), json!("custom"))
@@ -384,17 +475,30 @@ fn parse_costs(body: &Value) -> Result<(Costs, Value)> {
         Some(_) => return Err(anyhow!("fees 只能是 \"default\"、\"none\" 或四项费率对象")),
     };
     let detail = match fees {
-        Some(f) => json!({"mode": label, "commission_rate": f.commission_rate, "commission_min": f.commission_min, "stamp_tax_rate": f.stamp_tax_rate, "transfer_fee_rate": f.transfer_fee_rate, "slippage_bps": slippage_bps, "position_pct": position_pct}),
+        Some(f) => {
+            json!({"mode": label, "commission_rate": f.commission_rate, "commission_min": f.commission_min, "stamp_tax_rate": f.stamp_tax_rate, "transfer_fee_rate": f.transfer_fee_rate, "slippage_bps": slippage_bps, "position_pct": position_pct})
+        }
         None => json!({"mode": label, "slippage_bps": slippage_bps, "position_pct": position_pct}),
     };
-    Ok((Costs { fees, slippage_bps, position_pct }, detail))
+    Ok((
+        Costs {
+            fees,
+            slippage_bps,
+            position_pct,
+        },
+        detail,
+    ))
 }
 
 fn parse_symbols(body: &Value) -> Result<Vec<crate::symbol::SymbolKey>> {
     let mut raw: Vec<String> = Vec::new();
     if let Some(list) = body.get("symbols").and_then(Value::as_array) {
         for v in list {
-            raw.push(v.as_str().ok_or_else(|| anyhow!("symbols 里要是代码字符串"))?.to_string());
+            raw.push(
+                v.as_str()
+                    .ok_or_else(|| anyhow!("symbols 里要是代码字符串"))?
+                    .to_string(),
+            );
         }
     }
     if let Some(one) = body.get("symbol").and_then(Value::as_str) {
@@ -435,12 +539,23 @@ fn experiment_grid(strategy: &Strategy) -> Vec<Strategy> {
         Strategy::Rsi { period, .. } => [20.0, 25.0, 30.0]
             .iter()
             .flat_map(|b| [60.0, 70.0, 80.0].iter().map(move |s| (*b, *s)))
-            .map(|(buy, sell)| Strategy::Rsi { period: *period, buy, sell })
+            .map(|(buy, sell)| Strategy::Rsi {
+                period: *period,
+                buy,
+                sell,
+            })
             .collect(),
     }
 }
 
-fn experiment_value(data: &[Bar], base: &Strategy, costs: Costs, initial: f64, stop: Option<f64>, limit_pct: Option<f64>) -> Value {
+fn experiment_value(
+    data: &[Bar],
+    base: &Strategy,
+    costs: Costs,
+    initial: f64,
+    stop: Option<f64>,
+    limit_pct: Option<f64>,
+) -> Value {
     let rows: Vec<Value> = experiment_grid(base)
         .into_iter()
         .filter_map(|s| {
@@ -453,7 +568,10 @@ fn experiment_value(data: &[Bar], base: &Strategy, costs: Costs, initial: f64, s
             }))
         })
         .collect();
-    let positive = rows.iter().filter(|r| r["total_return_pct"].as_f64().unwrap_or(0.0) > 0.0).count();
+    let positive = rows
+        .iter()
+        .filter(|r| r["total_return_pct"].as_f64().unwrap_or(0.0) > 0.0)
+        .count();
     json!({
         "rows": rows,
         "positive_share": if rows.is_empty() { Value::Null } else { json!(positive as f64 / rows.len() as f64) },
@@ -484,7 +602,10 @@ fn monthly_table(curve: &[(String, f64)], bench: &[(String, f64)], initial: f64)
         }
         out
     }
-    let b: std::collections::HashMap<String, f64> = by_month(bench, bench.first().map(|p| p.1).unwrap_or(initial)).into_iter().collect();
+    let b: std::collections::HashMap<String, f64> =
+        by_month(bench, bench.first().map(|p| p.1).unwrap_or(initial))
+            .into_iter()
+            .collect();
     by_month(curve, initial).into_iter().map(|(m, r)| json!({"month": m, "return_pct": r2(r), "bench_pct": b.get(&m).map(|v| r2(*v))})).collect()
 }
 
@@ -515,7 +636,13 @@ fn drawdown_episodes(curve: &[(String, f64)], initial: f64, top: usize) -> Vec<V
         eps.push((pi, ti, tv / pv - 1.0, None));
     }
     eps.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
-    let date = |i: isize| if i < 0 { "期初".to_string() } else { curve[i as usize].0.clone() };
+    let date = |i: isize| {
+        if i < 0 {
+            "期初".to_string()
+        } else {
+            curve[i as usize].0.clone()
+        }
+    };
     eps.into_iter()
         .take(top)
         .map(|(pi, ti, depth, rec)| {
@@ -541,7 +668,14 @@ struct OosRow {
 
 /// 样本内 / 样本外对照:一刀切成前 70% 与后 30%,在前段跑固定小格参数、按收益选最好的,再看它在后段(没参与选择)表现如何。
 /// 只有一段样本外,不是严格的滚动检验;目的是看「样本内最好的那一格」到了样本外还站不站得住
-fn optimize_value(data: &[Bar], base: &Strategy, costs: Costs, initial: f64, stop: Option<f64>, limit_pct: Option<f64>) -> Value {
+fn optimize_value(
+    data: &[Bar],
+    base: &Strategy,
+    costs: Costs,
+    initial: f64,
+    stop: Option<f64>,
+    limit_pct: Option<f64>,
+) -> Value {
     let grid = experiment_grid(base);
     let warm_max = grid.iter().map(|s| s.warmup()).max().unwrap_or(0);
     let n = data.len();
@@ -551,10 +685,33 @@ fn optimize_value(data: &[Bar], base: &Strategy, costs: Costs, initial: f64, sto
     let split = warm_max + ((n - warm_max) as f64 * 0.7) as usize;
     let mut rows: Vec<OosRow> = Vec::new();
     for s in &grid {
-        let Ok(is_sim) = simulate(&data[..split], s, costs, initial, stop, limit_pct) else { continue };
-        let Ok(oos_sim) = simulate(&data[split.saturating_sub(s.warmup())..], s, costs, initial, stop, limit_pct) else { continue };
-        let (im, om) = (curve_metrics(initial, &is_sim.equity), curve_metrics(initial, &oos_sim.equity));
-        rows.push(OosRow { label: s.label(), params: s.params(), is_ret: im.total_return_pct, oos_ret: om.total_return_pct, is_dd: im.max_drawdown_pct, oos_dd: om.max_drawdown_pct, is_trades: is_sim.trades.len(), oos_trades: oos_sim.trades.len() });
+        let Ok(is_sim) = simulate(&data[..split], s, costs, initial, stop, limit_pct) else {
+            continue;
+        };
+        let Ok(oos_sim) = simulate(
+            &data[split.saturating_sub(s.warmup())..],
+            s,
+            costs,
+            initial,
+            stop,
+            limit_pct,
+        ) else {
+            continue;
+        };
+        let (im, om) = (
+            curve_metrics(initial, &is_sim.equity),
+            curve_metrics(initial, &oos_sim.equity),
+        );
+        rows.push(OosRow {
+            label: s.label(),
+            params: s.params(),
+            is_ret: im.total_return_pct,
+            oos_ret: om.total_return_pct,
+            is_dd: im.max_drawdown_pct,
+            oos_dd: om.max_drawdown_pct,
+            is_trades: is_sim.trades.len(),
+            oos_trades: oos_sim.trades.len(),
+        });
     }
     if rows.is_empty() {
         return json!({"available": false, "reason": "这段 K 线跑不了任何一组参数"});
@@ -569,10 +726,18 @@ fn optimize_value(data: &[Bar], base: &Strategy, costs: Costs, initial: f64, sto
     let mut oos_desc: Vec<f64> = rows.iter().map(|r| r.oos_ret).collect();
     oos_desc.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
     let best_oos = rows[best].oos_ret;
-    let oos_rank = oos_desc.iter().position(|v| *v <= best_oos).map(|i| i + 1).unwrap_or(rows.len());
+    let oos_rank = oos_desc
+        .iter()
+        .position(|v| *v <= best_oos)
+        .map(|i| i + 1)
+        .unwrap_or(rows.len());
     let median = {
         let m = oos_desc.len() / 2;
-        if oos_desc.len() % 2 == 1 { oos_desc[m] } else { (oos_desc[m - 1] + oos_desc[m]) / 2.0 }
+        if oos_desc.len() % 2 == 1 {
+            oos_desc[m]
+        } else {
+            (oos_desc[m - 1] + oos_desc[m]) / 2.0
+        }
     };
     let positive = rows.iter().filter(|r| r.oos_ret > 0.0).count();
     json!({
@@ -594,83 +759,182 @@ fn optimize_value(data: &[Bar], base: &Strategy, costs: Costs, initial: f64, sto
 
 pub async fn run(client: &Client, body: &Value) -> Result<Value> {
     let symbols = parse_symbols(body)?;
-    let market_rules=rules::parse(body,&symbols)?;
-    let historical=body.get("historical_rules").and_then(Value::as_str).unwrap_or("auto");
-    if !matches!(historical,"auto"|"required"|"off") || body.get("historical_rules").is_some_and(|v|!v.is_string()){return Err(anyhow!("historical_rules 只允许 auto/required/off"));}
-    let (start_date,end_date)=rules::range(body)?;
+    let market_rules = rules::parse(body, &symbols)?;
+    let historical = body
+        .get("historical_rules")
+        .and_then(Value::as_str)
+        .unwrap_or("auto");
+    if !matches!(historical, "auto" | "required" | "off")
+        || body.get("historical_rules").is_some_and(|v| !v.is_string())
+    {
+        return Err(anyhow!("historical_rules 只允许 auto/required/off"));
+    }
+    let (start_date, end_date) = rules::range(body)?;
     let strategy = parse_strategy(body)?;
     let (costs, costs_detail) = parse_costs(body)?;
     let bars = uint(body, "bars", 500, strategy.warmup() as u64 + 5, 4000)? as usize;
-    let initial = num(body, "initial_capital", 100_000.0, f64::MIN_POSITIVE, 100_000_000.0)
-        .map_err(|_| anyhow!("initial_capital 必须在 0 到 1 亿元之间"))?;
+    let initial = num(
+        body,
+        "initial_capital",
+        100_000.0,
+        f64::MIN_POSITIVE,
+        100_000_000.0,
+    )
+    .map_err(|_| anyhow!("initial_capital 必须在 0 到 1 亿元之间"))?;
     let stop = match body.get("stop_loss_pct") {
         None | Some(Value::Null) => None,
         Some(_) => Some(num(body, "stop_loss_pct", 0.0, 1.0, 50.0)?),
     };
-    let want_experiment = body.get("experiment").and_then(Value::as_bool).unwrap_or(false);
-    let limit_check = body.get("limit_check").and_then(Value::as_bool).unwrap_or(true);
-    let want_optimize = body.get("optimize").and_then(Value::as_bool).unwrap_or(false);
-    let rebalance=uint(body,"rebalance_every",0,0,252)?;
-    if rebalance>0&&symbols.len()<2{return Err(anyhow!("再平衡需要至少两只股票"));}
-    if body["walk_forward"]==true&&symbols.len()>1{return Err(anyhow!("滚动样本外仅支持单只股票"));}
+    let want_experiment = body
+        .get("experiment")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let limit_check = body
+        .get("limit_check")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let want_optimize = body
+        .get("optimize")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let rebalance = uint(body, "rebalance_every", 0, 0, 252)?;
+    if rebalance > 0 && symbols.len() < 2 {
+        return Err(anyhow!("再平衡需要至少两只股票"));
+    }
+    if body["walk_forward"] == true && symbols.len() > 1 {
+        return Err(anyhow!("滚动样本外仅支持单只股票"));
+    }
     if (want_experiment || want_optimize) && symbols.len() > 1 {
         return Err(anyhow!("参数实验和样本外检验只支持单只股票"));
     }
 
-    let calendar=crate::chart::index_closes(client,"1.000300",4000).await;
-    let mut provenance=Vec::new();
-    let mut history_sources=Vec::new();
+    let calendar = crate::chart::index_closes(client, "1.000300", 4000).await;
+    let mut provenance = Vec::new();
+    let mut history_sources = Vec::new();
     let mut all: Vec<(crate::symbol::SymbolKey, Vec<Bar>)> = Vec::new();
     for key in &symbols {
-        let envelope = quote::fetch_kline(client, key, if start_date.is_some()||end_date.is_some(){4000}else{bars}).await?;
-        let raw_rows = envelope.pointer("/extra/rows").and_then(Value::as_array).ok_or_else(|| anyhow!("{} 的 K 线返回缺少 rows", key.digits))?;
-        let mut data:Vec<Bar>=raw_rows.iter().filter_map(parse_bar).collect();
-        if start_date.as_ref().is_some_and(|s|data.first().is_none_or(|b|&b.date>s)){return Err(anyhow!("{} 的行情没有覆盖请求起点，未把后来的样本冒充完整区间",key.digits));}
+        let envelope = quote::fetch_kline(
+            client,
+            key,
+            if start_date.is_some() || end_date.is_some() {
+                4000
+            } else {
+                bars
+            },
+        )
+        .await?;
+        let raw_rows = envelope
+            .pointer("/extra/rows")
+            .and_then(Value::as_array)
+            .ok_or_else(|| anyhow!("{} 的 K 线返回缺少 rows", key.digits))?;
+        let mut data: Vec<Bar> = raw_rows.iter().filter_map(parse_bar).collect();
+        if start_date
+            .as_ref()
+            .is_some_and(|s| data.first().is_none_or(|b| &b.date > s))
+        {
+            return Err(anyhow!(
+                "{} 的行情没有覆盖请求起点，未把后来的样本冒充完整区间",
+                key.digits
+            ));
+        }
         provenance.push(json!({"symbol":key.digits,"source":envelope["primary_source"],"status":envelope["status"],"fetched_at":envelope["fetched_at"],"fallback_reason":envelope["extra"]["fallback_reason"]}));
-        if data.len()!=raw_rows.len(){return Err(anyhow!("{} 存在无效 K 线，未静默跳过后计算",key.digits));}
-        if let Ok(calendar)=&calendar{data=rules::complete_calendar(&data,calendar);}
-        data.retain(|b|start_date.as_ref().is_none_or(|s|&b.date>=s)&&end_date.as_ref().is_none_or(|e|&b.date<=e));
-        if historical!="off" {
-            if let (Some(first),Some(last))=(data.first(),data.last()) {
-                let loaded=tokio::time::timeout(std::time::Duration::from_secs(25),crate::historical_metadata::fetch(key,&first.date,&last.date)).await;
-                let audit=match loaded {
-                    Ok(Ok(h))=>{
-                        let dates:Vec<_>=h.days.keys().map(|date|(date.clone(),0.0)).collect();
-                        data=rules::complete_calendar(&data,&dates);
-                        rules::automatic(&key.digits,&mut data,&h)
-                    },
-                    other=>json!({"status":"failed","reason":match other{Ok(Err(e))=>e.to_string(),_=>"历史元数据总预算超时".into()},"covered_bars":0}),
+        if data.len() != raw_rows.len() {
+            return Err(anyhow!("{} 存在无效 K 线，未静默跳过后计算", key.digits));
+        }
+        if let Ok(calendar) = &calendar {
+            data = rules::complete_calendar(&data, calendar);
+        }
+        data.retain(|b| {
+            start_date.as_ref().is_none_or(|s| &b.date >= s)
+                && end_date.as_ref().is_none_or(|e| &b.date <= e)
+        });
+        if historical != "off" {
+            if let (Some(first), Some(last)) = (data.first(), data.last()) {
+                let loaded = tokio::time::timeout(
+                    std::time::Duration::from_secs(25),
+                    crate::historical_metadata::fetch(key, &first.date, &last.date),
+                )
+                .await;
+                let audit = match loaded {
+                    Ok(Ok(h)) => {
+                        let dates: Vec<_> = h.days.keys().map(|date| (date.clone(), 0.0)).collect();
+                        data = rules::complete_calendar(&data, &dates);
+                        rules::automatic(&key.digits, &mut data, &h)
+                    }
+                    other => {
+                        json!({"status":"failed","reason":match other{Ok(Err(e))=>e.to_string(),_=>"历史元数据总预算超时".into()},"covered_bars":0})
+                    }
                 };
-                if historical=="required"&&audit["status"]!="ok"{return Err(anyhow!("{} 历史制度数据未完整覆盖:{}",key.digits,audit));}
-                let mut audit=audit;audit["symbol"]=json!(key.digits);history_sources.push(audit);
+                if historical == "required" && audit["status"] != "ok" {
+                    return Err(anyhow!("{} 历史制度数据未完整覆盖:{}", key.digits, audit));
+                }
+                let mut audit = audit;
+                audit["symbol"] = json!(key.digits);
+                history_sources.push(audit);
             }
         }
-        rules::apply(&key.digits,&mut data,&market_rules);
+        rules::apply(&key.digits, &mut data, &market_rules);
         all.push((key.clone(), data));
     }
-    let mut result=build_result(&all, &strategy, costs, costs_detail, initial, stop, want_experiment, limit_check, want_optimize)?;
-    advanced::enhance(client,body,&mut result,&all,&strategy,costs,initial,stop,limit_check).await?;
-    result["data_sources"]=json!(provenance);
-    result["requested_range"]=json!({"start":start_date,"end":end_date,"note":"取得区间含预热期；实际策略区间为 period，不把未取得的日期当成已经回测。"});
-    result["market_rules"]=json!({"mode":historical,"status":if historical=="off"{"disabled"}else if history_sources.iter().all(|r|r["status"]=="ok"){"ok"}else{"partial"},"sources":history_sources,"explicit_intervals":market_rules.len(),"note":"默认现查沪深逐日ST/停牌与上市日期，失败或缺日期会单独披露；required模式缺失即拒绝。主板ST在2026-07-06前为5%、以后10%；创业板改革及注册制新股前五日按时点处理。用户明确制度区间优先。重新上市、退市整理、北交所特殊状态仍需明确区间，不能用于精确成交可达性判断。"});
-    result["suspension"]["calendar_available"]=json!(calendar.is_ok());
-    result["suspension"]["calendar_error"]=json!(calendar.err().map(|e|e.to_string()));
+    let mut result = build_result(
+        &all,
+        &strategy,
+        SimulationConfig {
+            costs,
+            initial,
+            stop,
+            limits: limit_check,
+        },
+        costs_detail,
+        want_experiment,
+        want_optimize,
+    )?;
+    advanced::enhance(
+        client,
+        body,
+        &mut result,
+        &all,
+        &strategy,
+        SimulationConfig {
+            costs,
+            initial,
+            stop,
+            limits: limit_check,
+        },
+    )
+    .await?;
+    result["data_sources"] = json!(provenance);
+    result["requested_range"] = json!({"start":start_date,"end":end_date,"note":"取得区间含预热期；实际策略区间为 period，不把未取得的日期当成已经回测。"});
+    result["market_rules"] = json!({"mode":historical,"status":if historical=="off"{"disabled"}else if history_sources.iter().all(|r|r["status"]=="ok"){"ok"}else{"partial"},"sources":history_sources,"explicit_intervals":market_rules.len(),"note":"默认现查沪深逐日ST/停牌与上市日期，失败或缺日期会单独披露；required模式缺失即拒绝。主板ST在2026-07-06前为5%、以后10%；创业板改革及注册制新股前五日按时点处理。用户明确制度区间优先。重新上市、退市整理、北交所特殊状态仍需明确区间，不能用于精确成交可达性判断。"});
+    result["suspension"]["calendar_available"] = json!(calendar.is_ok());
+    result["suspension"]["calendar_error"] = json!(calendar.err().map(|e| e.to_string()));
     result["suspension"]["note"]=json!("零量、历史日状态及指数日历内缺失日禁止成交，最近已知收盘估值；两类日历均缺失时仅按已有日线计算并披露缺口。起止区间以取得的真实行情为准。");
     Ok(result)
+}
+
+#[derive(Clone, Copy)]
+struct SimulationConfig {
+    costs: Costs,
+    initial: f64,
+    stop: Option<f64>,
+    limits: bool,
 }
 
 /// 取到行情后的全部计算(不碰网络,测试直接喂 K 线)
 fn build_result(
     all: &[(crate::symbol::SymbolKey, Vec<Bar>)],
     strategy: &Strategy,
-    costs: Costs,
+    config: SimulationConfig,
     costs_detail: Value,
-    initial: f64,
-    stop: Option<f64>,
     want_experiment: bool,
-    limit_check: bool,
     want_optimize: bool,
 ) -> Result<Value> {
+    let SimulationConfig {
+        costs,
+        initial,
+        stop,
+        limits: limit_check,
+    } = config;
     // 多只:只留各标的共有的交易日,各自独立跑
     let aligned: Vec<Vec<Bar>> = if all.len() == 1 {
         vec![all[0].1.clone()]
@@ -680,15 +944,33 @@ fn build_result(
     let share = initial / all.len() as f64;
     let mut sims = Vec::new();
     for ((key, _), data) in all.iter().zip(&aligned) {
-        let sim = simulate(data, strategy, costs, share, stop, limit_check.then(|| board_limit(&key.digits))).map_err(|e| anyhow!("{}:{e}", key.digits))?;
+        let sim = simulate(
+            data,
+            strategy,
+            costs,
+            share,
+            stop,
+            limit_check.then(|| board_limit(&key.digits)),
+        )
+        .map_err(|e| anyhow!("{}:{e}", key.digits))?;
         sims.push(sim);
     }
 
     // 组合权益 = 各只权益逐日相加(日期已对齐,各只 warmup 相同)
-    let curve: Vec<(String, f64)> = (0..sims[0].equity.len()).map(|i| (sims[0].equity[i].0.clone(), sims.iter().map(|s| s.equity[i].1).sum())).collect();
+    let curve: Vec<(String, f64)> = (0..sims[0].equity.len())
+        .map(|i| {
+            (
+                sims[0].equity[i].0.clone(),
+                sims.iter().map(|s| s.equity[i].1).sum(),
+            )
+        })
+        .collect();
     let metrics = curve_metrics(initial, &curve);
     let final_equity = curve.last().map(|p| p.1).unwrap_or(initial);
-    let buy_hold: f64 = sims.iter().map(|s| share * s.final_close / s.start_close).sum();
+    let buy_hold: f64 = sims
+        .iter()
+        .map(|s| share * s.final_close / s.start_close)
+        .sum();
     let buy_hold_return = (buy_hold / initial - 1.0) * 100.0;
     let trades_all: Vec<Trade> = sims.iter().flat_map(|s| s.trades.clone()).collect();
     let fees_paid: f64 = sims.iter().map(|s| s.fees_paid).sum();
@@ -711,9 +993,38 @@ fn build_result(
         })
         .collect();
 
-    let bench_curve: Vec<(String, f64)> = (0..sims[0].bench.len()).map(|i| (sims[0].bench[i].0.clone(), sims.iter().map(|s| s.bench[i].1).sum())).collect();
-    let optimize = if want_optimize { Some(optimize_value(&aligned[0], strategy, costs, initial, stop, limit_check.then(|| board_limit(&all[0].0.digits)))) } else { None };
-    let experiment = if want_experiment { Some(experiment_value(&aligned[0], strategy, costs, initial, stop, limit_check.then(|| board_limit(&all[0].0.digits)))) } else { None };
+    let bench_curve: Vec<(String, f64)> = (0..sims[0].bench.len())
+        .map(|i| {
+            (
+                sims[0].bench[i].0.clone(),
+                sims.iter().map(|s| s.bench[i].1).sum(),
+            )
+        })
+        .collect();
+    let optimize = if want_optimize {
+        Some(optimize_value(
+            &aligned[0],
+            strategy,
+            costs,
+            initial,
+            stop,
+            limit_check.then(|| board_limit(&all[0].0.digits)),
+        ))
+    } else {
+        None
+    };
+    let experiment = if want_experiment {
+        Some(experiment_value(
+            &aligned[0],
+            strategy,
+            costs,
+            initial,
+            stop,
+            limit_check.then(|| board_limit(&all[0].0.digits)),
+        ))
+    } else {
+        None
+    };
     let trade_rows: Vec<Value> = {
         let mut tagged: Vec<(String, Value)> = Vec::new();
         for ((key, _), s) in all.iter().zip(&sims) {
@@ -726,9 +1037,9 @@ fn build_result(
         tagged.into_iter().map(|(_, v)| v).collect()
     };
     let fees_text = match (&costs.fees, costs.slippage_bps) {
-        (None, s) if s == 0.0 => "未计手续费、印花税、滑点".to_string(),
+        (None, 0.0) => "未计手续费、印花税、滑点".to_string(),
         (None, s) => format!("未计手续费、印花税;滑点 {s} bp"),
-        (Some(_), s) if s == 0.0 => "已计佣金、过户费与卖出印花税(费率见 costs);未计滑点".to_string(),
+        (Some(_), 0.0) => "已计佣金、过户费与卖出印花税(费率见 costs);未计滑点".to_string(),
         (Some(_), s) => format!("已计佣金、过户费与卖出印花税(费率见 costs);滑点 {s} bp"),
     };
     let mut note = String::from("这是移动端 Lite 回测,用于历史假设核对;不等同于桌面端完整 Agent 回测。按 100 股整手、全仓进出");
@@ -744,7 +1055,13 @@ fn build_result(
     out.insert("status".into(), json!("ok"));
     out.insert("symbol".into(), json!(all[0].0.digits));
     out.insert("market".into(), json!(all[0].0.market.as_str()));
-    out.insert("symbols".into(), json!(all.iter().map(|(k, _)| k.digits.clone()).collect::<Vec<_>>()));
+    out.insert(
+        "symbols".into(),
+        json!(all
+            .iter()
+            .map(|(k, _)| k.digits.clone())
+            .collect::<Vec<_>>()),
+    );
     out.insert(
         "strategy".into(),
         json!({
@@ -755,7 +1072,10 @@ fn build_result(
         }),
     );
     out.insert("costs".into(), costs_detail);
-    out.insert("period".into(), json!({"start": period_start, "end": period_end, "bars": aligned[0].len()}));
+    out.insert(
+        "period".into(),
+        json!({"start": period_start, "end": period_end, "bars": aligned[0].len()}),
+    );
     out.insert(
         "metrics".into(),
         json!({
@@ -772,9 +1092,18 @@ fn build_result(
     );
     out.insert("per_symbol".into(), json!(per_symbol));
     out.insert("trades".into(), json!(trade_rows));
-    out.insert("equity_curve".into(), json!(curve.iter().map(|(d, v)| json!([d, v])).collect::<Vec<_>>()));
-    out.insert("monthly".into(), json!(monthly_table(&curve, &bench_curve, initial)));
-    out.insert("drawdowns".into(), json!(drawdown_episodes(&curve, initial, 3)));
+    out.insert(
+        "equity_curve".into(),
+        json!(curve.iter().map(|(d, v)| json!([d, v])).collect::<Vec<_>>()),
+    );
+    out.insert(
+        "monthly".into(),
+        json!(monthly_table(&curve, &bench_curve, initial)),
+    );
+    out.insert(
+        "drawdowns".into(),
+        json!(drawdown_episodes(&curve, initial, 3)),
+    );
     if let Some(e) = experiment {
         out.insert("experiment".into(), e);
     }
@@ -787,7 +1116,11 @@ fn build_result(
 
 /// 按板块给涨跌停幅度:科创板 / 创业板 20%,北交所 30%,其余 10%。ST(5%)和新股上市前几天不设限这两种没单独识别,note 里写明
 fn board_limit(code: &str) -> f64 {
-    if code.starts_with("688") || code.starts_with("689") || code.starts_with("300") || code.starts_with("301") {
+    if code.starts_with("688")
+        || code.starts_with("689")
+        || code.starts_with("300")
+        || code.starts_with("301")
+    {
         0.20
     } else if code.starts_with('8') || code.starts_with('4') || code.starts_with("920") {
         0.30
@@ -804,7 +1137,13 @@ fn parse_bar(row: &Value) -> Option<Bar> {
     if date.is_empty() || !open.is_finite() || !close.is_finite() || open <= 0.0 || close <= 0.0 {
         return None;
     }
-    Some(Bar { date, open, close, tradable:items.get(5).and_then(number).is_none_or(|v|v>0.0),limit_override:None })
+    Some(Bar {
+        date,
+        open,
+        close,
+        tradable: items.get(5).and_then(number).is_none_or(|v| v > 0.0),
+        limit_override: None,
+    })
 }
 
 fn number(value: &Value) -> Option<f64> {
@@ -836,7 +1175,17 @@ fn rsi_series(closes: &[f64], period: usize) -> Vec<f64> {
         loss += (-d).max(0.0);
     }
     let (mut avg_gain, mut avg_loss) = (gain / period as f64, loss / period as f64);
-    let value = |g: f64, l: f64| if l == 0.0 { if g == 0.0 { 50.0 } else { 100.0 } } else { 100.0 - 100.0 / (1.0 + g / l) };
+    let value = |g: f64, l: f64| {
+        if l == 0.0 {
+            if g == 0.0 {
+                50.0
+            } else {
+                100.0
+            }
+        } else {
+            100.0 - 100.0 / (1.0 + g / l)
+        }
+    };
     out[period] = value(avg_gain, avg_loss);
     for j in period + 1..closes.len() {
         let d = closes[j] - closes[j - 1];
@@ -851,10 +1200,20 @@ fn rsi_series(closes: &[f64], period: usize) -> Vec<f64> {
 mod tests {
     use super::*;
 
-    const NO_COST: Costs = Costs { fees: None, slippage_bps: 0.0, position_pct: 100.0 };
+    const NO_COST: Costs = Costs {
+        fees: None,
+        slippage_bps: 0.0,
+        position_pct: 100.0,
+    };
 
     fn bar(day: usize, open: f64, close: f64) -> Bar {
-        Bar { date: format!("2026-01-{:02}", day + 1), open, close, tradable:true,limit_override:None }
+        Bar {
+            date: format!("2026-01-{:02}", day + 1),
+            open,
+            close,
+            tradable: true,
+            limit_override: None,
+        }
     }
 
     /// 先横盘 40 根再单边上涨 40 根,开盘价 = 前一收盘
@@ -862,7 +1221,11 @@ mod tests {
         let mut out = Vec::new();
         let mut last = 10.0;
         for i in 0..80 {
-            let close = if i < 40 { 10.0 } else { 10.0 + (i - 39) as f64 * 0.2 };
+            let close = if i < 40 {
+                10.0
+            } else {
+                10.0 + (i - 39) as f64 * 0.2
+            };
             out.push(bar(i, last, close));
             last = close;
         }
@@ -885,10 +1248,16 @@ mod tests {
     fn rsi_matches_wilder_and_handles_flat_and_one_way_moves() {
         let up: Vec<f64> = (0..20).map(|i| 10.0 + i as f64).collect();
         let r = rsi_series(&up, 14);
-        assert!(r[13].is_nan() && r[14] == 100.0 && r[19] == 100.0, "只涨不跌 = 100");
+        assert!(
+            r[13].is_nan() && r[14] == 100.0 && r[19] == 100.0,
+            "只涨不跌 = 100"
+        );
         assert!(rsi_series(&[10.0; 20], 14)[14] == 50.0, "不涨不跌取 50");
         // 教科书例子(Wilder):前 14 个涨跌平均后 RSI ≈ 70.5
-        let closes = [44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08, 45.89, 46.03, 45.61, 46.28, 46.28];
+        let closes = [
+            44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08, 45.89, 46.03,
+            45.61, 46.28, 46.28,
+        ];
         let v = rsi_series(&closes, 14)[14];
         assert!((v - 70.53).abs() < 0.1, "{v}");
     }
@@ -898,13 +1267,32 @@ mod tests {
         let data = rising();
         let s = Strategy::SmaCross { fast: 5, slow: 20 };
         let free = simulate(&data, &s, NO_COST, 100_000.0, None, None).unwrap();
-        assert!(free.open_shares > 0.0 && free.open_shares % 100.0 == 0.0, "整手:{}", free.open_shares);
+        assert!(
+            free.open_shares > 0.0 && free.open_shares % 100.0 == 0.0,
+            "整手:{}",
+            free.open_shares
+        );
         assert_eq!(free.fees_paid, 0.0);
         let entry = free.open_entry.unwrap();
         assert!(entry > 10.0, "进场在上涨开始之后,成交价是当天开盘价");
-        let costly = simulate(&data, &s, Costs { fees: Some(DEFAULT_FEES), slippage_bps: 10.0, position_pct: 100.0 }, 100_000.0, None, None).unwrap();
+        let costly = simulate(
+            &data,
+            &s,
+            Costs {
+                fees: Some(DEFAULT_FEES),
+                slippage_bps: 10.0,
+                position_pct: 100.0,
+            },
+            100_000.0,
+            None,
+            None,
+        )
+        .unwrap();
         assert!(costly.fees_paid > 0.0 && costly.slippage_cost > 0.0);
-        assert!(costly.equity.last().unwrap().1 < free.equity.last().unwrap().1, "有成本一定比没成本差");
+        assert!(
+            costly.equity.last().unwrap().1 < free.equity.last().unwrap().1,
+            "有成本一定比没成本差"
+        );
         assert!(costly.open_entry.unwrap() > entry, "买入滑点抬高成交价");
     }
 
@@ -919,16 +1307,40 @@ mod tests {
             last = *c;
         }
         let s = Strategy::Donchian { entry: 3, exit: 3 };
-        let sim = simulate(&data, &s, Costs { fees: Some(DEFAULT_FEES), slippage_bps: 0.0, position_pct: 100.0 }, 100_000.0, None, None).unwrap();
+        let sim = simulate(
+            &data,
+            &s,
+            Costs {
+                fees: Some(DEFAULT_FEES),
+                slippage_bps: 0.0,
+                position_pct: 100.0,
+            },
+            100_000.0,
+            None,
+            None,
+        )
+        .unwrap();
         assert_eq!(sim.trades.len(), 1);
         let t = &sim.trades[0];
-        assert_eq!((t.entry_date.as_str(), t.exit_date.as_str(), t.shares, t.entry_price, t.exit_price), ("2026-01-06", "2026-01-09", 9000.0, 11.0, 8.0));
+        assert_eq!(
+            (
+                t.entry_date.as_str(),
+                t.exit_date.as_str(),
+                t.shares,
+                t.entry_price,
+                t.exit_price
+            ),
+            ("2026-01-06", "2026-01-09", 9000.0, 11.0, 8.0)
+        );
         // 买入费 99000×0.025% = 24.75 + 过户 0.99 = 25.74;卖出费 72000×0.025% = 18 + 0.72 + 印花税 36 = 54.72
         assert!((t.fees - 80.46).abs() < 1e-6, "{}", t.fees);
         assert!((t.pnl - (-27_000.0 - 80.46)).abs() < 1e-6, "{}", t.pnl);
         // 平仓后现金 = 100000 - 99025.74 + 72000 - 54.72
         let last_equity = sim.equity.last().unwrap().1;
-        assert!((last_equity - (100_000.0 - 27_080.46)).abs() < 1e-6, "{last_equity}");
+        assert!(
+            (last_equity - (100_000.0 - 27_080.46)).abs() < 1e-6,
+            "{last_equity}"
+        );
         assert_eq!(sim.equity.len(), 6);
     }
 
@@ -946,9 +1358,16 @@ mod tests {
         let s = Strategy::Donchian { entry: 5, exit: 50 };
         let with_stop = simulate(&data, &s, NO_COST, 100_000.0, Some(5.0), None).unwrap();
         assert_eq!(with_stop.trades.len(), 1);
-        assert_eq!((with_stop.trades[0].reason, with_stop.trades[0].exit_price), ("止损", 10.3), "收盘 10.3 跌破 10.45 → 下一根开盘(= 10.3)出场");
+        assert_eq!(
+            (with_stop.trades[0].reason, with_stop.trades[0].exit_price),
+            ("止损", 10.3),
+            "收盘 10.3 跌破 10.45 → 下一根开盘(= 10.3)出场"
+        );
         let no_stop = simulate(&data, &s, NO_COST, 100_000.0, None, None).unwrap();
-        assert!(no_stop.trades.is_empty() && no_stop.open_shares > 0.0, "不止损就一直拿着");
+        assert!(
+            no_stop.trades.is_empty() && no_stop.open_shares > 0.0,
+            "不止损就一直拿着"
+        );
         assert!(with_stop.equity.last().unwrap().1 > no_stop.equity.last().unwrap().1);
     }
 
@@ -959,29 +1378,53 @@ mod tests {
         let mut closes = vec![10.0; 60];
         closes.extend([11.0, 12.1, 12.0, 10.5, 9.5, 9.4, 9.4]);
         let mut opens = closes.clone();
-        for i in 1..closes.len() {
-            opens[i] = closes[i - 1];
-        }
+        opens[1..closes.len()].copy_from_slice(&closes[..closes.len() - 1]);
         opens[61] = 12.1;
         opens[62] = 12.0;
         opens[64] = 9.45;
         opens[65] = 9.4;
-        let data: Vec<Bar> = closes.iter().zip(&opens).enumerate().map(|(i, (c, o))| bar(i, *o, *c)).collect();
+        let data: Vec<Bar> = closes
+            .iter()
+            .zip(&opens)
+            .enumerate()
+            .map(|(i, (c, o))| bar(i, *o, *c))
+            .collect();
         let s = Strategy::Donchian { entry: 5, exit: 3 };
         let on = simulate(&data, &s, NO_COST, 100_000.0, None, Some(0.10)).unwrap();
         assert_eq!((on.blocked_buys, on.blocked_sells), (1, 1));
         assert_eq!(on.trades.len(), 1);
         let t = &on.trades[0];
-        assert_eq!((t.entry_date.as_str(), t.entry_price, t.exit_date.as_str(), t.exit_price), ("2026-01-63", 12.0, "2026-01-66", 9.4));
+        assert_eq!(
+            (
+                t.entry_date.as_str(),
+                t.entry_price,
+                t.exit_date.as_str(),
+                t.exit_price
+            ),
+            ("2026-01-63", 12.0, "2026-01-66", 9.4)
+        );
         let off = simulate(&data, &s, NO_COST, 100_000.0, None, None).unwrap();
         assert_eq!((off.blocked_buys, off.blocked_sells), (0, 0));
         let t = &off.trades[0];
-        assert_eq!((t.entry_price, t.exit_price), (12.1, 9.45), "不设限时一字涨停也买得进、跌停也卖得出(偏乐观)");
+        assert_eq!(
+            (t.entry_price, t.exit_price),
+            (12.1, 9.45),
+            "不设限时一字涨停也买得进、跌停也卖得出(偏乐观)"
+        );
     }
 
     #[test]
     fn board_limits_follow_the_exchange_rules() {
-        for (code, pct) in [("600519", 0.10), ("000001", 0.10), ("002594", 0.10), ("300750", 0.20), ("301000", 0.20), ("688981", 0.20), ("830799", 0.30), ("920575", 0.30)] {
+        for (code, pct) in [
+            ("600519", 0.10),
+            ("000001", 0.10),
+            ("002594", 0.10),
+            ("300750", 0.20),
+            ("301000", 0.20),
+            ("688981", 0.20),
+            ("830799", 0.30),
+            ("920575", 0.30),
+        ] {
             assert_eq!(board_limit(code), pct, "{code}");
         }
     }
@@ -991,25 +1434,61 @@ mod tests {
         let data = rising();
         let s = Strategy::SmaCross { fast: 5, slow: 20 };
         let sim = simulate(&data, &s, NO_COST, 500.0, None, None).unwrap();
-        assert!(sim.open_shares == 0.0 && sim.skipped_cash > 0, "500 元买不起一手 10 元以上的票");
+        assert!(
+            sim.open_shares == 0.0 && sim.skipped_cash > 0,
+            "500 元买不起一手 10 元以上的票"
+        );
         assert!(sim.equity.iter().all(|(_, v)| (*v - 500.0).abs() < 1e-9));
     }
 
     #[test]
     fn parameters_are_validated() {
-        assert!(parse_strategy(&json!({"fast": 30, "slow": 20})).unwrap_err().to_string().contains("fast 必须小于 slow"));
-        assert!(parse_strategy(&json!({"strategy": "martingale"})).unwrap_err().to_string().contains("不认识的策略"));
+        assert!(parse_strategy(&json!({"fast": 30, "slow": 20}))
+            .unwrap_err()
+            .to_string()
+            .contains("fast 必须小于 slow"));
+        assert!(parse_strategy(&json!({"strategy": "martingale"}))
+            .unwrap_err()
+            .to_string()
+            .contains("不认识的策略"));
         assert!(parse_strategy(&json!({"strategy": "rsi", "buy": 60})).is_err());
-        assert_eq!(parse_strategy(&json!({"strategy": "donchian"})).unwrap(), Strategy::Donchian { entry: 20, exit: 10 });
-        assert!(parse_costs(&json!({"fees": {"commission_rate": 0.0003}})).is_err(), "自定义费率四项要齐");
+        assert_eq!(
+            parse_strategy(&json!({"strategy": "donchian"})).unwrap(),
+            Strategy::Donchian {
+                entry: 20,
+                exit: 10
+            }
+        );
+        assert!(
+            parse_costs(&json!({"fees": {"commission_rate": 0.0003}})).is_err(),
+            "自定义费率四项要齐"
+        );
         assert!(parse_costs(&json!({"fees": {"commission_rate": 2.5, "commission_min": 5, "stamp_tax_rate": 0.0005, "transfer_fee_rate": 0.00001}})).unwrap_err().to_string().contains("不像费率"));
         assert!(parse_costs(&json!({"slippage_bps": 500})).is_err());
         let (c, d) = parse_costs(&json!({})).unwrap();
         assert!(c.fees.is_some() && d["mode"] == "default", "默认计费用");
-        assert!(parse_costs(&json!({"fees": "none"})).unwrap().0.fees.is_none());
-        assert!(parse_symbols(&json!({})).unwrap_err().to_string().contains("不能为空"));
-        assert!(parse_symbols(&json!({"symbols": ["600519", "000001", "300750", "688981", "002594", "601318"]})).unwrap_err().to_string().contains("最多"));
-        assert_eq!(parse_symbols(&json!({"symbol": "600519", "symbols": ["600519", "000001"]})).unwrap().len(), 2, "重复代码只算一只");
+        assert!(parse_costs(&json!({"fees": "none"}))
+            .unwrap()
+            .0
+            .fees
+            .is_none());
+        assert!(parse_symbols(&json!({}))
+            .unwrap_err()
+            .to_string()
+            .contains("不能为空"));
+        assert!(parse_symbols(
+            &json!({"symbols": ["600519", "000001", "300750", "688981", "002594", "601318"]})
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("最多"));
+        assert_eq!(
+            parse_symbols(&json!({"symbol": "600519", "symbols": ["600519", "000001"]}))
+                .unwrap()
+                .len(),
+            2,
+            "重复代码只算一只"
+        );
     }
 
     fn key(code: &str) -> crate::symbol::SymbolKey {
@@ -1020,20 +1499,82 @@ mod tests {
     fn result_has_costs_trades_and_aligned_portfolio() {
         let data = rising();
         let s = Strategy::SmaCross { fast: 5, slow: 20 };
-        let single = build_result(&[(key("600519"), data.clone())], &s, Costs { fees: Some(DEFAULT_FEES), slippage_bps: 0.0, position_pct: 100.0 }, json!({"mode": "default"}), 100_000.0, None, true, false, false).unwrap();
+        let single = build_result(
+            &[(key("600519"), data.clone())],
+            &s,
+            SimulationConfig {
+                costs: Costs {
+                    fees: Some(DEFAULT_FEES),
+                    slippage_bps: 0.0,
+                    position_pct: 100.0,
+                },
+                initial: 100_000.0,
+                stop: None,
+                limits: false,
+            },
+            json!({"mode": "default"}),
+            true,
+            false,
+        )
+        .unwrap();
         assert_eq!(single["strategy"]["id"], "sma_cross");
         assert!(single["metrics"]["total_fees"].as_f64().unwrap() > 0.0);
         assert!(single["note"].as_str().unwrap().contains("默认值"));
-        assert_eq!(single["experiment"]["rows"].as_array().unwrap().len(), 6, "80 根 K 线跑不了 120 日慢线,那三格直接略过(不硬凑)");
-        assert_eq!(single["experiment"]["rows"].as_array().unwrap().iter().filter(|r| r["is_current"] == true).count(), 0, "5/20 不在固定格里,没有标记当前");
+        assert_eq!(
+            single["experiment"]["rows"].as_array().unwrap().len(),
+            6,
+            "80 根 K 线跑不了 120 日慢线,那三格直接略过(不硬凑)"
+        );
+        assert_eq!(
+            single["experiment"]["rows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|r| r["is_current"] == true)
+                .count(),
+            0,
+            "5/20 不在固定格里,没有标记当前"
+        );
         // 两只:第二只少一根头部 K 线 → 只留共有日期,权益逐日相加
-        let two = build_result(&[(key("600519"), data.clone()), (key("000001"), data[1..].to_vec())], &s, NO_COST, json!({"mode": "none"}), 100_000.0, None, false, false, false).unwrap();
+        let two = build_result(
+            &[
+                (key("600519"), data.clone()),
+                (key("000001"), data[1..].to_vec()),
+            ],
+            &s,
+            SimulationConfig {
+                costs: NO_COST,
+                initial: 100_000.0,
+                stop: None,
+                limits: false,
+            },
+            json!({"mode": "none"}),
+            false,
+            false,
+        )
+        .unwrap();
         assert_eq!(two["symbols"].as_array().unwrap().len(), 2);
         assert_eq!(two["period"]["bars"], 79);
         assert_eq!(two["per_symbol"].as_array().unwrap().len(), 2);
         let first = &two["equity_curve"][0];
-        assert!((first[1].as_f64().unwrap() - 100_000.0).abs() < 1e-6, "进场前权益 = 本金");
-        assert!(build_result(&[(key("600519"), data.clone()), (key("000001"), data)], &s, NO_COST, json!({}), 100_000.0, None, false, false, false).is_ok());
+        assert!(
+            (first[1].as_f64().unwrap() - 100_000.0).abs() < 1e-6,
+            "进场前权益 = 本金"
+        );
+        assert!(build_result(
+            &[(key("600519"), data.clone()), (key("000001"), data)],
+            &s,
+            SimulationConfig {
+                costs: NO_COST,
+                initial: 100_000.0,
+                stop: None,
+                limits: false
+            },
+            json!({}),
+            false,
+            false
+        )
+        .is_ok());
     }
 
     fn series(values: &[(&str, f64)]) -> Vec<(String, f64)> {
@@ -1042,28 +1583,92 @@ mod tests {
 
     #[test]
     fn monthly_table_chains_month_ends_and_pairs_the_benchmark() {
-        let curve = series(&[("2026-01-02", 100_000.0), ("2026-01-30", 110_000.0), ("2026-02-02", 110_000.0), ("2026-02-27", 99_000.0)]);
-        let bench = series(&[("2026-01-02", 100_000.0), ("2026-01-30", 105_000.0), ("2026-02-02", 105_000.0), ("2026-02-27", 107_100.0)]);
+        let curve = series(&[
+            ("2026-01-02", 100_000.0),
+            ("2026-01-30", 110_000.0),
+            ("2026-02-02", 110_000.0),
+            ("2026-02-27", 99_000.0),
+        ]);
+        let bench = series(&[
+            ("2026-01-02", 100_000.0),
+            ("2026-01-30", 105_000.0),
+            ("2026-02-02", 105_000.0),
+            ("2026-02-27", 107_100.0),
+        ]);
         let t = monthly_table(&curve, &bench, 100_000.0);
         assert_eq!(t.len(), 2);
-        assert_eq!((t[0]["month"].as_str(), t[0]["return_pct"].as_f64(), t[0]["bench_pct"].as_f64()), (Some("2026-01"), Some(10.0), Some(5.0)));
-        assert_eq!((t[1]["return_pct"].as_f64(), t[1]["bench_pct"].as_f64()), (Some(-10.0), Some(2.0)), "二月从一月最后一天的权益算起");
+        assert_eq!(
+            (
+                t[0]["month"].as_str(),
+                t[0]["return_pct"].as_f64(),
+                t[0]["bench_pct"].as_f64()
+            ),
+            (Some("2026-01"), Some(10.0), Some(5.0))
+        );
+        assert_eq!(
+            (t[1]["return_pct"].as_f64(), t[1]["bench_pct"].as_f64()),
+            (Some(-10.0), Some(2.0)),
+            "二月从一月最后一天的权益算起"
+        );
     }
 
     #[test]
     fn drawdown_episodes_list_depth_dates_and_unrecovered_tail() {
-        let curve = series(&[("d0", 100.0), ("d1", 110.0), ("d2", 99.0), ("d3", 95.0), ("d4", 111.0), ("d5", 120.0), ("d6", 100.0)]);
+        let curve = series(&[
+            ("d0", 100.0),
+            ("d1", 110.0),
+            ("d2", 99.0),
+            ("d3", 95.0),
+            ("d4", 111.0),
+            ("d5", 120.0),
+            ("d6", 100.0),
+        ]);
         let eps = drawdown_episodes(&curve, 100.0, 3);
         assert_eq!(eps.len(), 2);
-        assert_eq!((eps[0]["peak_date"].as_str(), eps[0]["trough_date"].as_str(), eps[0]["depth_pct"].as_f64()), (Some("d5"), Some("d6"), Some(-16.67)), "最深的一段在前");
+        assert_eq!(
+            (
+                eps[0]["peak_date"].as_str(),
+                eps[0]["trough_date"].as_str(),
+                eps[0]["depth_pct"].as_f64()
+            ),
+            (Some("d5"), Some("d6"), Some(-16.67)),
+            "最深的一段在前"
+        );
         assert!(eps[0]["recover_date"].is_null(), "到最后还没恢复");
-        assert_eq!((eps[0]["bars_to_trough"].as_i64(), eps[0]["bars_total"].as_i64()), (Some(1), Some(1)));
-        assert_eq!((eps[1]["peak_date"].as_str(), eps[1]["trough_date"].as_str(), eps[1]["recover_date"].as_str(), eps[1]["depth_pct"].as_f64()), (Some("d1"), Some("d3"), Some("d4"), Some(-13.64)));
-        assert_eq!((eps[1]["bars_to_trough"].as_i64(), eps[1]["bars_total"].as_i64()), (Some(2), Some(3)));
+        assert_eq!(
+            (
+                eps[0]["bars_to_trough"].as_i64(),
+                eps[0]["bars_total"].as_i64()
+            ),
+            (Some(1), Some(1))
+        );
+        assert_eq!(
+            (
+                eps[1]["peak_date"].as_str(),
+                eps[1]["trough_date"].as_str(),
+                eps[1]["recover_date"].as_str(),
+                eps[1]["depth_pct"].as_f64()
+            ),
+            (Some("d1"), Some("d3"), Some("d4"), Some(-13.64))
+        );
+        assert_eq!(
+            (
+                eps[1]["bars_to_trough"].as_i64(),
+                eps[1]["bars_total"].as_i64()
+            ),
+            (Some(2), Some(3))
+        );
         // 一直创新高 = 没有回撤;从期初就亏 = 前高是本金
         assert!(drawdown_episodes(&series(&[("a", 101.0), ("b", 102.0)]), 100.0, 3).is_empty());
         let start = drawdown_episodes(&series(&[("a", 90.0), ("b", 100.0)]), 100.0, 3);
-        assert_eq!((start[0]["peak_date"].as_str(), start[0]["depth_pct"].as_f64(), start[0]["recover_date"].as_str()), (Some("期初"), Some(-10.0), Some("b")));
+        assert_eq!(
+            (
+                start[0]["peak_date"].as_str(),
+                start[0]["depth_pct"].as_f64(),
+                start[0]["recover_date"].as_str()
+            ),
+            (Some("期初"), Some(-10.0), Some("b"))
+        );
     }
 
     #[test]
@@ -1071,12 +1676,42 @@ mod tests {
         let data = rising();
         let s = Strategy::SmaCross { fast: 5, slow: 20 };
         let full = simulate(&data, &s, NO_COST, 100_000.0, None, None).unwrap();
-        let half = simulate(&data, &s, Costs { fees: None, slippage_bps: 0.0, position_pct: 50.0 }, 100_000.0, None, None).unwrap();
+        let half = simulate(
+            &data,
+            &s,
+            Costs {
+                fees: None,
+                slippage_bps: 0.0,
+                position_pct: 50.0,
+            },
+            100_000.0,
+            None,
+            None,
+        )
+        .unwrap();
         assert!(half.open_shares > 0.0 && half.open_shares % 100.0 == 0.0);
-        assert!(half.open_shares <= full.open_shares / 2.0 + 100.0 && half.open_shares >= full.open_shares / 2.0 - 100.0, "{} vs {}", half.open_shares, full.open_shares);
-        assert!(half.equity.last().unwrap().1 < full.equity.last().unwrap().1, "上涨行情里半仓赚得少");
-        assert!(parse_costs(&json!({"position_pct": 5})).is_err() && parse_costs(&json!({"position_pct": 120})).is_err());
-        assert_eq!(parse_costs(&json!({"position_pct": 60})).unwrap().0.position_pct, 60.0);
+        assert!(
+            half.open_shares <= full.open_shares / 2.0 + 100.0
+                && half.open_shares >= full.open_shares / 2.0 - 100.0,
+            "{} vs {}",
+            half.open_shares,
+            full.open_shares
+        );
+        assert!(
+            half.equity.last().unwrap().1 < full.equity.last().unwrap().1,
+            "上涨行情里半仓赚得少"
+        );
+        assert!(
+            parse_costs(&json!({"position_pct": 5})).is_err()
+                && parse_costs(&json!({"position_pct": 120})).is_err()
+        );
+        assert_eq!(
+            parse_costs(&json!({"position_pct": 60}))
+                .unwrap()
+                .0
+                .position_pct,
+            60.0
+        );
     }
 
     fn wavy(n: usize) -> Vec<Bar> {
@@ -1096,33 +1731,80 @@ mod tests {
         let s = Strategy::SmaCross { fast: 10, slow: 30 };
         let v = optimize_value(&data, &s, NO_COST, 100_000.0, None, None);
         assert_eq!(v["available"], true, "{v}");
-        let (is_bars, oos_bars) = (v["in_sample"]["bars"].as_u64().unwrap(), v["out_of_sample"]["bars"].as_u64().unwrap());
+        let (is_bars, oos_bars) = (
+            v["in_sample"]["bars"].as_u64().unwrap(),
+            v["out_of_sample"]["bars"].as_u64().unwrap(),
+        );
         assert_eq!(is_bars + oos_bars, 260);
         assert!(oos_bars > 0 && (is_bars as f64) > 0.65 * 260.0 - 40.0);
         let rows = v["rows"].as_array().unwrap();
-        assert!(!rows.is_empty() && rows.iter().filter(|r| r["best_in_sample"] == true).count() == 1);
+        assert!(
+            !rows.is_empty() && rows.iter().filter(|r| r["best_in_sample"] == true).count() == 1
+        );
         let best = &v["best_in_sample"];
-        assert!(best["oos_rank"].as_u64().unwrap() >= 1 && best["oos_rank"].as_u64().unwrap() <= best["of"].as_u64().unwrap());
+        assert!(
+            best["oos_rank"].as_u64().unwrap() >= 1
+                && best["oos_rank"].as_u64().unwrap() <= best["of"].as_u64().unwrap()
+        );
         let best_row = rows.iter().find(|r| r["best_in_sample"] == true).unwrap();
-        assert!(rows.iter().all(|r| r["is_return_pct"].as_f64().unwrap() <= best_row["is_return_pct"].as_f64().unwrap()), "样本内收益最高的那一格才是 best");
+        assert!(
+            rows.iter().all(|r| r["is_return_pct"].as_f64().unwrap()
+                <= best_row["is_return_pct"].as_f64().unwrap()),
+            "样本内收益最高的那一格才是 best"
+        );
         assert!(v["note"].as_str().unwrap().contains("拟合"));
         // 样本外第一天就是切分点之后
-        assert_eq!(v["out_of_sample"]["start"].as_str().unwrap(), data[is_bars as usize].date);
+        assert_eq!(
+            v["out_of_sample"]["start"].as_str().unwrap(),
+            data[is_bars as usize].date
+        );
         // 太短的 K 线明说不够切
         let short = optimize_value(&data[..100], &s, NO_COST, 100_000.0, None, None);
         assert_eq!(short["available"], false);
-        assert!(short["reason"].as_str().unwrap().contains("不够切成样本内/外"));
+        assert!(short["reason"]
+            .as_str()
+            .unwrap()
+            .contains("不够切成样本内/外"));
     }
 
     #[test]
     fn result_carries_monthly_drawdowns_and_optional_oos_and_rejects_multi_symbol_oos() {
         let data = wavy(260);
         let s = Strategy::SmaCross { fast: 10, slow: 30 };
-        let out = build_result(&[(key("600519"), data.clone())], &s, NO_COST, json!({}), 100_000.0, None, false, false, true).unwrap();
-        assert!(out["monthly"].as_array().is_some_and(|m| !m.is_empty()) && out["drawdowns"].as_array().is_some());
+        let out = build_result(
+            &[(key("600519"), data.clone())],
+            &s,
+            SimulationConfig {
+                costs: NO_COST,
+                initial: 100_000.0,
+                stop: None,
+                limits: false,
+            },
+            json!({}),
+            false,
+            true,
+        )
+        .unwrap();
+        assert!(
+            out["monthly"].as_array().is_some_and(|m| !m.is_empty())
+                && out["drawdowns"].as_array().is_some()
+        );
         assert_eq!(out["optimize"]["available"], true);
         assert!(out["metrics"]["max_drawdown_pct"].as_f64().unwrap() <= 0.0);
-        let plain = build_result(&[(key("600519"), data)], &s, NO_COST, json!({}), 100_000.0, None, false, false, false).unwrap();
+        let plain = build_result(
+            &[(key("600519"), data)],
+            &s,
+            SimulationConfig {
+                costs: NO_COST,
+                initial: 100_000.0,
+                stop: None,
+                limits: false,
+            },
+            json!({}),
+            false,
+            false,
+        )
+        .unwrap();
         assert!(plain.get("optimize").is_none());
     }
 
@@ -1130,7 +1812,13 @@ mod tests {
     async fn multi_symbol_requests_for_experiment_or_oos_are_rejected_before_any_network_call() {
         let client = Client::new();
         for flag in ["optimize", "experiment"] {
-            let err = run(&client, &json!({"symbols": ["600519", "000001"], flag: true})).await.unwrap_err().to_string();
+            let err = run(
+                &client,
+                &json!({"symbols": ["600519", "000001"], flag: true}),
+            )
+            .await
+            .unwrap_err()
+            .to_string();
             assert!(err.contains("只支持单只股票"), "{err}");
         }
     }
@@ -1138,7 +1826,21 @@ mod tests {
     #[test]
     fn short_history_is_rejected_per_symbol() {
         let s = Strategy::SmaCross { fast: 5, slow: 20 };
-        let err = build_result(&[(key("600519"), rising()[..10].to_vec())], &s, NO_COST, json!({}), 100_000.0, None, false, false, false).unwrap_err().to_string();
+        let err = build_result(
+            &[(key("600519"), rising()[..10].to_vec())],
+            &s,
+            SimulationConfig {
+                costs: NO_COST,
+                initial: 100_000.0,
+                stop: None,
+                limits: false,
+            },
+            json!({}),
+            false,
+            false,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(err.contains("600519") && err.contains("K 线不足"), "{err}");
     }
 
@@ -1146,13 +1848,22 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn live_backtest_probe() {
-        let client = Client::builder().timeout(std::time::Duration::from_secs(20)).user_agent("Mozilla/5.0 VibeAStock-Mobile/test").build().unwrap();
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(20))
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/test")
+            .build()
+            .unwrap();
         let body = json!({"symbols": ["600519", "000001"], "strategy": "donchian", "bars": 400, "slippage_bps": 5, "stop_loss_pct": 8});
         let v = run(&client, &body).await.unwrap();
         println!("{}", serde_json::to_string_pretty(&v["metrics"]).unwrap());
         assert!(v["metrics"]["total_fees"].as_f64().unwrap() >= 0.0);
-        let one = run(&client, &json!({"symbol": "600519", "experiment": true})).await.unwrap();
-        println!("{}", serde_json::to_string_pretty(&one["experiment"]["rows"]).unwrap());
+        let one = run(&client, &json!({"symbol": "600519", "experiment": true}))
+            .await
+            .unwrap();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&one["experiment"]["rows"]).unwrap()
+        );
         assert!(!one["experiment"]["rows"].as_array().unwrap().is_empty());
     }
 }

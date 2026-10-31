@@ -94,13 +94,23 @@ pub async fn limit_up_pool(client: &Client, request_path: &str) -> Result<Value>
         let a_days = a.get("limit_days").and_then(Value::as_i64).unwrap_or(0);
         let b_days = b.get("limit_days").and_then(Value::as_i64).unwrap_or(0);
         b_days.cmp(&a_days).then_with(|| {
-            let a_time = a.get("first_seal").and_then(Value::as_str).unwrap_or("99:99:99");
-            let b_time = b.get("first_seal").and_then(Value::as_str).unwrap_or("99:99:99");
+            let a_time = a
+                .get("first_seal")
+                .and_then(Value::as_str)
+                .unwrap_or("99:99:99");
+            let b_time = b
+                .get("first_seal")
+                .and_then(Value::as_str)
+                .unwrap_or("99:99:99");
             a_time.cmp(b_time)
         })
     });
 
-    let actual_date = if qdate.len() == 8 { qdate } else { requested.clone() };
+    let actual_date = if qdate.len() == 8 {
+        qdate
+    } else {
+        requested.clone()
+    };
     Ok(json!({
         "status": "ok",
         "source": "eastmoney",
@@ -121,7 +131,9 @@ fn guard_today_before_open(requested: &str) -> Result<()> {
     if requested == now.format("%Y%m%d").to_string()
         && (now.hour() < 9 || (now.hour() == 9 && now.minute() < 25))
     {
-        return Err(anyhow!("还没到 09:25 集合竞价撮合,今天的涨停池还不可能有票"));
+        return Err(anyhow!(
+            "还没到 09:25 集合竞价撮合,今天的涨停池还不可能有票"
+        ));
     }
     Ok(())
 }
@@ -130,7 +142,11 @@ fn query_param(path: &str, key: &str) -> Option<String> {
     let query = path.split_once('?')?.1;
     query.split('&').find_map(|part| {
         let (k, v) = part.split_once('=')?;
-        if k == key { Some(v.to_string()) } else { None }
+        if k == key {
+            Some(v.to_string())
+        } else {
+            None
+        }
     })
 }
 
@@ -145,7 +161,10 @@ fn normalize_date(raw: String) -> Result<String> {
 
 fn china_yyyymmdd() -> String {
     let offset = FixedOffset::east_opt(8 * 3600).expect("valid China timezone offset");
-    Utc::now().with_timezone(&offset).format("%Y%m%d").to_string()
+    Utc::now()
+        .with_timezone(&offset)
+        .format("%Y%m%d")
+        .to_string()
 }
 
 fn format_yyyymmdd(raw: &str) -> String {

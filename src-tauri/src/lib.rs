@@ -18,8 +18,7 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             let core = AppCore::new(data_dir)?;
-            secure_ai::migrate_legacy(app.handle(), &core)
-                .map_err(std::io::Error::other)?;
+            secure_ai::migrate_legacy(app.handle(), &core).map_err(std::io::Error::other)?;
             let reminder_snapshot = core.reminder_snapshot()?;
             app.vibe_reminders()
                 .sync_rules(&reminder_snapshot)
@@ -27,7 +26,12 @@ pub fn run() {
             app.manage(core);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::mobile_api, commands::share_text, commands::share_file, commands::take_reminder_navigation])
+        .invoke_handler(tauri::generate_handler![
+            commands::mobile_api,
+            commands::share_text,
+            commands::share_file,
+            commands::take_reminder_navigation
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Vibe AStock mobile");
 }

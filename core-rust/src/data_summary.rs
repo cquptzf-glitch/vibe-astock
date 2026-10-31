@@ -2,7 +2,10 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::Connection;
 use serde_json::{json, Value};
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 fn open(db_path: &Path) -> Result<Connection> {
     Connection::open(db_path).context("open mobile sqlite for data summary")

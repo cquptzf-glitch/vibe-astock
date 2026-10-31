@@ -106,7 +106,9 @@ pub fn normalize_stock_symbol(input: &str) -> Result<SymbolKey> {
     if digits.starts_with("000") {
         match explicit {
             Some(Market::BJ) => {
-                return Err(anyhow!("invalid symbol: {input}: 000xxx does not belong to BSE"));
+                return Err(anyhow!(
+                    "invalid symbol: {input}: 000xxx does not belong to BSE"
+                ));
             }
             Some(Market::SH) => {
                 return Err(anyhow!(

@@ -11,7 +11,8 @@ pub async fn overview(client: &Client) -> Result<Value> {
     let request_date = today.replace('-', "");
     let mut errors = Vec::<Value>::new();
     let (index_result, distribution_result, zt_result, zb_result, dt_result) = futures_util::join!(
-        fetch_index_and_breadth(client), fetch_distribution(client),
+        fetch_index_and_breadth(client),
+        fetch_distribution(client),
         fetch_pool_count(client, "getTopicZTPool", "fbt:asc", &request_date),
         fetch_pool_count(client, "getTopicZBPool", "fbt:asc", &request_date),
         fetch_pool_count(client, "getTopicDTPool", "fund:asc", &request_date)
@@ -21,7 +22,10 @@ pub async fn overview(client: &Client) -> Result<Value> {
         Ok(value) => value,
         Err(error) => {
             errors.push(json!({ "part": "indexes", "message": error.to_string() }));
-            (Vec::new(), json!({ "up": null, "down": null, "flat": null, "amount_yuan": null }))
+            (
+                Vec::new(),
+                json!({ "up": null, "down": null, "flat": null, "amount_yuan": null }),
+            )
         }
     };
 
@@ -36,7 +40,9 @@ pub async fn overview(client: &Client) -> Result<Value> {
     let mut pool_dates = Vec::new();
     let zt = match zt_result {
         Ok(value) => {
-            if let Some(date) = &value.1 { pool_dates.push(date.clone()); }
+            if let Some(date) = &value.1 {
+                pool_dates.push(date.clone());
+            }
             Some(value.0)
         }
         Err(error) => {
@@ -46,7 +52,9 @@ pub async fn overview(client: &Client) -> Result<Value> {
     };
     let zb = match zb_result {
         Ok(value) => {
-            if let Some(date) = &value.1 { pool_dates.push(date.clone()); }
+            if let Some(date) = &value.1 {
+                pool_dates.push(date.clone());
+            }
             Some(value.0)
         }
         Err(error) => {
@@ -56,7 +64,9 @@ pub async fn overview(client: &Client) -> Result<Value> {
     };
     let dt = match dt_result {
         Ok(value) => {
-            if let Some(date) = &value.1 { pool_dates.push(date.clone()); }
+            if let Some(date) = &value.1 {
+                pool_dates.push(date.clone());
+            }
             Some(value.0)
         }
         Err(error) => {
@@ -121,7 +131,9 @@ async fn fetch_index_and_breadth(client: &Client) -> Result<(Vec<Value>, Value)>
 fn parse_index_and_breadth(root: &Value) -> Result<(Vec<Value>, Value)> {
     ensure_rc_ok(root, "东财指数")?;
     let rows = diff_rows(root.pointer("/data/diff"));
-    if rows.is_empty() { return Err(anyhow!("东财指数列表为空")); }
+    if rows.is_empty() {
+        return Err(anyhow!("东财指数列表为空"));
+    }
     let mut indexes = Vec::new();
     let mut exchange_rows = std::collections::BTreeMap::new();
     for row in rows {
@@ -129,30 +141,43 @@ fn parse_index_and_breadth(root: &Value) -> Result<(Vec<Value>, Value)> {
         if matches!(code.as_str(), "000001" | "399106" | "899050") {
             exchange_rows.insert(code.clone(), row.clone());
         }
-        if matches!(code.as_str(), "000001" | "399106" | "899050" | "399001" | "399006" | "000300") {
-            indexes.push(json!({"code":code,"name":row.get("f14").and_then(value_text).unwrap_or_default(),
+        if matches!(
+            code.as_str(),
+            "000001" | "399106" | "899050" | "399001" | "399006" | "000300"
+        ) {
+            indexes.push(
+                json!({"code":code,"name":row.get("f14").and_then(value_text).unwrap_or_default(),
                 "price":value_f64(row.get("f2")),"change_pct":value_f64(row.get("f3")),
-                "change":value_f64(row.get("f4")),"amount_yuan":value_f64(row.get("f6"))}));
+                "change":value_f64(row.get("f4")),"amount_yuan":value_f64(row.get("f6"))}),
+            );
         }
     }
     let sum_counts = |field: &str| -> Option<i64> {
-        if exchange_rows.len() != 3 { return None; }
+        if exchange_rows.len() != 3 {
+            return None;
+        }
         exchange_rows.values().try_fold(0_i64, |sum, row| {
             let number = value_i64(row.get(field)).filter(|v| *v >= 0)?;
             sum.checked_add(number)
         })
     };
     let amount = if exchange_rows.len() == 3 {
-        exchange_rows.values().map(|row|value_f64(row.get("f6")).filter(|v|*v>=0.0)).collect::<Option<Vec<_>>>()
-            .map(|values|values.iter().sum::<f64>()).filter(|sum|sum.is_finite())
-    } else {None};
-    let up=sum_counts("f104");
-    let down=sum_counts("f105");
-    let flat=sum_counts("f106");
-    let exchange=json!({"up":up,"down":down,"flat":flat,"amount_yuan":amount,
+        exchange_rows
+            .values()
+            .map(|row| value_f64(row.get("f6")).filter(|v| *v >= 0.0))
+            .collect::<Option<Vec<_>>>()
+            .map(|values| values.iter().sum::<f64>())
+            .filter(|sum| sum.is_finite())
+    } else {
+        None
+    };
+    let up = sum_counts("f104");
+    let down = sum_counts("f105");
+    let flat = sum_counts("f106");
+    let exchange = json!({"up":up,"down":down,"flat":flat,"amount_yuan":amount,
         "complete":up.is_some()&&down.is_some()&&flat.is_some()&&amount.is_some(),
         "reported_markets":exchange_rows.len(),"expected_markets":3});
-    Ok((indexes,exchange))
+    Ok((indexes, exchange))
 }
 
 async fn fetch_distribution(client: &Client) -> Result<(Vec<Value>, Option<String>)> {
@@ -193,7 +218,11 @@ async fn fetch_distribution(client: &Client) -> Result<(Vec<Value>, Option<Strin
     for (key, label) in labels {
         let count = rows.iter().find_map(|row| {
             let k = row.get("k").and_then(value_text)?;
-            if k == key { value_i64(row.get("c")) } else { None }
+            if k == key {
+                value_i64(row.get("c"))
+            } else {
+                None
+            }
         });
         out.push(json!({ "key": key, "label": label, "count": count }));
     }
@@ -280,7 +309,10 @@ fn value_u64(value: Option<&Value>) -> Option<u64> {
 
 fn china_today() -> String {
     let offset = FixedOffset::east_opt(8 * 3600).expect("valid China timezone offset");
-    Utc::now().with_timezone(&offset).format("%Y-%m-%d").to_string()
+    Utc::now()
+        .with_timezone(&offset)
+        .format("%Y-%m-%d")
+        .to_string()
 }
 
 fn format_yyyymmdd(raw: String) -> String {
@@ -296,26 +328,26 @@ mod index_tests {
     use super::*;
     #[test]
     fn all_six_indexes_visible_and_exchange_totals_keep_missing_values() {
-        let mut root=json!({"rc":0,"data":{"diff":[
+        let mut root = json!({"rc":0,"data":{"diff":[
             {"f12":"000001","f14":"上证指数","f2":3000,"f104":10,"f105":20,"f106":3,"f6":1000},
             {"f12":"399106","f14":"深证综指","f2":2000,"f104":20,"f105":30,"f106":4,"f6":2000},
             {"f12":"899050","f14":"北证50","f2":1000,"f104":30,"f105":40,"f106":5,"f6":3000},
             {"f12":"399001","f14":"深证成指","f2":10000},
             {"f12":"399006","f14":"创业板指","f2":2000},
             {"f12":"000300","f14":"沪深300","f2":4000}] }});
-        let (indexes, exchange)=parse_index_and_breadth(&root).unwrap();
-        assert_eq!(indexes.len(),6);
-        assert_eq!(exchange["up"],60);
-        assert_eq!(exchange["amount_yuan"],6000.0);
-        assert_eq!(exchange["complete"],true);
-        root["data"]["diff"][1]["f104"]=json!("-");
-        let (_, missing)=parse_index_and_breadth(&root).unwrap();
+        let (indexes, exchange) = parse_index_and_breadth(&root).unwrap();
+        assert_eq!(indexes.len(), 6);
+        assert_eq!(exchange["up"], 60);
+        assert_eq!(exchange["amount_yuan"], 6000.0);
+        assert_eq!(exchange["complete"], true);
+        root["data"]["diff"][1]["f104"] = json!("-");
+        let (_, missing) = parse_index_and_breadth(&root).unwrap();
         assert!(missing["up"].is_null());
-        assert_eq!(missing["down"],90);
-        assert_eq!(missing["complete"],false);
+        assert_eq!(missing["down"], 90);
+        assert_eq!(missing["complete"], false);
         root["data"]["diff"].as_array_mut().unwrap().remove(2);
-        let (_, incomplete)=parse_index_and_breadth(&root).unwrap();
+        let (_, incomplete) = parse_index_and_breadth(&root).unwrap();
         assert!(incomplete["amount_yuan"].is_null());
-        assert_eq!(incomplete["reported_markets"],2);
+        assert_eq!(incomplete["reported_markets"], 2);
     }
 }

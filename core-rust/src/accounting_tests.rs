@@ -2,8 +2,7 @@
 mod tests {
     use serde_json::json;
     fn fixture() -> crate::AppCore {
-        crate::AppCore::new(crate::test_http::temp_root("accounting"))
-        .unwrap()
+        crate::AppCore::new(crate::test_http::temp_root("accounting")).unwrap()
     }
     #[test]
     fn imported_opening_split_partial_sell_fifo_backup_and_restore_agree() {
@@ -71,10 +70,24 @@ mod tests {
     }
     #[test]
     fn migration_preserves_deleted_fill_id_high_watermark() {
-        let app=fixture();let db=app.db_path();let saved=crate::journal::act(db,&json!({"action":"record","symbol":"600519","fills":[{"type":"buy","date":"2026-01-05","price":20,"shares":100}]})).unwrap();
-        let conn=rusqlite::Connection::open(db).unwrap();conn.execute("UPDATE sqlite_sequence SET seq=100 WHERE name='journal_fills'",[]).unwrap();conn.pragma_update(None,"user_version",12).unwrap();drop(conn);
-        crate::schema::migrate(db).unwrap();crate::journal_mutation::append_fills(db,&json!({"id":saved["result"]["id"],"fills":[{"type":"sell","date":"2026-01-06","price":21,"shares":100}]})).unwrap();
-        let conn=rusqlite::Connection::open(db).unwrap();let id:i64=conn.query_row("SELECT MAX(id) FROM journal_fills",[],|r|r.get(0)).unwrap();assert_eq!(id,101);
+        let app = fixture();
+        let db = app.db_path();
+        let saved=crate::journal::act(db,&json!({"action":"record","symbol":"600519","fills":[{"type":"buy","date":"2026-01-05","price":20,"shares":100}]})).unwrap();
+        let conn = rusqlite::Connection::open(db).unwrap();
+        conn.execute(
+            "UPDATE sqlite_sequence SET seq=100 WHERE name='journal_fills'",
+            [],
+        )
+        .unwrap();
+        conn.pragma_update(None, "user_version", 12).unwrap();
+        drop(conn);
+        crate::schema::migrate(db).unwrap();
+        crate::journal_mutation::append_fills(db,&json!({"id":saved["result"]["id"],"fills":[{"type":"sell","date":"2026-01-06","price":21,"shares":100}]})).unwrap();
+        let conn = rusqlite::Connection::open(db).unwrap();
+        let id: i64 = conn
+            .query_row("SELECT MAX(id) FROM journal_fills", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(id, 101);
     }
     #[test]
     fn invalid_or_orphan_split_is_rejected_without_writes() {

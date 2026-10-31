@@ -24,11 +24,10 @@ pub async fn snapshot(client: &Client, request_path: &str) -> Result<Value> {
     annotate(&mut today_rows, &five_day_codes, "new_hot");
     annotate(&mut five_day_rows, &today_codes, "cooling");
 
-    let persistent = brief_rows(
-        today_rows
-            .iter()
-            .filter(|row| row.get("rotation_signal").and_then(Value::as_str) == Some("persistent")),
-    );
+    let persistent =
+        brief_rows(today_rows.iter().filter(|row| {
+            row.get("rotation_signal").and_then(Value::as_str) == Some("persistent")
+        }));
     let new_hot = brief_rows(
         today_rows
             .iter()
@@ -84,9 +83,8 @@ async fn board_rank(
         _ => return Err(anyhow!("unsupported period")),
     };
 
-    let fields = format!(
-        "f12,f14,{change_field},{main_field},{main_pct_field},{leader_field},f104,f105"
-    );
+    let fields =
+        format!("f12,f14,{change_field},{main_field},{main_pct_field},{leader_field},f104,f105");
     let params = vec![
         ("pn", "1".to_string()),
         ("pz", "100".to_string()),
@@ -124,7 +122,9 @@ async fn board_rank(
 
     let mut rows = Vec::with_capacity(top_n.min(items.len()));
     for (index, item) in items.into_iter().take(top_n).enumerate() {
-        let Some(obj) = item.as_object() else { continue };
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
         let code = text(obj.get("f12")).unwrap_or_default();
         let name = text(obj.get("f14")).unwrap_or_default();
         if code.is_empty() || name.is_empty() {
@@ -161,7 +161,10 @@ fn annotate(rows: &mut [Value], other_codes: &HashSet<String>, missing_signal: &
             missing_signal
         };
         if let Some(obj) = row.as_object_mut() {
-            obj.insert("rotation_signal".to_string(), Value::String(signal.to_string()));
+            obj.insert(
+                "rotation_signal".to_string(),
+                Value::String(signal.to_string()),
+            );
         }
     }
 }
@@ -199,7 +202,11 @@ fn query_param(path: &str, key: &str) -> Option<String> {
     let query = path.split_once('?')?.1;
     query.split('&').find_map(|part| {
         let (k, v) = part.split_once('=')?;
-        if k == key { Some(v.to_string()) } else { None }
+        if k == key {
+            Some(v.to_string())
+        } else {
+            None
+        }
     })
 }
 

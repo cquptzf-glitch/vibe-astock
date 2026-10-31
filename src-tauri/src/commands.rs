@@ -64,7 +64,11 @@ pub fn take_reminder_navigation(app: AppHandle) -> Result<Option<String>, String
 
 #[tauri::command]
 pub fn share_text(app: AppHandle, request: ShareTextCommand) -> Result<Value, String> {
-    let title = request.title.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let title = request
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     let text = request.text.trim();
     let chooser_title = request
         .chooser_title
@@ -91,13 +95,24 @@ pub fn share_text(app: AppHandle, request: ShareTextCommand) -> Result<Value, St
 
 #[tauri::command]
 pub fn share_file(app: AppHandle, request: ShareFileCommand) -> Result<Value, String> {
-    let title = request.title.as_deref().map(str::trim).filter(|value| !value.is_empty());
-    let chooser_title = request.chooser_title.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let title = request
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let chooser_title = request
+        .chooser_title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     let name = request.name.trim();
     if name.is_empty() || name.chars().count() > 120 {
         return Err("文件名为空或过长".to_string());
     }
-    if !matches!(request.mime.as_str(), "image/png" | "image/jpeg" | "text/markdown" | "text/plain" | "application/json") {
+    if !matches!(
+        request.mime.as_str(),
+        "image/png" | "image/jpeg" | "text/markdown" | "text/plain" | "application/json"
+    ) {
         return Err("不支持分享这种文件类型".to_string());
     }
     // base64 约 4/3 倍:8 MiB 的文件 ≈ 11.2 MB 字符
@@ -108,7 +123,13 @@ pub fn share_file(app: AppHandle, request: ShareFileCommand) -> Result<Value, St
         return Err("分享标题过长".to_string());
     }
     app.vibe_share()
-        .share_file(title, name, &request.mime, &request.data_base64, chooser_title)
+        .share_file(
+            title,
+            name,
+            &request.mime,
+            &request.data_base64,
+            chooser_title,
+        )
         .map_err(|error| format!("打开系统分享失败: {error}"))?;
     Ok(json!({ "ok": true }))
 }
@@ -122,20 +143,60 @@ pub async fn mobile_api(
     let route = request.path.split('?').next().unwrap_or("").to_string();
     let method = request.method.to_uppercase();
 
-    if route=="/mobile/monitor/background" {
-        if !matches!(method.as_str(),"GET"|"POST"){return Ok(response_error(405,"method","仅支持 GET/POST"));}
-        let action=if method=="GET"{"status"}else{request.body["action"].as_str().unwrap_or("status")};
-        let mut config=json!({"action":action});
-        if action=="start" {
-            if state.offline(){return Ok(response_error(503,"offline_mode","请先在设置中关闭离线模式"));}
-            let scope=request.body["scope"].as_str().unwrap_or("watch");
-            let codes=match state.background_symbols(scope).await {Ok(v)=>v,Err(e)=>return Ok(response_error(400,"monitor_universe",e.to_string()))};
-            if codes.is_empty(){return Ok(response_error(400,"monitor_universe","没有可订阅的股票,请先添加自选"));}
-            config=json!({"action":action,"scope":scope,"symbols":codes,"interval_seconds":request.body["interval_seconds"].as_u64().unwrap_or(60).clamp(30,300),"threshold_pct":request.body["threshold_pct"].as_f64().unwrap_or(1.5).clamp(0.5,20.0),"max_bytes_mb":request.body["max_bytes_mb"].as_u64().unwrap_or(50).clamp(5,500),"stop_battery_pct":request.body["stop_battery_pct"].as_u64().unwrap_or(15).clamp(5,50)});
-            let calendar=match state.background_calendar().await{Ok(v)=>v,Err(e)=>return Ok(response_error(502,"monitor_calendar",format!("未取得本月官方交易日历，未启动后台盯盘：{e}")))};
-            if let Some(fields)=calendar.as_object(){for (key,value) in fields {config[key]=value.clone();}}
+    if route == "/mobile/monitor/background" {
+        if !matches!(method.as_str(), "GET" | "POST") {
+            return Ok(response_error(405, "method", "仅支持 GET/POST"));
         }
-        return match app.vibe_reminders().monitor(&config) {Ok(value)=>Ok(MobileApiResponse{status:200,body:value}),Err(e)=>Ok(response_error(500,"background_monitor",e.to_string()))};
+        let action = if method == "GET" {
+            "status"
+        } else {
+            request.body["action"].as_str().unwrap_or("status")
+        };
+        let mut config = json!({"action":action});
+        if action == "start" {
+            if state.offline() {
+                return Ok(response_error(
+                    503,
+                    "offline_mode",
+                    "请先在设置中关闭离线模式",
+                ));
+            }
+            let scope = request.body["scope"].as_str().unwrap_or("watch");
+            let codes = match state.background_symbols(scope).await {
+                Ok(v) => v,
+                Err(e) => return Ok(response_error(400, "monitor_universe", e.to_string())),
+            };
+            if codes.is_empty() {
+                return Ok(response_error(
+                    400,
+                    "monitor_universe",
+                    "没有可订阅的股票,请先添加自选",
+                ));
+            }
+            config = json!({"action":action,"scope":scope,"symbols":codes,"interval_seconds":request.body["interval_seconds"].as_u64().unwrap_or(60).clamp(30,300),"threshold_pct":request.body["threshold_pct"].as_f64().unwrap_or(1.5).clamp(0.5,20.0),"max_bytes_mb":request.body["max_bytes_mb"].as_u64().unwrap_or(50).clamp(5,500),"stop_battery_pct":request.body["stop_battery_pct"].as_u64().unwrap_or(15).clamp(5,50)});
+            let calendar = match state.background_calendar().await {
+                Ok(v) => v,
+                Err(e) => {
+                    return Ok(response_error(
+                        502,
+                        "monitor_calendar",
+                        format!("未取得本月官方交易日历，未启动后台盯盘：{e}"),
+                    ))
+                }
+            };
+            if let Some(fields) = calendar.as_object() {
+                for (key, value) in fields {
+                    config[key] = value.clone();
+                }
+            }
+        }
+        return match app.vibe_reminders().monitor(&config) {
+            Ok(value) => Ok(MobileApiResponse {
+                status: 200,
+                body: value,
+            }),
+            Err(e) => Ok(response_error(500, "background_monitor", e.to_string())),
+        };
     }
 
     if method == "GET" && route == "/mobile/reminders/status" {
@@ -148,10 +209,15 @@ pub async fn mobile_api(
             Err(error) => Ok(response_error(500, "reminder_scheduler", error.to_string())),
         };
     }
-    if route=="/mobile/cache"&&method=="POST"{
-        let offline=request.body["offline"]==true;
-        let response=state.handle(request).await;
-        if response.status==200{if offline{let _=app.vibe_reminders().monitor(&json!({"action":"stop"}));}let _=sync_reminders(&app,&state);}
+    if route == "/mobile/cache" && method == "POST" {
+        let offline = request.body["offline"] == true;
+        let response = state.handle(request).await;
+        if response.status == 200 {
+            if offline {
+                let _ = app.vibe_reminders().monitor(&json!({"action":"stop"}));
+            }
+            let _ = sync_reminders(&app, &state);
+        }
         return Ok(response);
     }
 
@@ -163,13 +229,25 @@ pub async fn mobile_api(
             let _ = app.vibe_reminders().monitor(&json!({"action":"stop"}));
             let sync_result = sync_reminders(&app, &state);
             if let Some(object) = response.body.as_object_mut() {
-                object.insert("keystore_cleared".to_string(), Value::Bool(key_result.is_ok()));
-                object.insert("reminders_cancelled".to_string(), Value::Bool(sync_result.is_ok()));
+                object.insert(
+                    "keystore_cleared".to_string(),
+                    Value::Bool(key_result.is_ok()),
+                );
+                object.insert(
+                    "reminders_cancelled".to_string(),
+                    Value::Bool(sync_result.is_ok()),
+                );
                 if let Err(error) = &key_result {
-                    object.insert("keystore_error".to_string(), Value::String(error.to_string()));
+                    object.insert(
+                        "keystore_error".to_string(),
+                        Value::String(error.to_string()),
+                    );
                 }
                 if let Err(error) = &sync_result {
-                    object.insert("reminders_error".to_string(), Value::String(error.to_string()));
+                    object.insert(
+                        "reminders_error".to_string(),
+                        Value::String(error.to_string()),
+                    );
                 }
             }
         }
@@ -199,7 +277,11 @@ pub async fn mobile_api(
             Ok(value) => value,
             Err(error) => return Ok(response_error(500, "secure_storage", error)),
         };
-        put_internal(&mut request.body, "__secure_key_present", Value::Bool(present));
+        put_internal(
+            &mut request.body,
+            "__secure_key_present",
+            Value::Bool(present),
+        );
         return Ok(state.handle(request).await);
     }
 
@@ -286,25 +368,45 @@ pub async fn mobile_api(
         return Ok(state.handle(request).await);
     }
 
-    if method == "POST" && (route == "/mobile/ai/review" || route == "/mobile/ai/chat" || route == "/mobile/ai/chat/stream" || route == "/mobile/ai/chat/tools" || route == "/mobile/ai/recognize" || route == "/mobile/ai/backtest" || route == "/mobile/ai/workflow") {
-        if state.offline()&&(route!="/mobile/ai/workflow"||request.body["action"]=="advance"){return Ok(response_error(503,"offline_mode","当前为离线模式,请先恢复联网"));}
+    if method == "POST"
+        && (route == "/mobile/ai/review"
+            || route == "/mobile/ai/chat"
+            || route == "/mobile/ai/chat/stream"
+            || route == "/mobile/ai/chat/tools"
+            || route == "/mobile/ai/recognize"
+            || route == "/mobile/ai/backtest"
+            || route == "/mobile/ai/workflow")
+    {
+        if state.offline()
+            && (route != "/mobile/ai/workflow" || request.body["action"] == "advance")
+        {
+            return Ok(response_error(
+                503,
+                "offline_mode",
+                "当前为离线模式,请先恢复联网",
+            ));
+        }
         let key = match secure_ai::key_for_current_provider(&app, &state) {
             Ok(value) => value,
             Err(error) => return Ok(response_error(500, "secure_storage", error)),
         };
         if let Some(key) = key {
-            put_internal(
-                &mut request.body,
-                "__secure_api_key",
-                Value::String(key),
-            );
+            put_internal(&mut request.body, "__secure_api_key", Value::String(key));
         }
         if route == "/mobile/ai/chat/stream" {
             // 流式回复:每来一段增量就给前端发一个事件(带请求号),「停止」走 /mobile/ai/chat/cancel
-            let request_id = request.body.get("request_id").and_then(Value::as_str).unwrap_or("").to_string();
+            let request_id = request
+                .body
+                .get("request_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             let handle = app.clone();
             let mut emit = move |delta: &str| {
-                let _ = handle.emit("ai-chat-delta", json!({ "request_id": &request_id, "delta": delta }));
+                let _ = handle.emit(
+                    "ai-chat-delta",
+                    json!({ "request_id": &request_id, "delta": delta }),
+                );
             };
             return Ok(state.ai_chat_stream(request.body, &mut emit).await);
         }

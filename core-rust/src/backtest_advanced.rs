@@ -24,8 +24,7 @@ pub(super) fn align_union(all: &[(crate::SymbolKey, Vec<Bar>)]) -> Result<Vec<Ve
             let by: BTreeMap<&str, &Bar> = rows.iter().map(|b| (b.date.as_str(), b)).collect();
             let mut previous = rows
                 .iter()
-                .filter(|r| r.date.as_str() <= start)
-                .next_back()
+                .rfind(|r| r.date.as_str() <= start)
                 .map(|r| r.close);
             let mut out = Vec::new();
             for d in &dates {
@@ -92,12 +91,21 @@ pub(crate) fn sharpe_interval(curve: &[(String, f64)]) -> Value {
 
 /// Daily bars do not prove that a restricted position can be liquidated.
 fn segment_close_problem(data: &[Bar], sim: &Sim, limit: Option<f64>) -> Option<&'static str> {
-    if sim.open_shares <= 0.0 { return None; }
+    if sim.open_shares <= 0.0 {
+        return None;
+    }
     let last = data.last()?;
-    if !last.tradable { return Some("分段末日停牌，无法按收盘价平仓"); }
-    if sim.open_entry_date.as_deref() == Some(last.date.as_str()) { return Some("分段末日买入的股票受 T+1 限制，不能当日平仓"); }
+    if !last.tradable {
+        return Some("分段末日停牌，无法按收盘价平仓");
+    }
+    if sim.open_entry_date.as_deref() == Some(last.date.as_str()) {
+        return Some("分段末日买入的股票受 T+1 限制，不能当日平仓");
+    }
     if let Some(previous) = data.iter().rev().nth(1) {
-        if last.limit(limit, false).is_some_and(|band| last.close / previous.close - 1.0 <= -band + 0.001) {
+        if last
+            .limit(limit, false)
+            .is_some_and(|band| last.close / previous.close - 1.0 <= -band + 0.001)
+        {
             return Some("分段末日收盘触及跌停，日线无法证明可以平仓");
         }
     }
@@ -149,7 +157,8 @@ pub(super) fn walk_forward(
         ) else {
             continue;
         };
-        if let Some(problem) = segment_close_problem(&data[split - best.warmup()..end], &sim, limit) {
+        if let Some(problem) = segment_close_problem(&data[split - best.warmup()..end], &sim, limit)
+        {
             return json!({"available":false,"reason":format!("{}（{}）；无法衔接后续检验段", problem, data[end-1].date),"completed_folds":folds,"train_bars":train,"test_bars":test,"note":"日线缺少足够的成交信息，不能假设受限持仓成功平仓。"});
         }
         capital = sim.equity.last().map(|p| p.1).unwrap_or(capital);
@@ -170,11 +179,14 @@ pub(super) async fn enhance(
     out: &mut Value,
     all: &[(crate::SymbolKey, Vec<Bar>)],
     strategy: &Strategy,
-    costs: Costs,
-    initial: f64,
-    stop: Option<f64>,
-    limits: bool,
+    config: SimulationConfig,
 ) -> Result<()> {
+    let SimulationConfig {
+        costs,
+        initial,
+        stop,
+        limits,
+    } = config;
     let aligned = align_union(all)?;
     let mut curve = Vec::new();
     let mut free_curve = Vec::new();
@@ -215,20 +227,31 @@ pub(super) async fn enhance(
     let rebalance = uint(body, "rebalance_every", 0, 0, 252)? as usize;
     if rebalance > 0 {
         let paid = rebalance_portfolio(
-            all, &aligned, strategy, costs, initial, stop, limits, rebalance,
+            all,
+            &aligned,
+            strategy,
+            SimulationConfig {
+                costs,
+                initial,
+                stop,
+                limits,
+            },
+            rebalance,
         )?;
         let free = rebalance_portfolio(
             all,
             &aligned,
             strategy,
-            Costs {
-                fees: None,
-                slippage_bps: 0.0,
-                ..costs
+            SimulationConfig {
+                costs: Costs {
+                    fees: None,
+                    slippage_bps: 0.0,
+                    ..costs
+                },
+                initial,
+                stop,
+                limits,
             },
-            initial,
-            stop,
-            limits,
             rebalance,
         )?;
         curve = paid.curve.clone();
@@ -336,12 +359,15 @@ fn rebalance_portfolio(
     all: &[(crate::SymbolKey, Vec<Bar>)],
     data: &[Vec<Bar>],
     strategy: &Strategy,
-    costs: Costs,
-    initial: f64,
-    stop: Option<f64>,
-    limits: bool,
+    config: SimulationConfig,
     every: usize,
 ) -> Result<PortfolioSim> {
+    let SimulationConfig {
+        costs,
+        initial,
+        stop,
+        limits,
+    } = config;
     if all.len() < 2 || every == 0 {
         return Err(anyhow!("再平衡模式需要至少两只股票与正的间隔"));
     }
@@ -405,7 +431,7 @@ fn rebalance_portfolio(
                     reasons[k] = "信号";
                 }
             }
-            if changed || (i - warmup) % every == 0 {
+            if changed || (i - warmup).is_multiple_of(every) {
                 let equity = cash
                     + (0..n)
                         .map(|k| positions[k].shares * data[k][i].open)
@@ -433,7 +459,7 @@ fn rebalance_portfolio(
                     }
                     let gap = bar.open / data[k][i - 1].close - 1.0;
                     if bar
-                        .limit(limits.then(|| board_limit(&all[k].0.digits)),false)
+                        .limit(limits.then(|| board_limit(&all[k].0.digits)), false)
                         .is_some_and(|l| gap <= -l + 0.001)
                     {
                         result.blocked_sell += 1;
@@ -474,7 +500,7 @@ fn rebalance_portfolio(
                     }
                     let gap = bar.open / data[k][i - 1].close - 1.0;
                     if bar
-                        .limit(limits.then(|| board_limit(&all[k].0.digits)),true)
+                        .limit(limits.then(|| board_limit(&all[k].0.digits)), true)
                         .is_some_and(|l| gap >= l - 0.001)
                     {
                         result.blocked_buy += 1;
@@ -521,35 +547,68 @@ mod tests {
     use super::*;
     #[test]
     fn rolling_segment_refuses_suspended_t_plus_one_and_limit_down_closures() {
-        let mut data: Vec<Bar> = (0..15).map(|i| Bar {date:format!("d{i:03}"),open:10.0+i as f64,close:10.0+i as f64,tradable:true,limit_override:None}).collect();
-        let strategy = Strategy::SmaCross {fast:3,slow:10};
-        let costs = Costs {fees:None,slippage_bps:0.0,position_pct:100.0};
+        let mut data: Vec<Bar> = (0..15)
+            .map(|i| Bar {
+                date: format!("d{i:03}"),
+                open: 10.0 + i as f64,
+                close: 10.0 + i as f64,
+                tradable: true,
+                limit_override: None,
+            })
+            .collect();
+        let strategy = Strategy::SmaCross { fast: 3, slow: 10 };
+        let costs = Costs {
+            fees: None,
+            slippage_bps: 0.0,
+            position_pct: 100.0,
+        };
         let held = simulate(&data, &strategy, costs, 100000.0, None, None).unwrap();
         assert!(held.open_shares > 0.0);
         assert_eq!(segment_close_problem(&data, &held, None), None);
         data[14].tradable = false;
-        assert!(segment_close_problem(&data, &held, None).unwrap().contains("停牌"));
+        assert!(segment_close_problem(&data, &held, None)
+            .unwrap()
+            .contains("停牌"));
         data[14].tradable = true;
         data[14].close = data[13].close * 0.9;
-        assert!(segment_close_problem(&data, &held, Some(0.1)).unwrap().contains("跌停"));
-        for b in &mut data { b.tradable = false; }
+        assert!(segment_close_problem(&data, &held, Some(0.1))
+            .unwrap()
+            .contains("跌停"));
+        for b in &mut data {
+            b.tradable = false;
+        }
         data[14].tradable = true;
         let bought_today = simulate(&data, &strategy, costs, 100000.0, None, None).unwrap();
         assert!(bought_today.open_shares > 0.0);
-        assert!(segment_close_problem(&data, &bought_today, None).unwrap().contains("T+1"));
+        assert!(segment_close_problem(&data, &bought_today, None)
+            .unwrap()
+            .contains("T+1"));
     }
 
     #[test]
     fn walk_forward_does_not_report_total_when_first_boundary_is_suspended() {
         let strategy = Strategy::SmaCross { fast: 3, slow: 10 };
-        let warmup = experiment_grid(&strategy).iter().map(Strategy::warmup).max().unwrap();
+        let warmup = experiment_grid(&strategy)
+            .iter()
+            .map(Strategy::warmup)
+            .max()
+            .unwrap();
         let end = warmup + 252 + 63;
-        let mut data: Vec<Bar> = (0..end+63).map(|i| Bar {
-            date: format!("d{i:04}"), open: 20.0 + i as f64 * 0.05,
-            close: 20.0 + i as f64 * 0.05, tradable: true, limit_override: None,
-        }).collect();
-        data[end-1].tradable = false;
-        let costs = Costs { fees: None, slippage_bps: 0.0, position_pct: 100.0 };
+        let mut data: Vec<Bar> = (0..end + 63)
+            .map(|i| Bar {
+                date: format!("d{i:04}"),
+                open: 20.0 + i as f64 * 0.05,
+                close: 20.0 + i as f64 * 0.05,
+                tradable: true,
+                limit_override: None,
+            })
+            .collect();
+        data[end - 1].tradable = false;
+        let costs = Costs {
+            fees: None,
+            slippage_bps: 0.0,
+            position_pct: 100.0,
+        };
         let result = walk_forward(&data, &strategy, costs, 100000.0, None, None);
         assert_eq!(result["available"], false);
         assert!(result["reason"].as_str().unwrap().contains("停牌"));
@@ -580,8 +639,19 @@ mod tests {
             slippage_bps: 10.0,
             position_pct: 100.0,
         };
-        let result =
-            rebalance_portfolio(&all, &data, &strategy, costs, 100000.0, None, false, 5).unwrap();
+        let result = rebalance_portfolio(
+            &all,
+            &data,
+            &strategy,
+            SimulationConfig {
+                costs,
+                initial: 100000.0,
+                stop: None,
+                limits: false,
+            },
+            5,
+        )
+        .unwrap();
         assert!(!result.trades.is_empty());
         assert!(result
             .trades
@@ -594,14 +664,16 @@ mod tests {
             &all,
             &data,
             &strategy,
-            Costs {
-                fees: None,
-                slippage_bps: 0.0,
-                ..costs
+            SimulationConfig {
+                costs: Costs {
+                    fees: None,
+                    slippage_bps: 0.0,
+                    ..costs
+                },
+                initial: 100000.0,
+                stop: None,
+                limits: false,
             },
-            100000.0,
-            None,
-            false,
             5,
         )
         .unwrap();

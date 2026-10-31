@@ -72,8 +72,7 @@ fn parse_suggestions(text: &str, limit: usize) -> anyhow::Result<Vec<Value>> {
         .unwrap_or(line)
         .trim()
         .trim_end_matches(';');
-    let payload: String = serde_json::from_str(literal)
-        .context("腾讯股票搜索返回格式异常")?;
+    let payload: String = serde_json::from_str(literal).context("腾讯股票搜索返回格式异常")?;
     if payload.is_empty() || payload.starts_with('N') {
         return Ok(Vec::new());
     }
@@ -142,7 +141,10 @@ mod tests {
     #[test]
     fn respects_limit_and_no_result_marker() {
         let raw = r#"v_hint="sh~600519~贵州茅台~GZMT~GP-A^sz~000001~平安银行~PAYH~GP-A";"#;
-        assert_eq!(parse_suggestions(raw, 1).expect("parse suggestions").len(), 1);
+        assert_eq!(
+            parse_suggestions(raw, 1).expect("parse suggestions").len(),
+            1
+        );
         assert!(parse_suggestions(r#"v_hint="N";"#, 8)
             .expect("parse empty suggestions")
             .is_empty());

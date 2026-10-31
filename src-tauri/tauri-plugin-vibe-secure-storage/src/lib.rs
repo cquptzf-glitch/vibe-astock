@@ -5,9 +5,9 @@ use tauri::{
 
 #[cfg(desktop)]
 mod desktop;
+mod error;
 #[cfg(mobile)]
 mod mobile;
-mod error;
 mod models;
 
 #[cfg(desktop)]

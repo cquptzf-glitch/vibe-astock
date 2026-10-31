@@ -60,7 +60,10 @@ pub async fn profile(client: &Client, path: &str) -> std::result::Result<Value, 
     }))
 }
 
-pub async fn announcements(client: &Client, path: &str) -> std::result::Result<Value, ResearchError> {
+pub async fn announcements(
+    client: &Client,
+    path: &str,
+) -> std::result::Result<Value, ResearchError> {
     let symbol = symbol_from_path(path)?;
     let limit = query_param(path, "limit")
         .and_then(|value| value.parse::<usize>().ok())
@@ -96,7 +99,11 @@ pub async fn announcements(client: &Client, path: &str) -> std::result::Result<V
 
     let mut items = Vec::new();
     for item in list.iter().take(limit) {
-        let title = item.get("title").and_then(Value::as_str).unwrap_or("").trim();
+        let title = item
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim();
         let art_code = item
             .get("art_code")
             .and_then(Value::as_str)
@@ -198,7 +205,9 @@ pub async fn financials(client: &Client, path: &str) -> std::result::Result<Valu
         }));
     }
     if rows.is_empty() {
-        return Err(ResearchError::Upstream(anyhow!("新浪财务报表未解析出营收或归母净利润")));
+        return Err(ResearchError::Upstream(anyhow!(
+            "新浪财务报表未解析出营收或归母净利润"
+        )));
     }
     let count = rows.len();
 
@@ -293,7 +302,9 @@ pub async fn estimates(client: &Client, path: &str) -> std::result::Result<Value
         }));
     }
     if reports.is_empty() {
-        return Err(ResearchError::Upstream(anyhow!("东财研报中没有可用 EPS 预测")));
+        return Err(ResearchError::Upstream(anyhow!(
+            "东财研报中没有可用 EPS 预测"
+        )));
     }
     let count = reports.len();
 
@@ -356,7 +367,12 @@ fn ipo_date(value: &Value) -> Option<String> {
     };
     let digits = raw.trim().trim_end_matches(".0");
     if digits.len() == 8 && digits.chars().all(|ch| ch.is_ascii_digit()) {
-        Some(format!("{}-{}-{}", &digits[0..4], &digits[4..6], &digits[6..8]))
+        Some(format!(
+            "{}-{}-{}",
+            &digits[0..4],
+            &digits[4..6],
+            &digits[6..8]
+        ))
     } else {
         None
     }
@@ -377,8 +393,7 @@ mod tests {
 
     #[test]
     fn parses_symbol_query() {
-        let symbol = symbol_from_path("/mobile/research/profile?symbol=600519.SH")
-            .expect("symbol");
+        let symbol = symbol_from_path("/mobile/research/profile?symbol=600519.SH").expect("symbol");
         assert_eq!(symbol.digits, "600519");
         assert_eq!(symbol.market.as_str(), "SH");
     }

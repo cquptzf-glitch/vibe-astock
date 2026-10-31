@@ -10,7 +10,10 @@ fn open(db_path: &Path) -> Result<Connection> {
 
 fn china_today() -> String {
     let offset = FixedOffset::east_opt(8 * 3600).expect("valid China timezone offset");
-    Utc::now().with_timezone(&offset).format("%Y-%m-%d").to_string()
+    Utc::now()
+        .with_timezone(&offset)
+        .format("%Y-%m-%d")
+        .to_string()
 }
 
 fn normalize_date(value: Option<&str>) -> Result<String> {
@@ -21,7 +24,10 @@ fn normalize_date(value: Option<&str>) -> Result<String> {
     if date.len() != 10
         || date.as_bytes().get(4) != Some(&b'-')
         || date.as_bytes().get(7) != Some(&b'-')
-        || !date.chars().enumerate().all(|(index, ch)| index == 4 || index == 7 || ch.is_ascii_digit())
+        || !date
+            .chars()
+            .enumerate()
+            .all(|(index, ch)| index == 4 || index == 7 || ch.is_ascii_digit())
     {
         return Err(anyhow!("复盘日期格式必须为 YYYY-MM-DD"));
     }
@@ -51,16 +57,15 @@ pub fn init(db_path: &Path) -> Result<()> {
 }
 
 pub fn get(db_path: &Path, path: &str) -> Result<Value> {
-    let date_param = path
-        .split('?')
-        .nth(1)
-        .and_then(|query| query.split('&').find_map(|pair| {
+    let date_param = path.split('?').nth(1).and_then(|query| {
+        query.split('&').find_map(|pair| {
             let mut pieces = pair.splitn(2, '=');
             match (pieces.next(), pieces.next()) {
                 (Some("date"), Some(value)) => Some(value),
                 _ => None,
             }
-        }));
+        })
+    });
     let date = normalize_date(date_param)?;
     view(db_path, &date)
 }
@@ -129,7 +134,10 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_db() -> std::path::PathBuf {
-        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         std::env::temp_dir().join(format!("vibe-daily-review-{stamp}.sqlite3"))
     }
 
@@ -137,11 +145,15 @@ mod tests {
     fn saves_and_reads_daily_review() {
         let path = temp_db();
         init(&path).unwrap();
-        let saved = save(&path, &json!({
-            "date": "2026-10-16",
-            "observation": "缩量分化",
-            "tomorrow_check": "验证高标承接"
-        })).unwrap();
+        let saved = save(
+            &path,
+            &json!({
+                "date": "2026-10-16",
+                "observation": "缩量分化",
+                "tomorrow_check": "验证高标承接"
+            }),
+        )
+        .unwrap();
         assert_eq!(saved["saved"], true);
         let loaded = get(&path, "/mobile/daily-review?date=2026-10-16").unwrap();
         assert_eq!(loaded["observation"], "缩量分化");

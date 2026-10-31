@@ -60,7 +60,15 @@ pub fn append_fills(db_path: &Path, body: &Value) -> Result<Value> {
         tx.execute(
             "INSERT INTO journal_fills(entry_id, side, date, price, shares, fee, sort_order)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![id, fill.side, fill.date, fill.price, fill.shares, fill.fee, fill.sort_order],
+            params![
+                id,
+                fill.side,
+                fill.date,
+                fill.price,
+                fill.shares,
+                fill.fee,
+                fill.sort_order
+            ],
         )?;
     }
     tx.execute(
@@ -201,25 +209,55 @@ fn parse_fill(value: &Value, sort_order: i64) -> Result<Fill> {
     let date = required_date(value.get("date").and_then(Value::as_str).unwrap_or(""))?;
     let price = positive_required(value.get("price"), "成交价")?;
     let shares = positive_required(value.get("shares"), "股数")?;
-    if side == "split" && (shares != 1.0 || !(0.001..=1000.0).contains(&price)) { return Err(anyhow!("送转比例为新股数/原股数，范围 0.001–1000，数量字段必须为 1")); }
-    if matches!(side,"split"|"opening") && optional_number(value.get("fee"),"费用")?.is_some_and(|v|v!=0.0){return Err(anyhow!("期初持仓和送转不产生费用；实际费用请按对应成交记录"));}
-    let fee = if matches!(side,"split"|"opening") { Some(0.0) } else { optional_number(value.get("fee"), "费用")? };
+    if side == "split" && (shares != 1.0 || !(0.001..=1000.0).contains(&price)) {
+        return Err(anyhow!(
+            "送转比例为新股数/原股数，范围 0.001–1000，数量字段必须为 1"
+        ));
+    }
+    if matches!(side, "split" | "opening")
+        && optional_number(value.get("fee"), "费用")?.is_some_and(|v| v != 0.0)
+    {
+        return Err(anyhow!(
+            "期初持仓和送转不产生费用；实际费用请按对应成交记录"
+        ));
+    }
+    let fee = if matches!(side, "split" | "opening") {
+        Some(0.0)
+    } else {
+        optional_number(value.get("fee"), "费用")?
+    };
     if fee.is_some_and(|value| value < 0.0) {
         return Err(anyhow!("费用不能是负数"));
     }
-    Ok(Fill { side: side.to_string(), date, price, shares, fee, sort_order })
+    Ok(Fill {
+        side: side.to_string(),
+        date,
+        price,
+        shares,
+        fee,
+        sort_order,
+    })
 }
 
 fn validate_balance(fills: &[Fill]) -> Result<()> {
     let mut balance = 0.0;
     let mut ordered: Vec<_> = fills.iter().collect();
-    ordered.sort_by(|a,b|a.date.cmp(&b.date).then((a.side!="split").cmp(&(b.side!="split"))).then(a.sort_order.cmp(&b.sort_order)));
+    ordered.sort_by(|a, b| {
+        a.date
+            .cmp(&b.date)
+            .then((a.side != "split").cmp(&(b.side != "split")))
+            .then(a.sort_order.cmp(&b.sort_order))
+    });
     for fill in ordered {
         if fill.side == "split" {
-            if balance <= 0.0 { return Err(anyhow!("送转拆股当时没有持仓")); }
+            if balance <= 0.0 {
+                return Err(anyhow!("送转拆股当时没有持仓"));
+            }
             balance *= fill.price;
         } else if matches!(fill.side.as_str(), "buy" | "opening") {
-            if fill.side=="opening" && balance>0.000_001{return Err(anyhow!("已有持仓不能重复建立期初"));}
+            if fill.side == "opening" && balance > 0.000_001 {
+                return Err(anyhow!("已有持仓不能重复建立期初"));
+            }
             balance += fill.shares;
         } else {
             balance -= fill.shares;
@@ -227,7 +265,9 @@ fn validate_balance(fills: &[Fill]) -> Result<()> {
                 return Err(anyhow!("卖出股数不能超过此前买入股数"));
             }
         }
-        if !balance.is_finite()||balance>1e15{return Err(anyhow!("结转股数超过可计算范围"));}
+        if !balance.is_finite() || balance > 1e15 {
+            return Err(anyhow!("结转股数超过可计算范围"));
+        }
     }
     Ok(())
 }
@@ -236,7 +276,9 @@ fn parse_playbook(value: Option<&Value>) -> Result<Option<String>> {
     match value {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(text)) if text.trim().is_empty() => Ok(None),
-        Some(Value::String(text)) if PLAYBOOKS.contains(&text.trim()) => Ok(Some(text.trim().to_string())),
+        Some(Value::String(text)) if PLAYBOOKS.contains(&text.trim()) => {
+            Ok(Some(text.trim().to_string()))
+        }
         Some(Value::String(text)) => Err(anyhow!("不支持的打法: {}", text.trim())),
         _ => Err(anyhow!("打法格式不正确")),
     }
@@ -261,9 +303,16 @@ fn required_date(value: &str) -> Result<String> {
 fn optional_number(value: Option<&Value>, label: &str) -> Result<Option<f64>> {
     match value {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Number(value)) => value.as_f64().map(Some).ok_or_else(|| anyhow!("{label} 要是数字")),
+        Some(Value::Number(value)) => value
+            .as_f64()
+            .map(Some)
+            .ok_or_else(|| anyhow!("{label} 要是数字")),
         Some(Value::String(value)) if value.trim().is_empty() => Ok(None),
-        Some(Value::String(value)) => value.trim().parse::<f64>().map(Some).map_err(|_| anyhow!("{label} 要是数字")),
+        Some(Value::String(value)) => value
+            .trim()
+            .parse::<f64>()
+            .map(Some)
+            .map_err(|_| anyhow!("{label} 要是数字")),
         _ => Err(anyhow!("{label} 要是数字")),
     }
 }

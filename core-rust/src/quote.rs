@@ -18,7 +18,10 @@ impl From<anyhow::Error> for FetchError {
     }
 }
 
-pub async fn fetch_endpoint(client: &Client, body: &Value) -> std::result::Result<Value, FetchError> {
+pub async fn fetch_endpoint(
+    client: &Client,
+    body: &Value,
+) -> std::result::Result<Value, FetchError> {
     let endpoint = body.get("endpoint").and_then(Value::as_str).unwrap_or("");
     let raw_symbol = body.get("symbol").and_then(Value::as_str).unwrap_or("");
     if raw_symbol.trim().is_empty() {
@@ -79,7 +82,13 @@ pub(crate) async fn fetch_quote(client: &Client, symbol: &SymbolKey) -> Result<V
 
 async fn fetch_tencent_quote(client: &Client, symbol: &SymbolKey) -> Result<Value> {
     let url = format!("https://qt.gtimg.cn/q={}", symbol.tencent);
-    let bytes = client.get(url).send().await?.error_for_status()?.bytes().await?;
+    let bytes = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
     let (decoded, _, _) = GBK.decode(&bytes);
     let text = decoded.into_owned();
     let payload = text
@@ -106,21 +115,40 @@ async fn fetch_tencent_quote(client: &Client, symbol: &SymbolKey) -> Result<Valu
         ("last_close", last_close, "元", "none"),
         ("change_pct", number(fields.get(32).copied()), "%", "none"),
         ("turnover_pct", number(fields.get(38).copied()), "%", "none"),
-        ("pe_ttm", number(fields.get(39).copied()), "倍", "not_applicable"),
-        ("pe_static", number(fields.get(52).copied()), "倍", "not_applicable"),
-        ("pb", number(fields.get(46).copied()), "倍", "not_applicable"),
-        ("float_market_cap", number(fields.get(44).copied()), "亿元", "not_applicable"),
-        ("total_market_cap", number(fields.get(45).copied()), "亿元", "not_applicable"),
+        (
+            "pe_ttm",
+            number(fields.get(39).copied()),
+            "倍",
+            "not_applicable",
+        ),
+        (
+            "pe_static",
+            number(fields.get(52).copied()),
+            "倍",
+            "not_applicable",
+        ),
+        (
+            "pb",
+            number(fields.get(46).copied()),
+            "倍",
+            "not_applicable",
+        ),
+        (
+            "float_market_cap",
+            number(fields.get(44).copied()),
+            "亿元",
+            "not_applicable",
+        ),
+        (
+            "total_market_cap",
+            number(fields.get(45).copied()),
+            "亿元",
+            "not_applicable",
+        ),
         ("amount", amount, "万元", "not_applicable"),
     ];
-    let (evidence, missing) = evidence_set(
-        symbol,
-        &now,
-        &period,
-        "tencent",
-        "qt.gtimg.cn/q",
-        &specs,
-    );
+    let (evidence, missing) =
+        evidence_set(symbol, &now, &period, "tencent", "qt.gtimg.cn/q", &specs);
 
     Ok(json!({
         "script": "fetch_quote",
@@ -186,12 +214,37 @@ async fn fetch_eastmoney_quote(client: &Client, symbol: &SymbolKey) -> Result<Va
         ("last_close", value_number(data.get("f60")), "元", "none"),
         ("change_pct", value_number(data.get("f170")), "%", "none"),
         ("turnover_pct", value_number(data.get("f168")), "%", "none"),
-        ("pe_ttm", value_number(data.get("f164")), "倍", "not_applicable"),
-        ("pe_static", value_number(data.get("f163")), "倍", "not_applicable"),
+        (
+            "pe_ttm",
+            value_number(data.get("f164")),
+            "倍",
+            "not_applicable",
+        ),
+        (
+            "pe_static",
+            value_number(data.get("f163")),
+            "倍",
+            "not_applicable",
+        ),
         ("pb", value_number(data.get("f167")), "倍", "not_applicable"),
-        ("float_market_cap", value_number(data.get("f117")), "元", "not_applicable"),
-        ("total_market_cap", value_number(data.get("f116")), "元", "not_applicable"),
-        ("amount", value_number(data.get("f48")), "元", "not_applicable"),
+        (
+            "float_market_cap",
+            value_number(data.get("f117")),
+            "元",
+            "not_applicable",
+        ),
+        (
+            "total_market_cap",
+            value_number(data.get("f116")),
+            "元",
+            "not_applicable",
+        ),
+        (
+            "amount",
+            value_number(data.get("f48")),
+            "元",
+            "not_applicable",
+        ),
     ];
     let (evidence, missing) = evidence_set(
         symbol,
@@ -223,25 +276,34 @@ async fn fetch_eastmoney_quote(client: &Client, symbol: &SymbolKey) -> Result<Va
 }
 
 pub(crate) async fn fetch_kline(client: &Client, symbol: &SymbolKey, bars: usize) -> Result<Value> {
-    match fetch_kline_primary(client,symbol,bars).await{
-        Ok(result)=>Ok(result),
-        Err(error)=>{
-            let rows=crate::chart::backtest_fallback(client,symbol,bars).await?;
-            Ok(json!({"script":"fetch_kline","symbol":symbol.digits,"market":symbol.market.as_str(),"status":"partial","primary_source":"tencent","used_sources":["tencent"],"fetched_at":Utc::now().to_rfc3339(),"extra":{"rows":rows,"fallback_reason":format!("东财日线失败:{error}")},"missing":[],"errors":[]}))
+    match fetch_kline_primary(client, symbol, bars).await {
+        Ok(result) => Ok(result),
+        Err(error) => {
+            let rows = crate::chart::backtest_fallback(client, symbol, bars).await?;
+            Ok(
+                json!({"script":"fetch_kline","symbol":symbol.digits,"market":symbol.market.as_str(),"status":"partial","primary_source":"tencent","used_sources":["tencent"],"fetched_at":Utc::now().to_rfc3339(),"extra":{"rows":rows,"fallback_reason":format!("东财日线失败:{error}")},"missing":[],"errors":[]}),
+            )
         }
     }
 }
 
 async fn fetch_kline_primary(client: &Client, symbol: &SymbolKey, bars: usize) -> Result<Value> {
-    let root = crate::discovery::get_json(client,
+    let root = crate::discovery::get_json(
+        client,
         "https://push2his.eastmoney.com/api/qt/stock/kline/get",
-        &[("secid", symbol.eastmoney.clone()), ("fields1", "f1,f2,f3,f4,f5,f6".into()),
-          ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58".into()), ("klt","101".into()),
-          ("fqt","1".into()), ("end","20500101".into()), ("lmt",bars.to_string())]).await?;
+        &[
+            ("secid", symbol.eastmoney.clone()),
+            ("fields1", "f1,f2,f3,f4,f5,f6".into()),
+            ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58".into()),
+            ("klt", "101".into()),
+            ("fqt", "1".into()),
+            ("end", "20500101".into()),
+            ("lmt", bars.to_string()),
+        ],
+    )
+    .await?;
     let rows = parse_kline_rows(&root, symbol, crate::stock_context::today())?;
-    let last = rows
-        .last()
-        .ok_or_else(|| anyhow!("东财 K 线无合格行"))?;
+    let last = rows.last().ok_or_else(|| anyhow!("东财 K 线无合格行"))?;
     let period = last
         .get(0)
         .and_then(Value::as_str)
@@ -263,10 +325,12 @@ async fn fetch_kline_primary(client: &Client, symbol: &SymbolKey, bars: usize) -
             &period,
             "eastmoney",
             "push2his/api/qt/stock/kline/get",
-            "volume_latest",
-            volume,
-            "源单位",
-            "not_applicable",
+            EvidencePoint {
+                field: "volume_latest",
+                value: volume,
+                unit: "源单位",
+                adjustment: "not_applicable",
+            },
         ),
         evidence(
             symbol,
@@ -274,10 +338,12 @@ async fn fetch_kline_primary(client: &Client, symbol: &SymbolKey, bars: usize) -
             &period,
             "eastmoney",
             "push2his/api/qt/stock/kline/get",
-            "close_qfq_latest",
-            close,
-            "元",
-            "qfq",
+            EvidencePoint {
+                field: "close_qfq_latest",
+                value: close,
+                unit: "元",
+                adjustment: "qfq",
+            },
         ),
         evidence(
             symbol,
@@ -285,10 +351,12 @@ async fn fetch_kline_primary(client: &Client, symbol: &SymbolKey, bars: usize) -
             &format!("{}..{}", start, period),
             "eastmoney",
             "push2his/api/qt/stock/kline/get",
-            "kline_points",
-            rows.len() as f64,
-            "根",
-            "qfq",
+            EvidencePoint {
+                field: "kline_points",
+                value: rows.len() as f64,
+                unit: "根",
+                adjustment: "qfq",
+            },
         ),
     ];
 
@@ -313,52 +381,49 @@ async fn fetch_kline_primary(client: &Client, symbol: &SymbolKey, bars: usize) -
     }))
 }
 
-pub(crate) fn parse_kline_rows(root: &Value, symbol: &SymbolKey, today: chrono::NaiveDate) -> Result<Vec<Value>> {
+pub(crate) fn parse_kline_rows(
+    root: &Value,
+    symbol: &SymbolKey,
+    today: chrono::NaiveDate,
+) -> Result<Vec<Value>> {
     let data = crate::stock_context::provider_data(root, symbol)?;
-    let raw = data["klines"].as_array().ok_or_else(|| anyhow!("东财 K 线序列缺失"))?;
+    let raw = data["klines"]
+        .as_array()
+        .ok_or_else(|| anyhow!("东财 K 线序列缺失"))?;
     let mut rows = Vec::new();
     let mut previous = None;
     for raw_row in raw {
-        let line = raw_row.as_str().ok_or_else(|| anyhow!("东财 K 线行格式错误"))?;
+        let line = raw_row
+            .as_str()
+            .ok_or_else(|| anyhow!("东财 K 线行格式错误"))?;
         let fields: Vec<_> = line.split(',').collect();
-        if fields.len() < 6 { return Err(anyhow!("东财 K 线字段不足")); }
+        if fields.len() < 6 {
+            return Err(anyhow!("东财 K 线字段不足"));
+        }
         let date = chrono::NaiveDate::parse_from_str(fields[0], "%Y-%m-%d")?;
-        if date > today || previous.is_some_and(|d| date <= d) { return Err(anyhow!("K 线日期未来、重复或乱序")); }
+        if date > today || previous.is_some_and(|d| date <= d) {
+            return Err(anyhow!("K 线日期未来、重复或乱序"));
+        }
         previous = Some(date);
-        let values = fields[1..6].iter().map(|s| number(Some(s)).ok_or_else(||anyhow!("K 线数值缺失"))).collect::<Result<Vec<_>>>()?;
-        let (open,close,high,low,volume)=(values[0],values[1],values[2],values[3],values[4]);
-        if open<=0.0 || close<=0.0 || low<=0.0 || low>open.min(close) || high<open.max(close) || high<low || volume<0.0 {
+        let values = fields[1..6]
+            .iter()
+            .map(|s| number(Some(s)).ok_or_else(|| anyhow!("K 线数值缺失")))
+            .collect::<Result<Vec<_>>>()?;
+        let (open, close, high, low, volume) =
+            (values[0], values[1], values[2], values[3], values[4]);
+        if open <= 0.0
+            || close <= 0.0
+            || low <= 0.0
+            || low > open.min(close)
+            || high < open.max(close)
+            || high < low
+            || volume < 0.0
+        {
             return Err(anyhow!("K 线价格或成交量异常"));
         }
-        rows.push(json!([date.to_string(),open,close,high,low,volume]));
+        rows.push(json!([date.to_string(), open, close, high, low, volume]));
     }
     Ok(rows)
-}
-
-#[cfg(test)]
-mod kline_fixture_tests {
-    use super::*;
-    fn day()->chrono::NaiveDate{chrono::NaiveDate::from_ymd_opt(2026,10,16).unwrap()}
-    #[test]
-    fn frozen_public_kline_keeps_qfq_prices_and_volume_units() {
-        let key=normalize_stock_symbol("600519").unwrap();
-        let root=serde_json::from_str(include_str!("../tests/fixtures/market_kline.json")).unwrap();
-        let rows=parse_kline_rows(&root,&key,day()).unwrap();
-        assert_eq!(rows.len(),65);
-        assert_eq!(rows[64],json!(["2026-10-16",1311.57,1329.0,1329.88,1301.68,38502.0]));
-    }
-    #[test]
-    fn malformed_bar_does_not_create_a_false_technical_observation() {
-        let key=normalize_stock_symbol("600519").unwrap();
-        for lines in [
-            vec!["2026-10-16,10,11,12,9,1","2026-10-16,10,11,12,9,1"],
-            vec!["2026-10-16,10,11,9,8,1"],
-            vec!["2026-10-16,10,11,12,9,NaN"],
-            vec!["2026-10-16,10,11,12,9,-1"],
-            vec!["2099-10-16,10,11,12,9,1"],
-        ] { assert!(parse_kline_rows(&json!({"data":{"code":"600519","klines":lines}}),&key,day()).is_err()); }
-        assert!(parse_kline_rows(&json!({"data":{"code":"000001","klines":[]}}),&key,day()).is_err());
-    }
 }
 
 fn china_offset() -> FixedOffset {
@@ -373,7 +438,9 @@ fn china_date() -> String {
 }
 
 fn value_epoch_china_date(value: &Value) -> Option<String> {
-    let seconds = value.as_i64().or_else(|| value.as_f64().map(|v| v as i64))?;
+    let seconds = value
+        .as_i64()
+        .or_else(|| value.as_f64().map(|v| v as i64))?;
     let dt = Utc.timestamp_opt(seconds, 0).single()?;
     Some(
         dt.with_timezone(&china_offset())
@@ -423,15 +490,24 @@ fn evidence_set(
                 period,
                 source,
                 endpoint,
-                field,
-                *value,
-                unit,
-                adjustment,
+                EvidencePoint {
+                    field,
+                    value: *value,
+                    unit,
+                    adjustment,
+                },
             )),
             None => missing.push(json!({ "field": field, "period": period })),
         }
     }
     (evidence_rows, missing)
+}
+
+struct EvidencePoint<'a> {
+    field: &'a str,
+    value: f64,
+    unit: &'a str,
+    adjustment: &'a str,
 }
 
 fn evidence(
@@ -440,11 +516,14 @@ fn evidence(
     period: &str,
     source: &str,
     endpoint: &str,
-    field: &str,
-    value: f64,
-    unit: &str,
-    adjustment: &str,
+    point: EvidencePoint<'_>,
 ) -> Value {
+    let EvidencePoint {
+        field,
+        value,
+        unit,
+        adjustment,
+    } = point;
     json!({
         "id": format!("mobile:{}:{}:{}:{}", source, symbol.digits, field, period),
         "symbol": symbol.digits,
@@ -462,4 +541,45 @@ fn evidence(
         "raw_ref": null,
         "record_key": null
     })
+}
+
+#[cfg(test)]
+mod kline_fixture_tests {
+    use super::*;
+    fn day() -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(2026, 10, 16).unwrap()
+    }
+    #[test]
+    fn frozen_public_kline_keeps_qfq_prices_and_volume_units() {
+        let key = normalize_stock_symbol("600519").unwrap();
+        let root =
+            serde_json::from_str(include_str!("../tests/fixtures/market_kline.json")).unwrap();
+        let rows = parse_kline_rows(&root, &key, day()).unwrap();
+        assert_eq!(rows.len(), 65);
+        assert_eq!(
+            rows[64],
+            json!(["2026-10-16", 1311.57, 1329.0, 1329.88, 1301.68, 38502.0])
+        );
+    }
+    #[test]
+    fn malformed_bar_does_not_create_a_false_technical_observation() {
+        let key = normalize_stock_symbol("600519").unwrap();
+        for lines in [
+            vec!["2026-10-16,10,11,12,9,1", "2026-10-16,10,11,12,9,1"],
+            vec!["2026-10-16,10,11,9,8,1"],
+            vec!["2026-10-16,10,11,12,9,NaN"],
+            vec!["2026-10-16,10,11,12,9,-1"],
+            vec!["2099-10-16,10,11,12,9,1"],
+        ] {
+            assert!(parse_kline_rows(
+                &json!({"data":{"code":"600519","klines":lines}}),
+                &key,
+                day()
+            )
+            .is_err());
+        }
+        assert!(
+            parse_kline_rows(&json!({"data":{"code":"000001","klines":[]}}), &key, day()).is_err()
+        );
+    }
 }

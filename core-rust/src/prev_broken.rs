@@ -36,7 +36,13 @@ pub(crate) fn result_of(q: &Quote) -> Option<&'static str> {
     if q.limit_down.is_some_and(|l| price <= l + 1e-6) {
         return Some("跌停");
     }
-    Some(if pct > 0.0 { "收红" } else if pct > -5.0 { "小跌" } else { "跌超5%" })
+    Some(if pct > 0.0 {
+        "收红"
+    } else if pct > -5.0 {
+        "小跌"
+    } else {
+        "跌超5%"
+    })
 }
 
 /// 汇总:样本是前一交易日炸板池里取到「复盘日行情」的票;没取到行情的不进分母,单独说
@@ -50,12 +56,19 @@ pub(crate) fn summarize(pool: &[Row], quotes: &HashMap<String, Quote>) -> Value 
             missing += 1;
             continue;
         };
-        let (Some(pct), Some(res)) = (q.pct, result_of(q)) else { continue };
+        let (Some(pct), Some(res)) = (q.pct, result_of(q)) else {
+            continue;
+        };
         rets.push(pct);
         *counts.entry(res).or_default() += 1;
         rows.push(json!({"code": r.code, "name": r.name, "pct": pct, "result": res, "broken_times": r.broken_times, "sector": r.sector}));
     }
-    rows.sort_by(|a, b| b["pct"].as_f64().partial_cmp(&a["pct"].as_f64()).unwrap_or(std::cmp::Ordering::Equal));
+    rows.sort_by(|a, b| {
+        b["pct"]
+            .as_f64()
+            .partial_cmp(&a["pct"].as_f64())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let n = rets.len();
     let total = pool.len();
     if n == 0 {
@@ -69,7 +82,12 @@ pub(crate) fn summarize(pool: &[Row], quotes: &HashMap<String, Quote>) -> Value 
     for k in RESULTS {
         feedback.insert(k.into(), json!(counts.get(k).copied().unwrap_or(0)));
     }
-    feedback.insert("晋级率".into(), json!(emotion::r3(counts.get("晋级涨停").copied().unwrap_or(0) as f64 / n as f64)));
+    feedback.insert(
+        "晋级率".into(),
+        json!(emotion::r3(
+            counts.get("晋级涨停").copied().unwrap_or(0) as f64 / n as f64
+        )),
+    );
     json!({
         "available": true, "total": total, "sample": n, "missing": missing, "coverage_rate": emotion::r3(n as f64 / total as f64),
         "avg": emotion::r2(avg), "median": emotion::r2(emotion::median(&rets)), "positive_rate": emotion::r3(positive as f64 / n as f64),
@@ -111,7 +129,19 @@ pub async fn fetch(client: &Client, path: &str) -> Result<Value, DiscoveryError>
     let (raw, failed, batches) = watch::fetch_quotes(client, &codes).await;
     let quotes: HashMap<String, Quote> = raw
         .into_iter()
-        .map(|(code, q)| (code, Quote { pct: q.pct, price: q.price, limit_up: q.limit_up, limit_down: q.limit_down, is_day: q.quote_time.len() == 14 && q.quote_time.starts_with(&date.replace('-', "")) }))
+        .map(|(code, q)| {
+            (
+                code,
+                Quote {
+                    pct: q.pct,
+                    price: q.price,
+                    limit_up: q.limit_up,
+                    limit_down: q.limit_down,
+                    is_day: q.quote_time.len() == 14
+                        && q.quote_time.starts_with(&date.replace('-', "")),
+                },
+            )
+        })
         .collect();
     let mut result = summarize(&pool, &quotes);
     if failed > 0 {
@@ -126,22 +156,61 @@ mod tests {
     use super::*;
 
     fn row(code: &str) -> Row {
-        Row { code: code.into(), name: format!("N{code}"), broken_times: 1, ..Row::default() }
+        Row {
+            code: code.into(),
+            name: format!("N{code}"),
+            broken_times: 1,
+            ..Row::default()
+        }
     }
 
     fn q(pct: f64, price: f64, up: Option<f64>, down: Option<f64>, is_day: bool) -> Quote {
-        Quote { pct: Some(pct), price: Some(price), limit_up: up, limit_down: down, is_day }
+        Quote {
+            pct: Some(pct),
+            price: Some(price),
+            limit_up: up,
+            limit_down: down,
+            is_day,
+        }
     }
 
     #[test]
     fn results_use_the_limit_price_first_then_the_change() {
-        assert_eq!(result_of(&q(10.0, 11.0, Some(11.0), Some(9.0), true)), Some("晋级涨停"));
-        assert_eq!(result_of(&q(-10.0, 9.0, Some(11.0), Some(9.0), true)), Some("跌停"));
-        assert_eq!(result_of(&q(3.0, 10.3, Some(11.0), Some(9.0), true)), Some("收红"));
-        assert_eq!(result_of(&q(-3.0, 9.7, Some(11.0), Some(9.0), true)), Some("小跌"));
-        assert_eq!(result_of(&q(0.0, 10.0, None, None, true)), Some("小跌"), "平盘算小跌(不是收红)");
-        assert_eq!(result_of(&q(-6.0, 9.4, Some(11.0), Some(9.0), true)), Some("跌超5%"));
-        assert_eq!(result_of(&Quote { pct: None, price: None, limit_up: None, limit_down: None, is_day: true }), None);
+        assert_eq!(
+            result_of(&q(10.0, 11.0, Some(11.0), Some(9.0), true)),
+            Some("晋级涨停")
+        );
+        assert_eq!(
+            result_of(&q(-10.0, 9.0, Some(11.0), Some(9.0), true)),
+            Some("跌停")
+        );
+        assert_eq!(
+            result_of(&q(3.0, 10.3, Some(11.0), Some(9.0), true)),
+            Some("收红")
+        );
+        assert_eq!(
+            result_of(&q(-3.0, 9.7, Some(11.0), Some(9.0), true)),
+            Some("小跌")
+        );
+        assert_eq!(
+            result_of(&q(0.0, 10.0, None, None, true)),
+            Some("小跌"),
+            "平盘算小跌(不是收红)"
+        );
+        assert_eq!(
+            result_of(&q(-6.0, 9.4, Some(11.0), Some(9.0), true)),
+            Some("跌超5%")
+        );
+        assert_eq!(
+            result_of(&Quote {
+                pct: None,
+                price: None,
+                limit_up: None,
+                limit_down: None,
+                is_day: true
+            }),
+            None
+        );
     }
 
     #[test]
@@ -152,12 +221,38 @@ mod tests {
         quotes.insert("2".into(), q(4.0, 10.4, Some(11.0), Some(9.0), true));
         quotes.insert("3".into(), q(-6.0, 9.4, Some(11.0), Some(9.0), true));
         quotes.insert("4".into(), q(8.0, 10.8, Some(11.0), Some(9.0), false)); // 停牌 / 旧价,不算
-        // 5 没取到行情
+                                                                               // 5 没取到行情
         let v = summarize(&pool, &quotes);
-        assert_eq!((v["sample"].clone(), v["missing"].clone(), v["total"].clone(), v["coverage_rate"].clone()), (json!(3), json!(2), json!(5), json!(0.6)));
-        assert_eq!((v["avg"].clone(), v["median"].clone(), v["positive_rate"].clone(), v["limit_up_again"].clone(), v["loss5"].clone()), (json!(2.67), json!(4.0), json!(0.667), json!(1), json!(1)));
+        assert_eq!(
+            (
+                v["sample"].clone(),
+                v["missing"].clone(),
+                v["total"].clone(),
+                v["coverage_rate"].clone()
+            ),
+            (json!(3), json!(2), json!(5), json!(0.6))
+        );
+        assert_eq!(
+            (
+                v["avg"].clone(),
+                v["median"].clone(),
+                v["positive_rate"].clone(),
+                v["limit_up_again"].clone(),
+                v["loss5"].clone()
+            ),
+            (json!(2.67), json!(4.0), json!(0.667), json!(1), json!(1))
+        );
         assert_eq!(v["feedback_row"]["tier"], "昨日炸板");
-        assert_eq!((v["feedback_row"]["合计"].clone(), v["feedback_row"]["晋级涨停"].clone(), v["feedback_row"]["收红"].clone(), v["feedback_row"]["跌超5%"].clone(), v["feedback_row"]["晋级率"].clone()), (json!(3), json!(1), json!(1), json!(1), json!(0.333)));
+        assert_eq!(
+            (
+                v["feedback_row"]["合计"].clone(),
+                v["feedback_row"]["晋级涨停"].clone(),
+                v["feedback_row"]["收红"].clone(),
+                v["feedback_row"]["跌超5%"].clone(),
+                v["feedback_row"]["晋级率"].clone()
+            ),
+            (json!(3), json!(1), json!(1), json!(1), json!(0.333))
+        );
         assert_eq!(v["rows"][0]["code"], "1", "按今日涨幅从高到低");
         let none = summarize(&pool, &HashMap::new());
         assert_eq!(none["available"], false);
@@ -168,12 +263,29 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn live_prev_broken_probe() {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let dir = std::env::temp_dir().join(format!("vibe-prevbroken-live-{nonce}"));
         let app = crate::AppCore::new(dir.clone()).unwrap();
-        let get = |path: &str| crate::MobileApiRequest { path: path.into(), method: "GET".into(), body: Value::Null };
+        let get = |path: &str| crate::MobileApiRequest {
+            path: path.into(),
+            method: "GET".into(),
+            body: Value::Null,
+        };
         let r = app.handle(get("/mobile/shortline/prev-broken")).await;
-        println!("status {} date {} prev {} result {}", r.status, r.body["date"], r.body["prev_date"], serde_json::to_string(&r.body["result"]).unwrap().chars().take(500).collect::<String>());
+        println!(
+            "status {} date {} prev {} result {}",
+            r.status,
+            r.body["date"],
+            r.body["prev_date"],
+            serde_json::to_string(&r.body["result"])
+                .unwrap()
+                .chars()
+                .take(500)
+                .collect::<String>()
+        );
         if let Ok(out) = std::env::var("VIBE_PREV_BROKEN_FIXTURE") {
             std::fs::write(out, serde_json::to_string_pretty(&r.body).unwrap()).unwrap();
         }

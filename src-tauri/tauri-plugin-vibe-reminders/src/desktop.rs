@@ -15,7 +15,11 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 }
 
 impl<R: Runtime> VibeReminders<R> {
-    pub fn monitor(&self, _request:&Value)->Result<Value>{Ok(serde_json::json!({"supported":false,"running":false,"message":"持续后台盯盘需要 Android 原生服务"}))}
+    pub fn monitor(&self, _request: &Value) -> Result<Value> {
+        Ok(
+            serde_json::json!({"supported":false,"running":false,"message":"持续后台盯盘需要 Android 原生服务"}),
+        )
+    }
     pub fn sync_rules(&self, snapshot: &Value) -> Result<ReminderSyncStatus> {
         Ok(ReminderSyncStatus {
             scheduled: false,

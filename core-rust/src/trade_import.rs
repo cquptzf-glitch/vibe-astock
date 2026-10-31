@@ -36,18 +36,48 @@ enum Field {
 }
 
 const FIELD_NAMES: [(Field, &str); 10] = [
-    (Field::Date, "日期"), (Field::Kind, "类型"), (Field::Symbol, "代码"), (Field::Name, "名称"), (Field::Shares, "数量"),
-    (Field::Price, "价格"), (Field::Fee, "费用"), (Field::Amount, "金额"), (Field::Ratio, "比例"), (Field::Note, "备注"),
+    (Field::Date, "日期"),
+    (Field::Kind, "类型"),
+    (Field::Symbol, "代码"),
+    (Field::Name, "名称"),
+    (Field::Shares, "数量"),
+    (Field::Price, "价格"),
+    (Field::Fee, "费用"),
+    (Field::Amount, "金额"),
+    (Field::Ratio, "比例"),
+    (Field::Note, "备注"),
 ];
 const HEADER_ALIASES: [(Field, &[&str]); 10] = [
-    (Field::Date, &["日期", "成交日期", "交易日期", "发生日期", "date"]),
-    (Field::Kind, &["类型", "操作", "买卖", "买卖标志", "业务名称", "type"]),
-    (Field::Symbol, &["代码", "证券代码", "股票代码", "symbol", "code"]),
+    (
+        Field::Date,
+        &["日期", "成交日期", "交易日期", "发生日期", "date"],
+    ),
+    (
+        Field::Kind,
+        &["类型", "操作", "买卖", "买卖标志", "业务名称", "type"],
+    ),
+    (
+        Field::Symbol,
+        &["代码", "证券代码", "股票代码", "symbol", "code"],
+    ),
     (Field::Name, &["名称", "证券名称", "股票名称", "name"]),
     (Field::Shares, &["数量", "成交数量", "股数", "shares"]),
-    (Field::Price, &["价格", "成交价", "成交价格", "成交均价", "每股成本", "price"]),
+    (
+        Field::Price,
+        &[
+            "价格",
+            "成交价",
+            "成交价格",
+            "成交均价",
+            "每股成本",
+            "price",
+        ],
+    ),
     (Field::Fee, &["费用", "手续费", "佣金", "交易费用", "fee"]),
-    (Field::Amount, &["金额", "到账金额", "分红金额", "发生金额", "amount"]),
+    (
+        Field::Amount,
+        &["金额", "到账金额", "分红金额", "发生金额", "amount"],
+    ),
     (Field::Ratio, &["比例", "送转比例", "ratio"]),
     (Field::Note, &["备注", "note"]),
 ];
@@ -65,16 +95,35 @@ enum Kind {
 const KIND_ALIASES: [(Kind, &[&str]); 5] = [
     (Kind::Buy, &["买入", "买", "证券买入", "buy"]),
     (Kind::Sell, &["卖出", "卖", "证券卖出", "sell"]),
-    (Kind::Dividend, &["现金分红", "分红", "红利", "红利入账", "股息", "股息入账", "dividend"]),
+    (
+        Kind::Dividend,
+        &[
+            "现金分红",
+            "分红",
+            "红利",
+            "红利入账",
+            "股息",
+            "股息入账",
+            "dividend",
+        ],
+    ),
     (Kind::Opening, &["期初持仓", "期初", "opening"]),
-    (Kind::Split, &["送转", "拆股", "送转拆股", "送转/拆股", "合股", "split"]),
+    (
+        Kind::Split,
+        &["送转", "拆股", "送转拆股", "送转/拆股", "合股", "split"],
+    ),
 ];
 
 fn norm(text: &str) -> String {
-    let squeezed: String = text.chars().filter(|c| !c.is_whitespace() && *c != '\u{3000}').collect();
+    let squeezed: String = text
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '\u{3000}')
+        .collect();
     // 去掉结尾括号里的单位:「费用(元)」→「费用」
     let trimmed = match squeezed.rfind(['(', '（']) {
-        Some(at) if squeezed.ends_with(')') || squeezed.ends_with('）') => squeezed[..at].to_string(),
+        Some(at) if squeezed.ends_with(')') || squeezed.ends_with('）') => {
+            squeezed[..at].to_string()
+        }
         _ => squeezed,
     };
     trimmed.to_lowercase()
@@ -127,29 +176,54 @@ fn delimiter_of(text: &str) -> char {
     let first = text.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
     let tabs = first.matches('\t').count();
     let commas = first.matches(',').count();
-    if tabs > 0 && tabs >= commas { '\t' } else { ',' }
+    if tabs > 0 && tabs >= commas {
+        '\t'
+    } else {
+        ','
+    }
 }
 
 /// 日期:YYYY-MM-DD、YYYY/M/D、YYYY.M.D、YYYY年M月D日、YYYYMMDD;后面带时间的只取日期
 pub(crate) fn normalize_date(raw: &str) -> String {
-    let head = raw.trim().split(|c: char| c == 'T' || c.is_whitespace()).next().unwrap_or("");
+    let head = raw
+        .trim()
+        .split(|c: char| c == 'T' || c.is_whitespace())
+        .next()
+        .unwrap_or("");
     let digits_only = head.len() == 8 && head.bytes().all(|b| b.is_ascii_digit());
     if digits_only {
         return format!("{}-{}-{}", &head[0..4], &head[4..6], &head[6..8]);
     }
-    let parts: Vec<&str> = head.trim_end_matches('日').split(['-', '/', '.', '年', '月']).collect();
-    if parts.len() == 3 && parts[0].len() == 4 && parts.iter().all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit())) && parts[1].len() <= 2 && parts[2].len() <= 2 {
+    let parts: Vec<&str> = head
+        .trim_end_matches('日')
+        .split(['-', '/', '.', '年', '月'])
+        .collect();
+    if parts.len() == 3
+        && parts[0].len() == 4
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+        && parts[1].len() <= 2
+        && parts[2].len() <= 2
+    {
         return format!("{}-{:0>2}-{:0>2}", parts[0], parts[1], parts[2]);
     }
     raw.trim().to_string()
 }
 
 fn number(raw: &str) -> std::result::Result<Option<f64>, ()> {
-    let text: String = raw.chars().filter(|c| !matches!(c, ',' | '，' | ' ' | '\u{3000}') && !c.is_whitespace()).collect();
+    let text: String = raw
+        .chars()
+        .filter(|c| !matches!(c, ',' | '，' | ' ' | '\u{3000}') && !c.is_whitespace())
+        .collect();
     if text.is_empty() {
         return Ok(None);
     }
-    text.parse::<f64>().ok().filter(|v| v.is_finite()).map(Some).ok_or(())
+    text.parse::<f64>()
+        .ok()
+        .filter(|v| v.is_finite())
+        .map(Some)
+        .ok_or(())
 }
 
 #[derive(Clone, Debug)]
@@ -169,12 +243,18 @@ pub(crate) struct Row {
 }
 
 pub(crate) fn parse_table(input: &str, today: &str) -> std::result::Result<Vec<Row>, String> {
-    let text = input.trim_start_matches('\u{feff}').replace("\r\n", "\n").replace('\r', "\n");
+    let text = input
+        .trim_start_matches('\u{feff}')
+        .replace("\r\n", "\n")
+        .replace('\r', "\n");
     if text.trim().is_empty() {
         return Err("没有内容:请粘贴表格,或选一个 CSV 文件".into());
     }
     let delimiter = delimiter_of(&text);
-    let mut table: Vec<(usize, Vec<String>)> = split_table(&text, delimiter).into_iter().filter(|(_, cells)| cells.iter().any(|c| !c.trim().is_empty())).collect();
+    let mut table: Vec<(usize, Vec<String>)> = split_table(&text, delimiter)
+        .into_iter()
+        .filter(|(_, cells)| cells.iter().any(|c| !c.trim().is_empty()))
+        .collect();
     if table.is_empty() {
         return Err("没有内容:请粘贴表格,或选一个 CSV 文件".into());
     }
@@ -183,45 +263,115 @@ pub(crate) fn parse_table(input: &str, today: &str) -> std::result::Result<Vec<R
     let field_ix = |f: Field| FIELD_NAMES.iter().position(|(x, _)| *x == f).unwrap();
     for (i, h) in head.iter().enumerate() {
         let key = norm(h);
-        let found = HEADER_ALIASES.iter().find(|(_, names)| names.iter().any(|n| norm(n) == key)).map(|(f, _)| *f);
+        let found = HEADER_ALIASES
+            .iter()
+            .find(|(_, names)| names.iter().any(|n| norm(n) == key))
+            .map(|(f, _)| *f);
         let Some(f) = found else { continue };
         if let Some(prev) = col.insert(field_ix(f), i) {
-            return Err(format!("有两列都是「{}」:第 {} 列和第 {} 列,请删掉一列", FIELD_NAMES[field_ix(f)].1, prev + 1, i + 1));
+            return Err(format!(
+                "有两列都是「{}」:第 {} 列和第 {} 列,请删掉一列",
+                FIELD_NAMES[field_ix(f)].1,
+                prev + 1,
+                i + 1
+            ));
         }
     }
-    let missing: Vec<&str> = REQUIRED.iter().filter(|f| !col.contains_key(&field_ix(**f))).map(|f| FIELD_NAMES[field_ix(*f)].1).collect();
+    let missing: Vec<&str> = REQUIRED
+        .iter()
+        .filter(|f| !col.contains_key(&field_ix(**f)))
+        .map(|f| FIELD_NAMES[field_ix(*f)].1)
+        .collect();
     if !missing.is_empty() {
         let aliases: Vec<String> = REQUIRED
             .iter()
             .filter(|f| !col.contains_key(&field_ix(**f)))
-            .map(|f| HEADER_ALIASES.iter().find(|(x, _)| x == f).unwrap().1.join(" / "))
+            .map(|f| {
+                HEADER_ALIASES
+                    .iter()
+                    .find(|(x, _)| x == f)
+                    .unwrap()
+                    .1
+                    .join(" / ")
+            })
             .collect();
-        return Err(format!("第一行要是列名,至少要有{}这几列(认得的写法:{})", missing.iter().map(|m| format!("「{m}」")).collect::<String>(), aliases.join(";")));
+        return Err(format!(
+            "第一行要是列名,至少要有{}这几列(认得的写法:{})",
+            missing
+                .iter()
+                .map(|m| format!("「{m}」"))
+                .collect::<String>(),
+            aliases.join(";")
+        ));
     }
     if table.len() > MAX_ROWS {
-        return Err(format!("一次最多导入 {MAX_ROWS} 行,这份有 {} 行:请分成几份", table.len()));
+        return Err(format!(
+            "一次最多导入 {MAX_ROWS} 行,这份有 {} 行:请分成几份",
+            table.len()
+        ));
     }
-    let get = |cells: &[String], f: Field| col.get(&field_ix(f)).and_then(|i| cells.get(*i)).map(|c| c.trim().to_string()).unwrap_or_default();
+    let get = |cells: &[String], f: Field| {
+        col.get(&field_ix(f))
+            .and_then(|i| cells.get(*i))
+            .map(|c| c.trim().to_string())
+            .unwrap_or_default()
+    };
     let mut rows = Vec::with_capacity(table.len());
     for (line, cells) in table {
         let kind_text = get(&cells, Field::Kind);
         let kind_key = norm(&kind_text);
-        let kind = KIND_ALIASES.iter().find(|(_, names)| names.iter().any(|n| norm(n) == kind_key)).map(|(k, _)| *k);
+        let kind = KIND_ALIASES
+            .iter()
+            .find(|(_, names)| names.iter().any(|n| norm(n) == kind_key))
+            .map(|(k, _)| *k);
         let mut row = Row {
-            line, date: normalize_date(&get(&cells, Field::Date)), kind: kind.unwrap_or(Kind::Buy), kind_text: kind_text.clone(), symbol: get(&cells, Field::Symbol), name: get(&cells, Field::Name),
-            shares: None, price: None, fee: None, amount: None, problem: None, duplicate: false,
+            line,
+            date: normalize_date(&get(&cells, Field::Date)),
+            kind: kind.unwrap_or(Kind::Buy),
+            kind_text: kind_text.clone(),
+            symbol: get(&cells, Field::Symbol),
+            name: get(&cells, Field::Name),
+            shares: None,
+            price: None,
+            fee: None,
+            amount: None,
+            problem: None,
+            duplicate: false,
         };
-        row.problem = check_row(&mut row, kind, [get(&cells, Field::Shares), get(&cells, Field::Price), get(&cells, Field::Fee), get(&cells, Field::Amount)], &get(&cells, Field::Ratio), today);
+        row.problem = check_row(
+            &mut row,
+            kind,
+            [
+                get(&cells, Field::Shares),
+                get(&cells, Field::Price),
+                get(&cells, Field::Fee),
+                get(&cells, Field::Amount),
+            ],
+            &get(&cells, Field::Ratio),
+            today,
+        );
         rows.push(row);
     }
     Ok(rows)
 }
 
-fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, today: &str) -> Option<String> {
+fn check_row(
+    row: &mut Row,
+    kind: Option<Kind>,
+    raw: [String; 4],
+    ratio: &str,
+    today: &str,
+) -> Option<String> {
     let Some(kind) = kind else {
-        return Some(format!("不认识的类型「{}」(认得:买入 / 卖出 / 现金分红)", row.kind_text));
+        return Some(format!(
+            "不认识的类型「{}」(认得:买入 / 卖出 / 现金分红)",
+            row.kind_text
+        ));
     };
-    if row.symbol.len() < 6 && !row.symbol.is_empty() && row.symbol.bytes().all(|b| b.is_ascii_digit()) {
+    if row.symbol.len() < 6
+        && !row.symbol.is_empty()
+        && row.symbol.bytes().all(|b| b.is_ascii_digit())
+    {
         return Some(format!("代码「{}」只有 {} 位:表格软件会把 000001 存成 1,分不清原来是哪只,请把代码列改成文本格式", row.symbol, row.symbol.len()));
     }
     match normalize_stock_symbol(&row.symbol) {
@@ -234,8 +384,15 @@ fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, t
         Err(_) => return Some(format!("日期无效:{}", row.date)),
     }
     let [shares, price, fee, amount] = raw;
-    let parse = |label: &str, text: &str| -> std::result::Result<Option<f64>, String> { number(text).map_err(|_| format!("{label}不是数字:{text}")) };
-    let (shares, price, fee, amount) = match (parse("数量", &shares), parse("价格", &price), parse("费用", &fee), parse("金额", &amount)) {
+    let parse = |label: &str, text: &str| -> std::result::Result<Option<f64>, String> {
+        number(text).map_err(|_| format!("{label}不是数字:{text}"))
+    };
+    let (shares, price, fee, amount) = match (
+        parse("数量", &shares),
+        parse("价格", &price),
+        parse("费用", &fee),
+        parse("金额", &amount),
+    ) {
         (Ok(a), Ok(b), Ok(c), Ok(d)) => (a, b, c, d),
         (Err(e), ..) | (_, Err(e), ..) | (_, _, Err(e), _) | (_, _, _, Err(e)) => return Some(e),
     };
@@ -248,9 +405,15 @@ fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, t
     }
     match kind {
         Kind::Buy | Kind::Sell | Kind::Opening => {
-            let (Some(s), Some(p)) = (shares, price) else { return Some("买卖要有数量和价格".into()) };
+            let (Some(s), Some(p)) = (shares, price) else {
+                return Some("买卖要有数量和价格".into());
+            };
             if s <= 0.0 {
-                return Some(if s < 0.0 { "数量是负数:有的券商导出卖出数量写负数,请自己改成正数并确认方向".into() } else { "数量要大于 0".into() });
+                return Some(if s < 0.0 {
+                    "数量是负数:有的券商导出卖出数量写负数,请自己改成正数并确认方向".into()
+                } else {
+                    "数量要大于 0".into()
+                });
             }
             if p <= 0.0 {
                 return Some("价格要大于 0".into());
@@ -260,7 +423,11 @@ fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, t
             }
             row.shares = Some(s);
             row.price = Some(p);
-            row.fee = if kind == Kind::Opening {Some(0.0)}else{fee};
+            row.fee = if kind == Kind::Opening {
+                Some(0.0)
+            } else {
+                fee
+            };
             None
         }
         Kind::Dividend => match amount {
@@ -277,26 +444,63 @@ fn check_row(row: &mut Row, kind: Option<Kind>, raw: [String; 4], ratio: &str, t
 
 type ExistingFills = HashMap<String, Vec<(String, String, f64, f64)>>;
 
-fn load_existing(conn: &Connection) -> Result<(ExistingFills, Vec<(String, String, f64)>)> {
+type ExistingDividends = Vec<(String, String, f64)>;
+
+fn load_existing(conn: &Connection) -> Result<(ExistingFills, ExistingDividends)> {
     let mut stmt = conn.prepare("SELECT e.symbol, f.side, f.date, f.price, f.shares FROM journal_fills f JOIN journal_entries e ON e.id = f.entry_id")?;
     let mut fills: ExistingFills = HashMap::new();
-    for r in stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, f64>(3)?, r.get::<_, f64>(4)?)))? {
+    for r in stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, f64>(3)?,
+            r.get::<_, f64>(4)?,
+        ))
+    })? {
         let (symbol, side, date, price, shares) = r?;
-        fills.entry(symbol).or_default().push((side, date, price, shares));
+        fills
+            .entry(symbol)
+            .or_default()
+            .push((side, date, price, shares));
     }
-    let dividends = portfolio::read_dividends(conn)?.into_iter().map(|d| (d.symbol, d.date, d.amount)).collect();
+    let dividends = portfolio::read_dividends(conn)?
+        .into_iter()
+        .map(|d| (d.symbol, d.date, d.amount))
+        .collect();
     Ok((fills, dividends))
 }
 
-fn mark_duplicates(rows: &mut [Row], existing: &ExistingFills, dividends: &[(String, String, f64)]) {
+fn mark_duplicates(
+    rows: &mut [Row],
+    existing: &ExistingFills,
+    dividends: &[(String, String, f64)],
+) {
     for row in rows.iter_mut().filter(|r| r.problem.is_none()) {
         row.duplicate = match row.kind {
             Kind::Buy | Kind::Sell | Kind::Opening => {
-                let side = match row.kind { Kind::Buy=>"buy",Kind::Opening=>"opening",_=>"sell" };
-                existing.get(&row.symbol).is_some_and(|list| list.iter().any(|(s, d, p, n)| s == side && *d == row.date && (p - row.price.unwrap_or(0.0)).abs() < EPS && (n - row.shares.unwrap_or(0.0)).abs() < EPS))
+                let side = match row.kind {
+                    Kind::Buy => "buy",
+                    Kind::Opening => "opening",
+                    _ => "sell",
+                };
+                existing.get(&row.symbol).is_some_and(|list| {
+                    list.iter().any(|(s, d, p, n)| {
+                        s == side
+                            && *d == row.date
+                            && (p - row.price.unwrap_or(0.0)).abs() < EPS
+                            && (n - row.shares.unwrap_or(0.0)).abs() < EPS
+                    })
+                })
             }
-            Kind::Dividend => dividends.iter().any(|(s, d, a)| *s == row.symbol && *d == row.date && (a - row.amount.unwrap_or(0.0)).abs() < 0.005),
-            Kind::Split => existing.get(&row.symbol).is_some_and(|list|list.iter().any(|(s,d,p,_)|s=="split" && *d==row.date && (p-row.price.unwrap_or(0.0)).abs()<EPS)),
+            Kind::Dividend => dividends.iter().any(|(s, d, a)| {
+                *s == row.symbol && *d == row.date && (a - row.amount.unwrap_or(0.0)).abs() < 0.005
+            }),
+            Kind::Split => existing.get(&row.symbol).is_some_and(|list| {
+                list.iter().any(|(s, d, p, _)| {
+                    s == "split" && *d == row.date && (p - row.price.unwrap_or(0.0)).abs() < EPS
+                })
+            }),
         };
     }
 }
@@ -312,35 +516,91 @@ pub(crate) struct Episode {
 
 /// 按代码、日期重放,把买卖切成一轮一轮;同日先买后卖。卖出超过此前买入的行写问题、不导入。
 pub(crate) fn plan_episodes(rows: &mut [Row]) -> Vec<Episode> {
-    let mut order: Vec<usize> = (0..rows.len()).filter(|i| rows[*i].problem.is_none() && !rows[*i].duplicate && matches!(rows[*i].kind, Kind::Buy | Kind::Sell | Kind::Opening | Kind::Split)).collect();
+    let mut order: Vec<usize> = (0..rows.len())
+        .filter(|i| {
+            rows[*i].problem.is_none()
+                && !rows[*i].duplicate
+                && matches!(
+                    rows[*i].kind,
+                    Kind::Buy | Kind::Sell | Kind::Opening | Kind::Split
+                )
+        })
+        .collect();
     order.sort_by(|a, b| {
         let (x, y) = (&rows[*a], &rows[*b]);
-        x.symbol.cmp(&y.symbol).then(x.date.cmp(&y.date)).then((match x.kind {Kind::Split=>0,Kind::Opening=>1,Kind::Buy=>2,_=>3}).cmp(&(match y.kind {Kind::Split=>0,Kind::Opening=>1,Kind::Buy=>2,_=>3}))).then(x.line.cmp(&y.line))
+        x.symbol
+            .cmp(&y.symbol)
+            .then(x.date.cmp(&y.date))
+            .then(
+                (match x.kind {
+                    Kind::Split => 0,
+                    Kind::Opening => 1,
+                    Kind::Buy => 2,
+                    _ => 3,
+                })
+                .cmp(
+                    &(match y.kind {
+                        Kind::Split => 0,
+                        Kind::Opening => 1,
+                        Kind::Buy => 2,
+                        _ => 3,
+                    }),
+                ),
+            )
+            .then(x.line.cmp(&y.line))
     });
     let mut episodes: Vec<Episode> = Vec::new();
     let mut current: Option<Episode> = None;
     let mut position = 0.0_f64;
     for ix in order {
-        if current.as_ref().is_some_and(|e| e.symbol != rows[ix].symbol) {
+        if current
+            .as_ref()
+            .is_some_and(|e| e.symbol != rows[ix].symbol)
+        {
             episodes.extend(current.take());
             position = 0.0;
         }
         if rows[ix].kind == Kind::Split {
-            if let Some(e) = current.as_mut().filter(|_|position>EPS) {
-                let r=&rows[ix]; let ratio=r.price.unwrap();
-                e.fills.push(("split".into(),r.date.clone(),ratio,1.0,Some(0.0)));
-                position*=ratio; e.open_shares=position;
-            } else { rows[ix].problem=Some("送转拆股此前没有持仓(只看本份表)".into()); }
+            if let Some(e) = current.as_mut().filter(|_| position > EPS) {
+                let r = &rows[ix];
+                let ratio = r.price.unwrap();
+                e.fills
+                    .push(("split".into(), r.date.clone(), ratio, 1.0, Some(0.0)));
+                position *= ratio;
+                e.open_shares = position;
+            } else {
+                rows[ix].problem = Some("送转拆股此前没有持仓(只看本份表)".into());
+            }
             continue;
         }
-        if rows[ix].kind == Kind::Opening && position>EPS {rows[ix].problem=Some("期初持仓之前已有持仓，不能重复建立期初".into());continue;}
-        let side = if rows[ix].kind==Kind::Opening {"opening"}else{"buy"};
+        if rows[ix].kind == Kind::Opening && position > EPS {
+            rows[ix].problem = Some("期初持仓之前已有持仓，不能重复建立期初".into());
+            continue;
+        }
+        let side = if rows[ix].kind == Kind::Opening {
+            "opening"
+        } else {
+            "buy"
+        };
         let (symbol, name, date, price, shares, fee, is_buy) = {
             let r = &rows[ix];
-            (r.symbol.clone(), r.name.clone(), r.date.clone(), r.price.unwrap_or(0.0), r.shares.unwrap_or(0.0), r.fee, matches!(r.kind,Kind::Buy|Kind::Opening))
+            (
+                r.symbol.clone(),
+                r.name.clone(),
+                r.date.clone(),
+                r.price.unwrap_or(0.0),
+                r.shares.unwrap_or(0.0),
+                r.fee,
+                matches!(r.kind, Kind::Buy | Kind::Opening),
+            )
         };
         if is_buy {
-            let e = current.get_or_insert_with(|| Episode { symbol: symbol.clone(), name: name.clone(), fills: Vec::new(), open_shares: 0.0 });
+            let e = current.get_or_insert_with(|| Episode {
+                symbol: symbol.clone(),
+                name: name.clone(),
+                fills: Vec::new(),
+                open_shares: 0.0,
+            });
             if e.name.is_empty() {
                 e.name = name;
             }
@@ -348,7 +608,11 @@ pub(crate) fn plan_episodes(rows: &mut [Row]) -> Vec<Episode> {
             position += shares;
             e.open_shares = position;
         } else if position + EPS < shares {
-            rows[ix].problem = Some(format!("卖出 {} 股超过此前买入的 {} 股(只看这份表里同一只票之前的买入)", fmt(shares), fmt(position.max(0.0))));
+            rows[ix].problem = Some(format!(
+                "卖出 {} 股超过此前买入的 {} 股(只看这份表里同一只票之前的买入)",
+                fmt(shares),
+                fmt(position.max(0.0))
+            ));
         } else if let Some(e) = current.as_mut() {
             e.fills.push(("sell".into(), date, price, shares, fee));
             position -= shares;
@@ -364,7 +628,11 @@ pub(crate) fn plan_episodes(rows: &mut [Row]) -> Vec<Episode> {
 }
 
 fn fmt(v: f64) -> String {
-    if (v - v.round()).abs() < EPS { format!("{}", v.round() as i64) } else { format!("{v}") }
+    if (v - v.round()).abs() < EPS {
+        format!("{}", v.round() as i64)
+    } else {
+        format!("{v}")
+    }
 }
 
 pub(crate) struct Plan {
@@ -375,11 +643,16 @@ pub(crate) struct Plan {
 
 pub(crate) fn plan(db: &Path, text: &str) -> Result<Plan, String> {
     if text.len() > MAX_BYTES {
-        return Err(format!("这份表格太大(超过 {} KB),请分成几份导入", MAX_BYTES / 1024));
+        return Err(format!(
+            "这份表格太大(超过 {} KB),请分成几份导入",
+            MAX_BYTES / 1024
+        ));
     }
     let today = crate::emotion::now_china().0.format("%Y-%m-%d").to_string();
     let mut rows = parse_table(text, &today)?;
-    let conn = Connection::open(db).context("open mobile sqlite").map_err(|e| e.to_string())?;
+    let conn = Connection::open(db)
+        .context("open mobile sqlite")
+        .map_err(|e| e.to_string())?;
     let (existing, dividends) = load_existing(&conn).map_err(|e| e.to_string())?;
     mark_duplicates(&mut rows, &existing, &dividends);
     let episodes = plan_episodes(&mut rows);
@@ -387,8 +660,15 @@ pub(crate) fn plan(db: &Path, text: &str) -> Result<Plan, String> {
     let mut dividend_rows = Vec::new();
     for (i, row) in rows.iter_mut().enumerate() {
         if row.kind == Kind::Dividend && row.problem.is_none() && !row.duplicate {
-            let key = (row.symbol.clone(), row.date.clone(), row.amount.unwrap_or(0.0));
-            if seen.iter().any(|(s, d, a)| *s == key.0 && *d == key.1 && (a - key.2).abs() < 0.005) {
+            let key = (
+                row.symbol.clone(),
+                row.date.clone(),
+                row.amount.unwrap_or(0.0),
+            );
+            if seen
+                .iter()
+                .any(|(s, d, a)| *s == key.0 && *d == key.1 && (a - key.2).abs() < 0.005)
+            {
                 row.problem = Some("表里有同一天、同金额的重复分红,只导入第一行".into());
             } else {
                 seen.push(key);
@@ -396,13 +676,20 @@ pub(crate) fn plan(db: &Path, text: &str) -> Result<Plan, String> {
             }
         }
     }
-    Ok(Plan { rows, episodes, dividends: dividend_rows })
+    Ok(Plan {
+        rows,
+        episodes,
+        dividends: dividend_rows,
+    })
 }
 
 fn status_of(row: &Row) -> (&'static str, Option<&str>) {
     match (&row.problem, row.duplicate) {
         (Some(why), _) => ("problem", Some(why.as_str())),
-        (None, true) => ("duplicate", Some("已记过(同代码、同日、同方向、同价同量),不重复导入")),
+        (None, true) => (
+            "duplicate",
+            Some("已记过(同代码、同日、同方向、同价同量),不重复导入"),
+        ),
         _ => ("ok", None),
     }
 }
@@ -444,11 +731,18 @@ pub fn import(db: &Path, body: &Value) -> Result<Value> {
     for e in &plan.episodes {
         let fills: Vec<Value> = e.fills.iter().map(|(side, date, price, shares, fee)| json!({"type": side, "date": date, "price": price, "shares": shares, "fee": fee})).collect();
         let entry = json!({"symbol": e.symbol, "name": e.name, "note": "表格导入", "fills": fills});
-        ids.push(journal::insert_record_tx(&tx, &entry).with_context(|| format!("导入 {} 失败", e.symbol))?);
+        ids.push(
+            journal::insert_record_tx(&tx, &entry)
+                .with_context(|| format!("导入 {} 失败", e.symbol))?,
+        );
     }
-    let existing_dividends: i64 = tx.query_row("SELECT COUNT(*) FROM mobile_dividends", [], |r| r.get(0))?;
+    let existing_dividends: i64 =
+        tx.query_row("SELECT COUNT(*) FROM mobile_dividends", [], |r| r.get(0))?;
     if existing_dividends as usize + plan.dividends.len() > portfolio::DIVIDENDS_MAX {
-        return Err(anyhow!("分红最多 {} 条,导入后会超出", portfolio::DIVIDENDS_MAX));
+        return Err(anyhow!(
+            "分红最多 {} 条,导入后会超出",
+            portfolio::DIVIDENDS_MAX
+        ));
     }
     let now = Utc::now().to_rfc3339();
     for ix in &plan.dividends {
@@ -473,7 +767,10 @@ mod tests {
     const TODAY: &str = "2026-10-17";
 
     fn db(name: &str) -> std::path::PathBuf {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let path = std::env::temp_dir().join(format!("vibe-import-{name}-{nonce}.sqlite3"));
         crate::storage::init(&path).unwrap();
         crate::journal::init(&path).unwrap();
@@ -501,15 +798,31 @@ mod tests {
         let rows = parse_table(text, TODAY).unwrap();
         assert_eq!(rows.len(), 1);
         assert!(rows[0].problem.is_none());
-        assert_eq!((rows[0].symbol.as_str(), rows[0].shares, rows[0].price, rows[0].fee, rows[0].date.as_str()), ("600519", Some(100.0), Some(1450.0), Some(5.0), "2026-03-05"));
+        assert_eq!(
+            (
+                rows[0].symbol.as_str(),
+                rows[0].shares,
+                rows[0].price,
+                rows[0].fee,
+                rows[0].date.as_str()
+            ),
+            ("600519", Some(100.0), Some(1450.0), Some(5.0), "2026-03-05")
+        );
     }
 
     #[test]
     fn header_errors_and_row_problems_are_explicit() {
         assert!(parse_table("  ", TODAY).unwrap_err().contains("没有内容"));
-        assert!(parse_table("日期,类型\n2026-01-01,买入", TODAY).unwrap_err().contains("「代码」"));
-        assert!(parse_table("日期,代码,代码,类型\n", TODAY).unwrap_err().contains("两列都是「代码」"));
-        let big = format!("日期,类型,代码\n{}", "2026-01-01,买入,600519\n".repeat(MAX_ROWS + 1));
+        assert!(parse_table("日期,类型\n2026-01-01,买入", TODAY)
+            .unwrap_err()
+            .contains("「代码」"));
+        assert!(parse_table("日期,代码,代码,类型\n", TODAY)
+            .unwrap_err()
+            .contains("两列都是「代码」"));
+        let big = format!(
+            "日期,类型,代码\n{}",
+            "2026-01-01,买入,600519\n".repeat(MAX_ROWS + 1)
+        );
         assert!(parse_table(&big, TODAY).unwrap_err().contains("最多导入"));
         let csv = "日期,类型,代码,数量,价格,费用,金额\n\
                    2026-01-05,买入,1,100,10,,\n\
@@ -524,7 +837,10 @@ mod tests {
                    2026-01-05,买入,600519,100,10,-1,\n\
                    2026-01-05,买入,12345x,100,10,,\n";
         let rows = parse_table(csv, TODAY).unwrap();
-        let why: Vec<String> = rows.iter().map(|r| r.problem.clone().unwrap_or_default()).collect();
+        let why: Vec<String> = rows
+            .iter()
+            .map(|r| r.problem.clone().unwrap_or_default())
+            .collect();
         assert!(why[0].contains("只有 1 位"), "{}", why[0]);
         assert!(why[1].contains("数量是负数"));
         assert!(why[2].contains("价格要大于 0"));
@@ -549,15 +865,33 @@ mod tests {
                    2026-03-01,买入,000001,平安银行,1000,10\n";
         let mut rows = parse_table(csv, TODAY).unwrap();
         let episodes = plan_episodes(&mut rows);
-        assert_eq!(episodes.len(), 3, "茅台 02-02 一轮(买卖同日、买先卖后)、02-10 起又一轮,平安银行一轮");
+        assert_eq!(
+            episodes.len(),
+            3,
+            "茅台 02-02 一轮(买卖同日、买先卖后)、02-10 起又一轮,平安银行一轮"
+        );
         let mt: Vec<&Episode> = episodes.iter().filter(|e| e.symbol == "600519").collect();
         assert_eq!(mt.len(), 2);
-        assert_eq!(mt[0].fills.iter().map(|f| f.0.as_str()).collect::<Vec<_>>(), ["buy", "sell"]);
+        assert_eq!(
+            mt[0].fills.iter().map(|f| f.0.as_str()).collect::<Vec<_>>(),
+            ["buy", "sell"]
+        );
         assert!(mt[0].open_shares.abs() < 1e-9, "第一轮卖光");
-        assert_eq!((mt[1].fills.len(), mt[1].open_shares), (1, 50.0), "第二轮只有那笔 50 股买入:后面两笔卖出(80、500)都超过了在手的 50");
-        let problems: Vec<(usize, String)> = rows.iter().filter_map(|r| r.problem.clone().map(|p| (r.line, p))).collect();
+        assert_eq!(
+            (mt[1].fills.len(), mt[1].open_shares),
+            (1, 50.0),
+            "第二轮只有那笔 50 股买入:后面两笔卖出(80、500)都超过了在手的 50"
+        );
+        let problems: Vec<(usize, String)> = rows
+            .iter()
+            .filter_map(|r| r.problem.clone().map(|p| (r.line, p)))
+            .collect();
         assert_eq!(problems.iter().map(|p| p.0).collect::<Vec<_>>(), [5, 6]);
-        assert!(problems[0].1.contains("卖出 80 股超过此前买入的 50 股"), "{}", problems[0].1);
+        assert!(
+            problems[0].1.contains("卖出 80 股超过此前买入的 50 股"),
+            "{}",
+            problems[0].1
+        );
         assert!(problems[1].1.contains("卖出 500 股"));
     }
 
@@ -566,7 +900,11 @@ mod tests {
         let path = db("run");
         // 手机里已记过一笔
         crate::journal::act(&path, &json!({"action": "record", "symbol": "600519", "name": "贵州茅台", "fills": [{"type": "buy", "date": "2026-02-02", "price": 1450.0, "shares": 100.0}]})).unwrap();
-        portfolio::act(&path, &json!({"action": "save", "symbol": "600519", "date": "2026-06-01", "amount": 300.5})).unwrap();
+        portfolio::act(
+            &path,
+            &json!({"action": "save", "symbol": "600519", "date": "2026-06-01", "amount": 300.5}),
+        )
+        .unwrap();
         let csv = "日期,类型,代码,名称,数量,价格,费用,金额
                    2026-02-02,买入,600519,贵州茅台,100,1450,,
                    2026-03-02,买入,000001,平安银行,1000,10,5,
@@ -579,22 +917,63 @@ mod tests {
 ";
         let pv = preview(&path, &json!({"text": csv})).unwrap();
         assert_eq!(pv["summary"]["rows"], 8);
-        assert_eq!((pv["summary"]["importable"].clone(), pv["summary"]["duplicates"].clone(), pv["summary"]["problems"].clone()), (json!(4), json!(2), json!(2)), "{}", pv["summary"]);
+        assert_eq!(
+            (
+                pv["summary"]["importable"].clone(),
+                pv["summary"]["duplicates"].clone(),
+                pv["summary"]["problems"].clone()
+            ),
+            (json!(4), json!(2), json!(2)),
+            "{}",
+            pv["summary"]
+        );
         assert_eq!(pv["rows"][0]["status"], "duplicate");
-        assert_eq!(pv["rows"][4]["status"], "duplicate", "分红同代码同日同金额已记过");
-        assert_eq!(pv["rows"][6]["status"], "problem", "表里重复的分红只导第一行");
-        assert!(pv["rows"][7]["why"].as_str().unwrap().contains("超过此前买入"));
+        assert_eq!(
+            pv["rows"][4]["status"], "duplicate",
+            "分红同代码同日同金额已记过"
+        );
+        assert_eq!(
+            pv["rows"][6]["status"], "problem",
+            "表里重复的分红只导第一行"
+        );
+        assert!(pv["rows"][7]["why"]
+            .as_str()
+            .unwrap()
+            .contains("超过此前买入"));
 
         let done = import(&path, &json!({"text": csv})).unwrap();
-        assert_eq!((done["imported_entries"].clone(), done["imported_fills"].clone(), done["imported_dividends"].clone()), (json!(2), json!(3), json!(1)));
+        assert_eq!(
+            (
+                done["imported_entries"].clone(),
+                done["imported_fills"].clone(),
+                done["imported_dividends"].clone()
+            ),
+            (json!(2), json!(3), json!(1))
+        );
         let v = crate::journal::view(&path).unwrap();
-        assert_eq!(v["rows"].as_array().map(|a| a.len()).unwrap_or(0), 3, "原有 1 + 导入 2 轮");
+        assert_eq!(
+            v["rows"].as_array().map(|a| a.len()).unwrap_or(0),
+            3,
+            "原有 1 + 导入 2 轮"
+        );
         let sum = portfolio::view(&path).unwrap();
-        assert_eq!(sum["totals"]["dividends"], json!(388.5), "300.5 + 新导入的 88");
+        assert_eq!(
+            sum["totals"]["dividends"],
+            json!(388.5),
+            "300.5 + 新导入的 88"
+        );
         // 再导入同一份:全部已记过 / 是问题行,没有可导入的
-        let again = import(&path, &json!({"text": csv})).unwrap_err().to_string();
+        let again = import(&path, &json!({"text": csv}))
+            .unwrap_err()
+            .to_string();
         assert!(again.contains("没有可以导入的行"), "{again}");
-        assert_eq!(crate::journal::view(&path).unwrap()["rows"].as_array().unwrap().len(), 3);
+        assert_eq!(
+            crate::journal::view(&path).unwrap()["rows"]
+                .as_array()
+                .unwrap()
+                .len(),
+            3
+        );
         let _ = std::fs::remove_file(path);
     }
 }

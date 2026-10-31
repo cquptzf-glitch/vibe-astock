@@ -47,7 +47,11 @@ pub fn view(db_path: &Path) -> Result<Value> {
     let conn = open(db_path)?;
     let settings = crate::journal_settings::load(db_path)?;
     let (fees, fees_default) = (settings.fees, settings.fees_default);
-    let settled: std::collections::HashMap<_,_> = crate::journal_risk::load_entries(db_path)?.into_iter().enumerate().map(|(i,e)| (e.id,crate::journal_risk::settle(e,&fees,i))).collect();
+    let settled: std::collections::HashMap<_, _> = crate::journal_risk::load_entries(db_path)?
+        .into_iter()
+        .enumerate()
+        .map(|(i, e)| (e.id, crate::journal_risk::settle(e, &fees, i)))
+        .collect();
     let mut stmt = conn.prepare(
         "SELECT id, kind, symbol, name, date, playbook, as_planned,
                 planned_stop, planned_target, note, pnl_pct, created_at, updated_at
@@ -90,7 +94,12 @@ pub fn view(db_path: &Path) -> Result<Value> {
             Vec::new()
         };
         let mut metrics = metrics(&entry, &fills);
-        if let Some(r) = settled.get(&entry.id) { metrics.realized_pct=r.pnl_pct; metrics.realized_pnl=r.realized_pnl; metrics.closed=r.closed; metrics.open_shares=r.open_shares; }
+        if let Some(r) = settled.get(&entry.id) {
+            metrics.realized_pct = r.pnl_pct;
+            metrics.realized_pnl = r.realized_pnl;
+            metrics.closed = r.closed;
+            metrics.open_shares = r.open_shares;
+        }
         if let Some(pct) = metrics.realized_pct {
             scored += 1;
             if pct > 0.0 {
@@ -205,7 +214,15 @@ pub(crate) fn insert_record_tx(tx: &Transaction<'_>, body: &Value) -> Result<i64
         tx.execute(
             "INSERT INTO journal_fills(entry_id, side, date, price, shares, fee, sort_order)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![id, fill.side, fill.date, fill.price, fill.shares, fill.fee, fill.sort_order],
+            params![
+                id,
+                fill.side,
+                fill.date,
+                fill.price,
+                fill.shares,
+                fill.fee,
+                fill.sort_order
+            ],
         )?;
     }
     Ok(id)
@@ -233,7 +250,10 @@ fn create_manual(db_path: &Path, body: &Value) -> Result<Value> {
 }
 
 fn delete(db_path: &Path, body: &Value) -> Result<Value> {
-    let id = body.get("id").and_then(Value::as_i64).ok_or_else(|| anyhow!("缺少日志 id"))?;
+    let id = body
+        .get("id")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| anyhow!("缺少日志 id"))?;
     let conn = open(db_path)?;
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     let removed = conn.execute("DELETE FROM journal_entries WHERE id = ?1", params![id])? > 0;
@@ -241,12 +261,19 @@ fn delete(db_path: &Path, body: &Value) -> Result<Value> {
 }
 
 fn annotate(db_path: &Path, body: &Value) -> Result<Value> {
-    let id = body.get("id").and_then(Value::as_i64).ok_or_else(|| anyhow!("缺少日志 id"))?;
+    let id = body
+        .get("id")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| anyhow!("缺少日志 id"))?;
     let playbook = playbook(body)?;
     let as_planned = planned(body)?;
     let stop = positive_optional(body.get("planned_stop"), "计划止损价")?;
     let target = positive_optional(body.get("planned_target"), "计划目标价")?;
-    let note = body.get("note").and_then(Value::as_str).unwrap_or("").trim();
+    let note = body
+        .get("note")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
     let now = Utc::now().to_rfc3339();
     let conn = open(db_path)?;
     let changed = conn.execute(
@@ -271,24 +298,48 @@ fn insert_entry(
     pnl_pct: Option<f64>,
     now: &str,
 ) -> Result<i64> {
-    let name = body.get("name").and_then(Value::as_str).unwrap_or("").trim();
+    let name = body
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
     let playbook = playbook(body)?;
     let as_planned = planned(body)?;
     let stop = positive_optional(body.get("planned_stop"), "计划止损价")?;
     let target = positive_optional(body.get("planned_target"), "计划目标价")?;
-    let note = body.get("note").and_then(Value::as_str).unwrap_or("").trim();
+    let note = body
+        .get("note")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
 
     tx.execute(
         "INSERT INTO journal_entries(
              kind, symbol, name, date, playbook, as_planned, planned_stop, planned_target,
              note, pnl_pct, created_at, updated_at
          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
-        params![kind, symbol, name, date, playbook, bool_db(as_planned), stop, target, note, pnl_pct, now],
+        params![
+            kind,
+            symbol,
+            name,
+            date,
+            playbook,
+            bool_db(as_planned),
+            stop,
+            target,
+            note,
+            pnl_pct,
+            now
+        ],
     )?;
     Ok(tx.last_insert_rowid())
 }
 
-fn fills_for(conn: &Connection, entry_id: i64, fees: &crate::journal_settings::Fees) -> Result<Vec<Value>> {
+fn fills_for(
+    conn: &Connection,
+    entry_id: i64,
+    fees: &crate::journal_settings::Fees,
+) -> Result<Vec<Value>> {
     let mut stmt = conn.prepare(
         "SELECT id, side, date, price, shares, fee
          FROM journal_fills WHERE entry_id = ?1 ORDER BY sort_order ASC, id ASC",
@@ -344,14 +395,25 @@ fn metrics(entry: &EntryRaw, fills: &[Value]) -> Metrics {
             sell_shares += shares;
         }
         fees += fill.get("fee").and_then(Value::as_f64).unwrap_or(0.0);
-        any_estimated |= fill.get("fee_estimated").and_then(Value::as_bool).unwrap_or(false);
+        any_estimated |= fill
+            .get("fee_estimated")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
     }
 
     let open_shares = (buy_shares - sell_shares).max(0.0);
     let closed = buy_shares > 0.0 && (buy_shares - sell_shares).abs() < 0.000_001;
-    let realized_pnl = if closed { Some(round2(sell_value - buy_cost - fees)) } else { None };
+    let realized_pnl = if closed {
+        Some(round2(sell_value - buy_cost - fees))
+    } else {
+        None
+    };
     let realized_pct = realized_pnl.and_then(|pnl| {
-        if buy_cost > 0.0 { Some(pnl / buy_cost * 100.0) } else { None }
+        if buy_cost > 0.0 {
+            Some(pnl / buy_cost * 100.0)
+        } else {
+            None
+        }
     });
 
     Metrics {
@@ -359,22 +421,43 @@ fn metrics(entry: &EntryRaw, fills: &[Value]) -> Metrics {
         realized_pnl,
         closed,
         open_shares,
-        amount: if buy_cost > 0.0 { Some(round2(buy_cost)) } else { None },
-        fees: if fills.is_empty() { None } else { Some(round2(fees)) },
-        fees_are_estimated: if fills.is_empty() { None } else { Some(any_estimated) },
+        amount: if buy_cost > 0.0 {
+            Some(round2(buy_cost))
+        } else {
+            None
+        },
+        fees: if fills.is_empty() {
+            None
+        } else {
+            Some(round2(fees))
+        },
+        fees_are_estimated: if fills.is_empty() {
+            None
+        } else {
+            Some(any_estimated)
+        },
     }
 }
 
 fn validate_fill_balance(fills: &[Fill]) -> Result<()> {
     let mut balance = 0.0;
     let mut ordered: Vec<_> = fills.iter().collect();
-    ordered.sort_by(|a,b|a.date.cmp(&b.date).then((a.side!="split").cmp(&(b.side!="split"))).then(a.sort_order.cmp(&b.sort_order)));
+    ordered.sort_by(|a, b| {
+        a.date
+            .cmp(&b.date)
+            .then((a.side != "split").cmp(&(b.side != "split")))
+            .then(a.sort_order.cmp(&b.sort_order))
+    });
     for fill in ordered {
         if fill.side == "split" {
-            if balance <= 0.0 { return Err(anyhow!("送转拆股当时没有持仓")); }
+            if balance <= 0.0 {
+                return Err(anyhow!("送转拆股当时没有持仓"));
+            }
             balance *= fill.price;
         } else if matches!(fill.side.as_str(), "buy" | "opening") {
-            if fill.side=="opening" && balance>0.000_001{return Err(anyhow!("已有持仓不能重复建立期初"));}
+            if fill.side == "opening" && balance > 0.000_001 {
+                return Err(anyhow!("已有持仓不能重复建立期初"));
+            }
             balance += fill.shares;
         } else {
             balance -= fill.shares;
@@ -382,7 +465,9 @@ fn validate_fill_balance(fills: &[Fill]) -> Result<()> {
                 return Err(anyhow!("卖出股数不能超过此前买入股数"));
             }
         }
-        if !balance.is_finite()||balance>1e15{return Err(anyhow!("结转股数超过可计算范围"));}
+        if !balance.is_finite() || balance > 1e15 {
+            return Err(anyhow!("结转股数超过可计算范围"));
+        }
     }
     Ok(())
 }
@@ -395,17 +480,42 @@ fn parse_fill(value: &Value, sort_order: usize) -> Result<Fill> {
     let date = required_date(value.get("date").and_then(Value::as_str).unwrap_or(""))?;
     let price = positive_required(value.get("price"), "成交价")?;
     let shares = positive_required(value.get("shares"), "股数")?;
-    if side == "split" && (shares != 1.0 || !(0.001..=1000.0).contains(&price)) { return Err(anyhow!("送转比例为新股数/原股数，范围 0.001–1000，数量字段必须为 1")); }
-    if matches!(side,"split"|"opening") && optional_number(value.get("fee"),"费用")?.is_some_and(|v|v!=0.0){return Err(anyhow!("期初持仓和送转不产生费用；实际费用请按对应成交记录"));}
-    let fee = if matches!(side,"split"|"opening") { Some(0.0) } else { optional_number(value.get("fee"), "费用")? };
+    if side == "split" && (shares != 1.0 || !(0.001..=1000.0).contains(&price)) {
+        return Err(anyhow!(
+            "送转比例为新股数/原股数，范围 0.001–1000，数量字段必须为 1"
+        ));
+    }
+    if matches!(side, "split" | "opening")
+        && optional_number(value.get("fee"), "费用")?.is_some_and(|v| v != 0.0)
+    {
+        return Err(anyhow!(
+            "期初持仓和送转不产生费用；实际费用请按对应成交记录"
+        ));
+    }
+    let fee = if matches!(side, "split" | "opening") {
+        Some(0.0)
+    } else {
+        optional_number(value.get("fee"), "费用")?
+    };
     if fee.is_some_and(|v| v < 0.0) {
         return Err(anyhow!("费用不能是负数"));
     }
-    Ok(Fill { side: side.to_string(), date, price, shares, fee, sort_order: sort_order as i64 })
+    Ok(Fill {
+        side: side.to_string(),
+        date,
+        price,
+        shares,
+        fee,
+        sort_order: sort_order as i64,
+    })
 }
 
 fn symbol(body: &Value) -> Result<String> {
-    let value = body.get("symbol").and_then(Value::as_str).unwrap_or("").trim();
+    let value = body
+        .get("symbol")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
     if value.is_empty() {
         return Err(anyhow!("股票代码不能为空"));
     }
@@ -415,7 +525,11 @@ fn symbol(body: &Value) -> Result<String> {
 }
 
 fn playbook(body: &Value) -> Result<Option<String>> {
-    let value = body.get("playbook").and_then(Value::as_str).unwrap_or("").trim();
+    let value = body
+        .get("playbook")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
     if value.is_empty() {
         return Ok(None);
     }
@@ -444,9 +558,16 @@ fn required_date(value: &str) -> Result<String> {
 fn optional_number(value: Option<&Value>, label: &str) -> Result<Option<f64>> {
     match value {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::Number(v)) => v.as_f64().map(Some).ok_or_else(|| anyhow!("{label} 要是数字")),
+        Some(Value::Number(v)) => v
+            .as_f64()
+            .map(Some)
+            .ok_or_else(|| anyhow!("{label} 要是数字")),
         Some(Value::String(v)) if v.trim().is_empty() => Ok(None),
-        Some(Value::String(v)) => v.trim().parse::<f64>().map(Some).map_err(|_| anyhow!("{label} 要是数字")),
+        Some(Value::String(v)) => v
+            .trim()
+            .parse::<f64>()
+            .map(Some)
+            .map_err(|_| anyhow!("{label} 要是数字")),
         _ => Err(anyhow!("{label} 要是数字")),
     }
 }

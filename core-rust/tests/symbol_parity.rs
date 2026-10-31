@@ -27,10 +27,8 @@ struct Expected {
 
 #[test]
 fn legacy_symbol_contract_is_frozen() {
-    let fixture: Fixture = serde_json::from_str(include_str!(
-        "fixtures/legacy_symbol_parity.json"
-    ))
-    .unwrap();
+    let fixture: Fixture =
+        serde_json::from_str(include_str!("fixtures/legacy_symbol_parity.json")).unwrap();
 
     assert_eq!(
         fixture.legacy_source,
@@ -52,10 +50,11 @@ fn legacy_symbol_contract_is_frozen() {
             continue;
         }
 
-        let actual = result.unwrap_or_else(|error| {
-            panic!("legacy parity case {:?} failed: {error}", case.input)
-        });
-        let expected = case.expected.expect("valid parity case needs expected result");
+        let actual = result
+            .unwrap_or_else(|error| panic!("legacy parity case {:?} failed: {error}", case.input));
+        let expected = case
+            .expected
+            .expect("valid parity case needs expected result");
         assert_eq!(actual.digits, expected.digits, "digits for {}", case.input);
         assert_eq!(
             actual.market.as_str(),
@@ -68,7 +67,11 @@ fn legacy_symbol_contract_is_frozen() {
             "normalized for {}",
             case.input
         );
-        assert_eq!(actual.tencent, expected.tencent, "Tencent code for {}", case.input);
+        assert_eq!(
+            actual.tencent, expected.tencent,
+            "Tencent code for {}",
+            case.input
+        );
         assert_eq!(
             actual.eastmoney, expected.eastmoney,
             "EastMoney secid for {}",

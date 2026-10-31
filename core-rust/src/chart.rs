@@ -118,7 +118,9 @@ fn clean(rows: Vec<Bar>) -> (Vec<Bar>, usize) {
 pub(crate) fn parse_em_kline(root: &Value, key: &SymbolKey) -> Result<(Vec<Bar>, usize, String)> {
     let data = crate::stock_context::provider_data(root, key)?;
     let name = data["name"].as_str().unwrap_or("").to_string();
-    let lines = data["klines"].as_array().ok_or_else(|| anyhow!("东财 K 线缺少 klines"))?;
+    let lines = data["klines"]
+        .as_array()
+        .ok_or_else(|| anyhow!("东财 K 线缺少 klines"))?;
     let rows: Vec<Bar> = lines
         .iter()
         .filter_map(Value::as_str)
@@ -127,8 +129,16 @@ pub(crate) fn parse_em_kline(root: &Value, key: &SymbolKey) -> Result<(Vec<Bar>,
             if f.len() < 7 {
                 return None;
             }
-            Some((f[0].to_string(), num(f.get(1).copied())?, num(f.get(2).copied())?, num(f.get(3).copied())?, num(f.get(4).copied())?,
-                num(f.get(5).copied())?, num(f.get(6).copied()), num(f.get(10).copied())))
+            Some((
+                f[0].to_string(),
+                num(f.get(1).copied())?,
+                num(f.get(2).copied())?,
+                num(f.get(3).copied())?,
+                num(f.get(4).copied())?,
+                num(f.get(5).copied())?,
+                num(f.get(6).copied()),
+                num(f.get(10).copied()),
+            ))
         })
         .collect();
     let parsed = rows.len();
@@ -139,25 +149,55 @@ pub(crate) fn parse_em_kline(root: &Value, key: &SymbolKey) -> Result<(Vec<Bar>,
 fn tencent_time(raw: &str) -> String {
     // 202610161500 → 2026-10-16 15:00;日期原样
     if raw.len() == 12 && raw.chars().all(|c| c.is_ascii_digit()) {
-        format!("{}-{}-{} {}:{}", &raw[0..4], &raw[4..6], &raw[6..8], &raw[8..10], &raw[10..12])
+        format!(
+            "{}-{}-{} {}:{}",
+            &raw[0..4],
+            &raw[4..6],
+            &raw[6..8],
+            &raw[8..10],
+            &raw[10..12]
+        )
     } else {
         raw.to_string()
     }
 }
 
-pub(crate) fn parse_tencent_kline(root: &Value, key: &SymbolKey, field: &str) -> Result<(Vec<Bar>, usize, String)> {
+pub(crate) fn parse_tencent_kline(
+    root: &Value,
+    key: &SymbolKey,
+    field: &str,
+) -> Result<(Vec<Bar>, usize, String)> {
     if root["code"].as_i64().is_some_and(|c| c != 0) {
         return Err(anyhow!("腾讯 K 线返回错误"));
     }
     let item = &root["data"][&key.tencent];
-    let lines = item[field].as_array().ok_or_else(|| anyhow!("腾讯 K 线缺少 {field}"))?;
-    let name = item["qt"][&key.tencent].get(1).and_then(Value::as_str).unwrap_or("").to_string();
+    let lines = item[field]
+        .as_array()
+        .ok_or_else(|| anyhow!("腾讯 K 线缺少 {field}"))?;
+    let name = item["qt"][&key.tencent]
+        .get(1)
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let rows: Vec<Bar> = lines
         .iter()
         .filter_map(Value::as_array)
         .filter_map(|r| {
             let s = |i: usize| r.get(i).and_then(Value::as_str);
-            Some((tencent_time(s(0)?), num(s(1))?, num(s(2))?, num(s(3))?, num(s(4))?, num(s(5))?, None, if field.starts_with('m') { num(s(7)) } else { None }))
+            Some((
+                tencent_time(s(0)?),
+                num(s(1))?,
+                num(s(2))?,
+                num(s(3))?,
+                num(s(4))?,
+                num(s(5))?,
+                None,
+                if field.starts_with('m') {
+                    num(s(7))
+                } else {
+                    None
+                },
+            ))
         })
         .collect();
     let parsed = rows.len();
@@ -165,94 +205,236 @@ pub(crate) fn parse_tencent_kline(root: &Value, key: &SymbolKey, field: &str) ->
     Ok((rows, dropped + (lines.len() - parsed), name))
 }
 
-async fn em_kline(client: &Client, key: &SymbolKey, period: Period, qfq: bool, limit: usize) -> Result<(Vec<Bar>, usize, String)> {
-    let root = get_json(client, "https://push2his.eastmoney.com/api/qt/stock/kline/get", &[
-        ("secid", key.eastmoney.clone()), ("klt", period.klt().into()), ("fqt", if qfq { "1" } else { "0" }.into()),
-        ("lmt", limit.to_string()), ("end", "20500101".into()), ("fields1", "f1,f2,f3".into()),
-        ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61".into()),
-    ]).await?;
+async fn em_kline(
+    client: &Client,
+    key: &SymbolKey,
+    period: Period,
+    qfq: bool,
+    limit: usize,
+) -> Result<(Vec<Bar>, usize, String)> {
+    let root = get_json(
+        client,
+        "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+        &[
+            ("secid", key.eastmoney.clone()),
+            ("klt", period.klt().into()),
+            ("fqt", if qfq { "1" } else { "0" }.into()),
+            ("lmt", limit.to_string()),
+            ("end", "20500101".into()),
+            ("fields1", "f1,f2,f3".into()),
+            (
+                "fields2",
+                "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61".into(),
+            ),
+        ],
+    )
+    .await?;
     parse_em_kline(&root, key)
 }
 
-async fn tencent_kline(client: &Client, key: &SymbolKey, period: Period, qfq: bool, limit: usize) -> Result<(Vec<Bar>, usize, String)> {
+async fn tencent_kline(
+    client: &Client,
+    key: &SymbolKey,
+    period: Period,
+    qfq: bool,
+    limit: usize,
+) -> Result<(Vec<Bar>, usize, String)> {
     if period.is_minute() {
-        let root = get_json(client, "https://ifzq.gtimg.cn/appstock/app/kline/mkline", &[("param", format!("{},{},,{}", key.tencent, period.key(), limit.min(320)))]).await?;
+        let root = get_json(
+            client,
+            "https://ifzq.gtimg.cn/appstock/app/kline/mkline",
+            &[(
+                "param",
+                format!("{},{},,{}", key.tencent, period.key(), limit.min(320)),
+            )],
+        )
+        .await?;
         parse_tencent_kline(&root, key, period.key())
     } else {
         let adjust = if qfq { "qfq" } else { "" };
-        let root = get_json(client, "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get", &[("param", format!("{},{},,,{},{adjust}", key.tencent, period.key(), limit))]).await?;
+        let root = get_json(
+            client,
+            "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
+            &[(
+                "param",
+                format!("{},{},,,{},{adjust}", key.tencent, period.key(), limit),
+            )],
+        )
+        .await?;
         let field = format!("{adjust}{}", period.key());
         // 腾讯不复权或停牌股有时只给 day 字段
-        parse_tencent_kline(&root, key, &field).or_else(|_| parse_tencent_kline(&root, key, period.key()))
+        parse_tencent_kline(&root, key, &field)
+            .or_else(|_| parse_tencent_kline(&root, key, period.key()))
     }
 }
 
 /// 日线收盘价(东财为主、腾讯兜底;qfq = 前复权)。组合收益、持仓体检共用:只要日期和收盘价,不补值
-pub(crate) async fn day_closes(client: &Client, key: &SymbolKey, qfq: bool, limit: usize) -> Result<Vec<(String, f64)>> {
+pub(crate) async fn day_closes(
+    client: &Client,
+    key: &SymbolKey,
+    qfq: bool,
+    limit: usize,
+) -> Result<Vec<(String, f64)>> {
     let rows = match em_kline(client, key, Period::Day, qfq, limit).await {
         Ok(v) if !v.0.is_empty() => v.0,
         _ => tencent_kline(client, key, Period::Day, qfq, limit).await?.0,
     };
-    Ok(rows.into_iter().filter(|b| b.0.len() >= 10).map(|b| (b.0[..10].to_string(), b.2)).collect())
+    Ok(rows
+        .into_iter()
+        .filter(|b| b.0.len() >= 10)
+        .map(|b| (b.0[..10].to_string(), b.2))
+        .collect())
 }
 
 /// Backtest fallback uses the same OHLC parser as the chart, never close-as-open.
-pub(crate) async fn backtest_fallback(client:&Client,key:&SymbolKey,limit:usize)->Result<Vec<Value>>{
-    let (rows,dropped,_)=tencent_kline(client,key,Period::Day,true,limit).await?;
-    if dropped>0{return Err(anyhow!("腾讯回测日线有 {dropped} 行不合格,拒绝悄悄删行"));}
-    if rows.is_empty(){return Err(anyhow!("腾讯回测日线为空"));}
-    Ok(rows.iter().map(|r|json!([r.0,r.1,r.2,r.3,r.4,r.5])).collect())
+pub(crate) async fn backtest_fallback(
+    client: &Client,
+    key: &SymbolKey,
+    limit: usize,
+) -> Result<Vec<Value>> {
+    let (rows, dropped, _) = tencent_kline(client, key, Period::Day, true, limit).await?;
+    if dropped > 0 {
+        return Err(anyhow!("腾讯回测日线有 {dropped} 行不合格,拒绝悄悄删行"));
+    }
+    if rows.is_empty() {
+        return Err(anyhow!("腾讯回测日线为空"));
+    }
+    Ok(rows
+        .iter()
+        .map(|r| json!([r.0, r.1, r.2, r.3, r.4, r.5]))
+        .collect())
 }
 
 /// 指数日线收盘价(东财 secid 如 "1.000300";不复权)。只要日期和收盘价
-pub(crate) async fn index_closes(client: &Client, secid: &str, limit: usize) -> Result<Vec<(String, f64)>> {
-    match index_closes_primary(client,secid,limit).await {
-        Ok(rows) if rows.len()>=2=>Ok(rows),
-        primary=>{
-            let token=match secid {"1.000300"=>"sh000300","1.000001"=>"sh000001","0.399001"=>"sz399001","0.399006"=>"sz399006",_=>return primary};
-            let args=[("param",format!("{token},day,,,{limit},qfq"))];
-            let root=get_json(client,"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",&args).await?;
-            let raw=root["data"][token]["day"].as_array().ok_or_else(||anyhow!("腾讯指数备源缺少日线；主源也未取得有效数据"))?;
-            let rows:Vec<_>=raw.iter().filter_map(|r|{let d=r[0].as_str()?;chrono::NaiveDate::parse_from_str(d,"%Y-%m-%d").ok()?;let p=r[2].as_f64().or_else(||r[2].as_str()?.parse::<f64>().ok())?.is_finite().then(||r[2].as_f64().or_else(||r[2].as_str()?.parse::<f64>().ok())).flatten()?;if p<=0.0{return None;}Some((d.to_string(),p))}).collect();
-            if rows.len()!=raw.len()||rows.len()<2||rows.windows(2).any(|w|w[0].0>=w[1].0){return Err(anyhow!("腾讯指数备源存在无效或乱序日线"));}Ok(rows)
+pub(crate) async fn index_closes(
+    client: &Client,
+    secid: &str,
+    limit: usize,
+) -> Result<Vec<(String, f64)>> {
+    match index_closes_primary(client, secid, limit).await {
+        Ok(rows) if rows.len() >= 2 => Ok(rows),
+        primary => {
+            let token = match secid {
+                "1.000300" => "sh000300",
+                "1.000001" => "sh000001",
+                "0.399001" => "sz399001",
+                "0.399006" => "sz399006",
+                _ => return primary,
+            };
+            let args = [("param", format!("{token},day,,,{limit},qfq"))];
+            let root = get_json(
+                client,
+                "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
+                &args,
+            )
+            .await?;
+            let raw = root["data"][token]["day"]
+                .as_array()
+                .ok_or_else(|| anyhow!("腾讯指数备源缺少日线；主源也未取得有效数据"))?;
+            let rows: Vec<_> = raw
+                .iter()
+                .filter_map(|r| {
+                    let d = r[0].as_str()?;
+                    chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()?;
+                    let p = r[2]
+                        .as_f64()
+                        .or_else(|| r[2].as_str()?.parse::<f64>().ok())?
+                        .is_finite()
+                        .then(|| r[2].as_f64().or_else(|| r[2].as_str()?.parse::<f64>().ok()))
+                        .flatten()?;
+                    if p <= 0.0 {
+                        return None;
+                    }
+                    Some((d.to_string(), p))
+                })
+                .collect();
+            if rows.len() != raw.len()
+                || rows.len() < 2
+                || rows.windows(2).any(|w| w[0].0 >= w[1].0)
+            {
+                return Err(anyhow!("腾讯指数备源存在无效或乱序日线"));
+            }
+            Ok(rows)
         }
     }
 }
 
-async fn index_closes_primary(client: &Client, secid: &str, limit: usize) -> Result<Vec<(String, f64)>> {
-    let root = get_json(client, "https://push2his.eastmoney.com/api/qt/stock/kline/get", &[
-        ("secid", secid.to_string()), ("klt", "101".into()), ("fqt", "0".into()), ("lmt", limit.to_string()), ("end", "20500101".into()),
-        ("fields1", "f1,f2,f3".into()), ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61".into()),
-    ]).await?;
-    let lines = root["data"]["klines"].as_array().ok_or_else(|| anyhow!("东财指数 K 线缺少 klines"))?;
-    Ok(lines.iter().filter_map(Value::as_str).filter_map(|line| {
-        let f: Vec<&str> = line.split(',').collect();
-        Some((f.first()?.get(..10)?.to_string(), num(f.get(2).copied())?))
-    }).collect())
+async fn index_closes_primary(
+    client: &Client,
+    secid: &str,
+    limit: usize,
+) -> Result<Vec<(String, f64)>> {
+    let root = get_json(
+        client,
+        "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+        &[
+            ("secid", secid.to_string()),
+            ("klt", "101".into()),
+            ("fqt", "0".into()),
+            ("lmt", limit.to_string()),
+            ("end", "20500101".into()),
+            ("fields1", "f1,f2,f3".into()),
+            (
+                "fields2",
+                "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61".into(),
+            ),
+        ],
+    )
+    .await?;
+    let lines = root["data"]["klines"]
+        .as_array()
+        .ok_or_else(|| anyhow!("东财指数 K 线缺少 klines"))?;
+    Ok(lines
+        .iter()
+        .filter_map(Value::as_str)
+        .filter_map(|line| {
+            let f: Vec<&str> = line.split(',').collect();
+            Some((f.first()?.get(..10)?.to_string(), num(f.get(2).copied())?))
+        })
+        .collect())
 }
 
 pub async fn kline(client: &Client, path: &str) -> Result<Value, DiscoveryError> {
     let key = symbol_param(path)?;
-    let period = Period::parse(&discovery::parameter(path, "period").unwrap_or_else(|| "day".into()))
-        .ok_or_else(|| DiscoveryError::BadRequest("period 只能是 day / week / month / m60 / m30 / m15 / m5".into()))?;
+    let period =
+        Period::parse(&discovery::parameter(path, "period").unwrap_or_else(|| "day".into()))
+            .ok_or_else(|| {
+                DiscoveryError::BadRequest(
+                    "period 只能是 day / week / month / m60 / m30 / m15 / m5".into(),
+                )
+            })?;
     let qfq = match discovery::parameter(path, "adjust").as_deref() {
         None | Some("qfq") => true,
         Some("none") => false,
-        Some(_) => return Err(DiscoveryError::BadRequest("adjust 只能是 qfq 或 none".into())),
+        Some(_) => {
+            return Err(DiscoveryError::BadRequest(
+                "adjust 只能是 qfq 或 none".into(),
+            ))
+        }
     };
     let limit = discovery::integer(path, "limit", 300, 30, 800)?;
     let (result, source, fallback) = match em_kline(client, &key, period, qfq, limit).await {
         Ok(v) if !v.0.is_empty() => (Ok(v), "eastmoney", None),
         primary => {
-            let why = match &primary { Err(e) => crate::emotion::error_message("东财 K 线", e), Ok(_) => "东财 K 线为空".to_string() };
-            (tencent_kline(client, &key, period, qfq, limit).await, "tencent", Some(why))
+            let why = match &primary {
+                Err(e) => crate::emotion::error_message("东财 K 线", e),
+                Ok(_) => "东财 K 线为空".to_string(),
+            };
+            (
+                tencent_kline(client, &key, period, qfq, limit).await,
+                "tencent",
+                Some(why),
+            )
         }
     };
     let (rows, dropped, name) = result.map_err(DiscoveryError::Upstream)?;
     if rows.is_empty() {
         return Ok(json!({"status": "failed", "message": "两个数据源都没有返回 K 线"}));
     }
-    let today = Utc::now().with_timezone(&china()).format("%Y-%m-%d").to_string();
+    let today = Utc::now()
+        .with_timezone(&china())
+        .format("%Y-%m-%d")
+        .to_string();
     let last = rows.last().map(|r| r.0.clone()).unwrap_or_default();
     Ok(json!({
         "status": if dropped > 0 || fallback.is_some() { "partial" } else { "ok" },
@@ -297,14 +479,22 @@ pub(crate) fn parse_tencent_minutes(lines: &[Value]) -> Vec<Minute> {
         if f.len() < 4 || f[0].len() != 4 || f[0] > "1500" {
             continue;
         }
-        let (Some(price), Some(cum_vol), Some(cum_amt)) = (num(Some(f[1])), num(Some(f[2])), num(Some(f[3]))) else { continue };
+        let (Some(price), Some(cum_vol), Some(cum_amt)) =
+            (num(Some(f[1])), num(Some(f[2])), num(Some(f[3])))
+        else {
+            continue;
+        };
         if price <= 0.0 || cum_vol < prev_vol {
             continue;
         }
         out.push(Minute {
             time: format!("{}:{}", &f[0][0..2], &f[0][2..4]),
             price,
-            avg: if cum_vol > 0.0 { Some(crate::emotion::r3(cum_amt / (cum_vol * 100.0))) } else { None },
+            avg: if cum_vol > 0.0 {
+                Some(crate::emotion::r3(cum_amt / (cum_vol * 100.0)))
+            } else {
+                None
+            },
             volume: cum_vol - prev_vol,
             amount: cum_amt - prev_amt,
         });
@@ -315,17 +505,28 @@ pub(crate) fn parse_tencent_minutes(lines: &[Value]) -> Vec<Minute> {
 }
 
 /// 东财 trends2:"YYYY-MM-DD HH:MM,开,收,高,低,量,额,均价",按日期分组。
-pub(crate) fn parse_em_trends(root: &Value, key: &SymbolKey) -> Result<Vec<(String, Option<f64>, Vec<Minute>)>> {
+type MinuteDay = (String, Option<f64>, Vec<Minute>);
+
+pub(crate) fn parse_em_trends(root: &Value, key: &SymbolKey) -> Result<Vec<MinuteDay>> {
     let data = crate::stock_context::provider_data(root, key)?;
-    let lines = data["trends"].as_array().ok_or_else(|| anyhow!("东财分时缺少 trends"))?;
+    let lines = data["trends"]
+        .as_array()
+        .ok_or_else(|| anyhow!("东财分时缺少 trends"))?;
     let mut days: Vec<(String, Option<f64>, Vec<Minute>)> = Vec::new();
     for line in lines.iter().filter_map(Value::as_str) {
         let f: Vec<&str> = line.split(',').collect();
         if f.len() < 8 {
             continue;
         }
-        let (date, time) = match f[0].split_once(' ') { Some(x) => x, None => continue };
-        let (Some(price), Some(vol), Some(amt)) = (num(Some(f[2])), num(Some(f[5])), num(Some(f[6]))) else { continue };
+        let (date, time) = match f[0].split_once(' ') {
+            Some(x) => x,
+            None => continue,
+        };
+        let (Some(price), Some(vol), Some(amt)) =
+            (num(Some(f[2])), num(Some(f[5])), num(Some(f[6])))
+        else {
+            continue;
+        };
         if price <= 0.0 || time > "15:00" {
             continue;
         }
@@ -333,7 +534,13 @@ pub(crate) fn parse_em_trends(root: &Value, key: &SymbolKey) -> Result<Vec<(Stri
             let pre = days.last().and_then(|d| d.2.last()).map(|p| p.price);
             days.push((date.to_string(), pre, Vec::new()));
         }
-        days.last_mut().unwrap().2.push(Minute { time: time.to_string(), price, avg: num(Some(f[7])).filter(|v| *v > 0.0), volume: vol, amount: amt });
+        days.last_mut().unwrap().2.push(Minute {
+            time: time.to_string(),
+            price,
+            avg: num(Some(f[7])).filter(|v| *v > 0.0),
+            volume: vol,
+            amount: amt,
+        });
     }
     if let Some(first) = days.first_mut() {
         first.1 = data["preClose"].as_f64().filter(|v| *v > 0.0).or(first.1);
@@ -349,39 +556,106 @@ pub async fn intraday(client: &Client, path: &str) -> Result<Value, DiscoveryErr
     }
     let tencent: Result<Vec<Value>> = async {
         if days == 1 {
-            let root = get_json(client, "https://web.ifzq.gtimg.cn/appstock/app/minute/query", &[("code", key.tencent.clone())]).await?;
+            let root = get_json(
+                client,
+                "https://web.ifzq.gtimg.cn/appstock/app/minute/query",
+                &[("code", key.tencent.clone())],
+            )
+            .await?;
             let item = &root["data"][&key.tencent];
             let raw_date = item["data"]["date"].as_str().unwrap_or("");
-            let date = if raw_date.len() == 8 { format!("{}-{}-{}", &raw_date[0..4], &raw_date[4..6], &raw_date[6..8]) } else { raw_date.to_string() };
-            let pre = item["qt"][&key.tencent].get(4).and_then(Value::as_str).and_then(|s| num(Some(s)));
-            let points = parse_tencent_minutes(item["data"]["data"].as_array().map(Vec::as_slice).unwrap_or(&[]));
-            if points.is_empty() { return Err(anyhow!("腾讯分时为空")); }
+            let date = if raw_date.len() == 8 {
+                format!(
+                    "{}-{}-{}",
+                    &raw_date[0..4],
+                    &raw_date[4..6],
+                    &raw_date[6..8]
+                )
+            } else {
+                raw_date.to_string()
+            };
+            let pre = item["qt"][&key.tencent]
+                .get(4)
+                .and_then(Value::as_str)
+                .and_then(|s| num(Some(s)));
+            let points = parse_tencent_minutes(
+                item["data"]["data"]
+                    .as_array()
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]),
+            );
+            if points.is_empty() {
+                return Err(anyhow!("腾讯分时为空"));
+            }
             Ok(vec![day_view(&date, pre, &points)])
         } else {
-            let root = get_json(client, "https://web.ifzq.gtimg.cn/appstock/app/day/query", &[("code", key.tencent.clone())]).await?;
-            let list = root["data"][&key.tencent]["data"].as_array().cloned().ok_or_else(|| anyhow!("腾讯五日分时缺少数据"))?;
-            let mut out: Vec<Value> = list.iter().rev().filter_map(|d| {
-                let raw = d["date"].as_str()?;
-                let date = if raw.len() == 8 { format!("{}-{}-{}", &raw[0..4], &raw[4..6], &raw[6..8]) } else { raw.to_string() };
-                let pre = d["prec"].as_str().and_then(|s| num(Some(s))).or_else(|| d["prec"].as_f64());
-                let points = parse_tencent_minutes(d["data"].as_array().map(Vec::as_slice).unwrap_or(&[]));
-                (!points.is_empty()).then(|| day_view(&date, pre, &points))
-            }).collect();
-            if out.is_empty() { return Err(anyhow!("腾讯五日分时为空")); }
+            let root = get_json(
+                client,
+                "https://web.ifzq.gtimg.cn/appstock/app/day/query",
+                &[("code", key.tencent.clone())],
+            )
+            .await?;
+            let list = root["data"][&key.tencent]["data"]
+                .as_array()
+                .cloned()
+                .ok_or_else(|| anyhow!("腾讯五日分时缺少数据"))?;
+            let mut out: Vec<Value> = list
+                .iter()
+                .rev()
+                .filter_map(|d| {
+                    let raw = d["date"].as_str()?;
+                    let date = if raw.len() == 8 {
+                        format!("{}-{}-{}", &raw[0..4], &raw[4..6], &raw[6..8])
+                    } else {
+                        raw.to_string()
+                    };
+                    let pre = d["prec"]
+                        .as_str()
+                        .and_then(|s| num(Some(s)))
+                        .or_else(|| d["prec"].as_f64());
+                    let points = parse_tencent_minutes(
+                        d["data"].as_array().map(Vec::as_slice).unwrap_or(&[]),
+                    );
+                    (!points.is_empty()).then(|| day_view(&date, pre, &points))
+                })
+                .collect();
+            if out.is_empty() {
+                return Err(anyhow!("腾讯五日分时为空"));
+            }
             out.truncate(5);
             Ok(out)
         }
-    }.await;
+    }
+    .await;
     let (list, source, fallback) = match tencent {
         Ok(list) => (list, "tencent", None),
         Err(e) => {
             let why = crate::emotion::error_message("腾讯分时", &e);
-            let root = get_json(client, "https://push2his.eastmoney.com/api/qt/stock/trends2/get", &[
-                ("secid", key.eastmoney.clone()), ("fields1", "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13".into()),
-                ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58".into()), ("ndays", days.to_string()), ("iscr", "0".into()),
-            ]).await.map_err(DiscoveryError::Upstream)?;
+            let root = get_json(
+                client,
+                "https://push2his.eastmoney.com/api/qt/stock/trends2/get",
+                &[
+                    ("secid", key.eastmoney.clone()),
+                    (
+                        "fields1",
+                        "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13".into(),
+                    ),
+                    ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58".into()),
+                    ("ndays", days.to_string()),
+                    ("iscr", "0".into()),
+                ],
+            )
+            .await
+            .map_err(DiscoveryError::Upstream)?;
             let parsed = parse_em_trends(&root, &key).map_err(DiscoveryError::Upstream)?;
-            (parsed.iter().map(|(d, p, pts)| day_view(d, *p, pts)).collect(), "eastmoney", Some(why))
+            (
+                parsed
+                    .iter()
+                    .map(|(d, p, pts)| day_view(d, *p, pts))
+                    .collect(),
+                "eastmoney",
+                Some(why),
+            )
         }
     };
     Ok(json!({
@@ -395,15 +669,25 @@ pub async fn intraday(client: &Client, path: &str) -> Result<Value, DiscoveryErr
 // ---------------------------------------------------------------- 快照
 
 pub(crate) fn parse_tencent_snapshot(text: &str, key: &SymbolKey, today: &str) -> Result<Value> {
-    let payload = text.split('"').nth(1).ok_or_else(|| anyhow!("腾讯返回无载荷"))?;
+    let payload = text
+        .split('"')
+        .nth(1)
+        .ok_or_else(|| anyhow!("腾讯返回无载荷"))?;
     let f: Vec<&str> = payload.split('~').collect();
-    if f.len() < 53 || f.get(2).copied() != Some(key.digits.as_str()) || num(f.get(3).copied()).is_none() {
+    if f.len() < 53
+        || f.get(2).copied() != Some(key.digits.as_str())
+        || num(f.get(3).copied()).is_none()
+    {
         return Err(anyhow!("腾讯快照字段不足或代码不匹配"));
     }
     let n = |i: usize| num(f.get(i).copied());
     let level = |i: usize| json!({"price": n(i), "volume": n(i + 1)});
     let time = f.get(30).copied().unwrap_or("");
-    let date = if time.len() >= 8 { format!("{}-{}-{}", &time[0..4], &time[4..6], &time[6..8]) } else { String::new() };
+    let date = if time.len() >= 8 {
+        format!("{}-{}-{}", &time[0..4], &time[4..6], &time[6..8])
+    } else {
+        String::new()
+    };
     Ok(json!({
         "name": f[1], "price": n(3), "prev_close": n(4), "open": n(5), "volume_lots": n(6),
         "outer_lots": n(7), "inner_lots": n(8),
@@ -425,7 +709,10 @@ pub(crate) fn parse_em_snapshot(root: &Value, key: &SymbolKey, today: &str) -> R
         return Err(anyhow!("东财快照代码不匹配"));
     }
     let n = |k: &str| d[k].as_f64().filter(|v| v.is_finite());
-    let ts = d["f86"].as_i64().and_then(|t| DateTime::from_timestamp(t, 0)).map(|t| t.with_timezone(&china()));
+    let ts = d["f86"]
+        .as_i64()
+        .and_then(|t| DateTime::from_timestamp(t, 0))
+        .map(|t| t.with_timezone(&china()));
     Ok(json!({
         "name": d["f58"], "price": n("f43"), "prev_close": n("f60"), "open": n("f46"), "volume_lots": n("f47"),
         "outer_lots": n("f49"), "inner_lots": n("f161"), "bids": [], "asks": [],
@@ -441,12 +728,23 @@ pub(crate) fn parse_em_snapshot(root: &Value, key: &SymbolKey, today: &str) -> R
 
 pub async fn snapshot(client: &Client, path: &str) -> Result<Value, DiscoveryError> {
     let key = symbol_param(path)?;
-    let today = Utc::now().with_timezone(&china()).format("%Y-%m-%d").to_string();
+    let today = Utc::now()
+        .with_timezone(&china())
+        .format("%Y-%m-%d")
+        .to_string();
     let tencent: Result<Value> = async {
-        let bytes = client.get(format!("https://qt.gtimg.cn/q={}", key.tencent)).timeout(Duration::from_secs(8)).send().await?.error_for_status()?.bytes().await?;
+        let bytes = client
+            .get(format!("https://qt.gtimg.cn/q={}", key.tencent))
+            .timeout(Duration::from_secs(8))
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
         let (decoded, _, _) = GBK.decode(&bytes);
         parse_tencent_snapshot(&decoded, &key, &today)
-    }.await;
+    }
+    .await;
     let (mut body, source, fallback) = match tencent {
         Ok(v) => (v, "tencent", None),
         Err(e) => {
@@ -455,7 +753,11 @@ pub async fn snapshot(client: &Client, path: &str) -> Result<Value, DiscoveryErr
                 ("secid", key.eastmoney.clone()), ("fltt", "2".into()), ("invt", "2".into()),
                 ("fields", "f43,f44,f45,f46,f47,f48,f49,f50,f51,f52,f57,f58,f60,f71,f86,f116,f117,f161,f162,f167,f168,f169,f170,f171,f191".into()),
             ]).await.map_err(DiscoveryError::Upstream)?;
-            (parse_em_snapshot(&root, &key, &today).map_err(DiscoveryError::Upstream)?, "eastmoney", Some(why))
+            (
+                parse_em_snapshot(&root, &key, &today).map_err(DiscoveryError::Upstream)?,
+                "eastmoney",
+                Some(why),
+            )
         }
     };
     body["status"] = json!(if fallback.is_some() { "partial" } else { "ok" });
@@ -508,7 +810,12 @@ mod tests {
 
     #[test]
     fn tencent_minutes_turn_cumulative_into_per_minute_and_average_price() {
-        let lines = vec![json!("0930 1311.57 335 43937595.00"), json!("0931 1303.18 1552 203058136.71"), json!("1500 1329.00 38502 5075528306.00"), json!("1530 1329.00 38522 5078219262.62")];
+        let lines = vec![
+            json!("0930 1311.57 335 43937595.00"),
+            json!("0931 1303.18 1552 203058136.71"),
+            json!("1500 1329.00 38502 5075528306.00"),
+            json!("1530 1329.00 38522 5078219262.62"),
+        ];
         let pts = parse_tencent_minutes(&lines);
         assert_eq!(pts.len(), 3, "after-hours fixed-price row is not drawn");
         assert_eq!(pts[0].avg, Some(1311.57));
@@ -535,10 +842,40 @@ mod tests {
     fn tencent_snapshot_maps_order_book_limits_and_units() {
         let mut f: Vec<String> = (0..88).map(|_| String::new()).collect();
         let set = |f: &mut Vec<String>, i: usize, v: &str| f[i] = v.to_string();
-        for (i, v) in [(0, "1"), (1, "贵州茅台"), (2, "600519"), (3, "1329.00"), (4, "1312.97"), (5, "1311.57"), (6, "38502"), (7, "21136"), (8, "17365"),
-            (9, "1328.58"), (10, "1"), (19, "1329.00"), (20, "54"), (30, "20261016161447"), (31, "16.03"), (32, "1.22"), (33, "1329.88"), (34, "1301.68"),
-            (37, "507553"), (38, "0.31"), (39, "20.40"), (43, "2.15"), (44, "16613.58"), (45, "16613.58"), (46, "6.61"), (47, "1444.27"), (48, "1181.67"),
-            (49, "1.10"), (51, "1318.26"), (52, "18.66"), (53, "20.18"), (74, "-83.10")] {
+        for (i, v) in [
+            (0, "1"),
+            (1, "贵州茅台"),
+            (2, "600519"),
+            (3, "1329.00"),
+            (4, "1312.97"),
+            (5, "1311.57"),
+            (6, "38502"),
+            (7, "21136"),
+            (8, "17365"),
+            (9, "1328.58"),
+            (10, "1"),
+            (19, "1329.00"),
+            (20, "54"),
+            (30, "20261016161447"),
+            (31, "16.03"),
+            (32, "1.22"),
+            (33, "1329.88"),
+            (34, "1301.68"),
+            (37, "507553"),
+            (38, "0.31"),
+            (39, "20.40"),
+            (43, "2.15"),
+            (44, "16613.58"),
+            (45, "16613.58"),
+            (46, "6.61"),
+            (47, "1444.27"),
+            (48, "1181.67"),
+            (49, "1.10"),
+            (51, "1318.26"),
+            (52, "18.66"),
+            (53, "20.18"),
+            (74, "-83.10"),
+        ] {
             set(&mut f, i, v);
         }
         let text = format!("v_sh600519=\"{}\";", f.join("~"));
@@ -550,7 +887,10 @@ mod tests {
         assert_eq!(s["total_mcap_yuan"], json!(1661358000000.0));
         assert_eq!(s["quote_time"], "2026-10-16 16:14:47");
         assert_eq!(s["is_today"], true);
-        assert!(parse_tencent_snapshot(&text.replace("600519", "600520"), &key(), "2026-10-16").is_err());
+        assert!(
+            parse_tencent_snapshot(&text.replace("600519", "600520"), &key(), "2026-10-16")
+                .is_err()
+        );
     }
 
     #[test]
@@ -572,10 +912,21 @@ mod live {
     #[tokio::test]
     #[ignore]
     async fn live_chart_probe() {
-        let client = Client::builder().timeout(Duration::from_secs(20)).user_agent("Mozilla/5.0 VibeAStock-Mobile/test").build().unwrap();
+        let client = Client::builder()
+            .timeout(Duration::from_secs(20))
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/test")
+            .build()
+            .unwrap();
         let mut dump = serde_json::Map::new();
-        for path in ["/mobile/stock/kline?symbol=600519&period=day&limit=300", "/mobile/stock/kline?symbol=600519&period=week", "/mobile/stock/kline?symbol=300308&period=m5&adjust=none",
-            "/mobile/stock/kline?symbol=920575&period=day", "/mobile/stock/intraday?symbol=600519", "/mobile/stock/intraday?symbol=600519&days=5", "/mobile/stock/snapshot?symbol=600519"] {
+        for path in [
+            "/mobile/stock/kline?symbol=600519&period=day&limit=300",
+            "/mobile/stock/kline?symbol=600519&period=week",
+            "/mobile/stock/kline?symbol=300308&period=m5&adjust=none",
+            "/mobile/stock/kline?symbol=920575&period=day",
+            "/mobile/stock/intraday?symbol=600519",
+            "/mobile/stock/intraday?symbol=600519&days=5",
+            "/mobile/stock/snapshot?symbol=600519",
+        ] {
             let start = std::time::Instant::now();
             let v = match path.split('?').next().unwrap() {
                 "/mobile/stock/kline" => kline(&client, path).await,
@@ -584,18 +935,38 @@ mod live {
             };
             match v {
                 Ok(v) => {
-                    println!("{path} {:?} status={} source={} rows={} days={} dropped={} fallback={}", start.elapsed(), v["status"], v["source"],
-                        v["rows"].as_array().map_or(0, Vec::len), v["days"].as_array().map_or(0, Vec::len), v["dropped"], v["fallback_reason"]);
+                    println!(
+                        "{path} {:?} status={} source={} rows={} days={} dropped={} fallback={}",
+                        start.elapsed(),
+                        v["status"],
+                        v["source"],
+                        v["rows"].as_array().map_or(0, Vec::len),
+                        v["days"].as_array().map_or(0, Vec::len),
+                        v["dropped"],
+                        v["fallback_reason"]
+                    );
                     dump.insert(path.to_string(), v);
                 }
                 Err(e) => println!("{path} ERROR {e:?}"),
             }
         }
-        for (p, q) in [(Period::Day, true), (Period::Day, false), (Period::Week, true), (Period::Month, true), (Period::M60, false), (Period::M5, false)] {
+        for (p, q) in [
+            (Period::Day, true),
+            (Period::Day, false),
+            (Period::Week, true),
+            (Period::Month, true),
+            (Period::M60, false),
+            (Period::M5, false),
+        ] {
             for code in ["600519", "920575"] {
                 let k = normalize_stock_symbol(code).unwrap();
                 match tencent_kline(&client, &k, p, q, 120).await {
-                    Ok((rows, dropped, _)) => println!("tencent {code} {:?} qfq={q} rows={} dropped={dropped} last={:?}", p, rows.len(), rows.last().map(|r| (r.0.clone(), r.2))),
+                    Ok((rows, dropped, _)) => println!(
+                        "tencent {code} {:?} qfq={q} rows={} dropped={dropped} last={:?}",
+                        p,
+                        rows.len(),
+                        rows.last().map(|r| (r.0.clone(), r.2))
+                    ),
                     Err(e) => println!("tencent {code} {:?} qfq={q} ERROR {e}", p),
                 }
             }

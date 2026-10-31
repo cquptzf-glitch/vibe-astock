@@ -22,8 +22,16 @@ use std::{
 
 const UNCLASSIFIED: &str = "未分类";
 const TIERS: [(&str, &str, &str); 4] = [
-    ("mainline", "连续集中", "今天同一行业 ≥ 3 只涨停,前两个交易日每天也 ≥ 2 只"),
-    ("today", "今天集中", "今天同一行业 ≥ 3 只涨停,前两个交易日不是每天都 ≥ 2 只"),
+    (
+        "mainline",
+        "连续集中",
+        "今天同一行业 ≥ 3 只涨停,前两个交易日每天也 ≥ 2 只",
+    ),
+    (
+        "today",
+        "今天集中",
+        "今天同一行业 ≥ 3 只涨停,前两个交易日不是每天都 ≥ 2 只",
+    ),
     ("scattered", "零散", "今天同一行业 2 只涨停"),
     ("single", "单只", "今天这个行业只有 1 只涨停"),
 ];
@@ -31,12 +39,20 @@ const SOURCE: &str = "东财涨停池(按东财行业归类)、同花顺涨停�
 
 fn industry(row: &Row) -> String {
     let s = row.sector.trim();
-    if s.is_empty() { UNCLASSIFIED.into() } else { s.into() }
+    if s.is_empty() {
+        UNCLASSIFIED.into()
+    } else {
+        s.into()
+    }
 }
 
 pub(crate) fn tier_of(today: usize, prev: [Option<usize>; 2]) -> &'static str {
     if today >= 3 {
-        if prev.iter().all(|p| p.is_some_and(|n| n >= 2)) { "mainline" } else { "today" }
+        if prev.iter().all(|p| p.is_some_and(|n| n >= 2)) {
+            "mainline"
+        } else {
+            "today"
+        }
     } else if today == 2 {
         "scattered"
     } else {
@@ -54,7 +70,11 @@ fn count_by(rows: Option<&[Row]>) -> Option<HashMap<String, usize>> {
 }
 
 /// 按只数分档;排序:档位 → 今天只数多的在前 → 行业名
-pub(crate) fn build_tiers(today: &[Row], prev: [Option<&[Row]>; 2], reasons: &HashMap<String, Vec<String>>) -> Vec<Value> {
+pub(crate) fn build_tiers(
+    today: &[Row],
+    prev: [Option<&[Row]>; 2],
+    reasons: &HashMap<String, Vec<String>>,
+) -> Vec<Value> {
     let (p1, p2) = (count_by(prev[0]), count_by(prev[1]));
     let mut by: BTreeMap<String, Vec<&Row>> = BTreeMap::new();
     for r in today {
@@ -88,13 +108,17 @@ pub(crate) fn build_tiers(today: &[Row], prev: [Option<&[Row]>; 2], reasons: &Ha
                     }
                 }
             }
-            freq.sort_by(|a, b| b.1.cmp(&a.1));
+            freq.sort_by_key(|b| std::cmp::Reverse(b.1));
             let tags: Vec<Value> = freq.into_iter().take(3).map(|(tag, count)| json!({"tag": tag, "count": count})).collect();
             let note = if list.len() >= 3 && counts.iter().any(Option::is_none) { "前两个交易日的涨停池没取全,分不出是不是连续" } else { "" };
             (order(tier), list.len(), ind.clone(), json!({"industry": ind, "tier": tier, "today": list.len(), "prev": counts, "stocks": stocks, "tags": tags, "note": note}))
         })
         .collect();
-    groups.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)).then_with(|| a.2.cmp(&b.2)));
+    groups.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then(b.1.cmp(&a.1))
+            .then_with(|| a.2.cmp(&b.2))
+    });
     groups.into_iter().map(|g| g.3).collect()
 }
 
@@ -104,7 +128,13 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
     let calendar = emotion::trade_dates(client).await?;
     let (date, prev) = emotion::review_day(&calendar, requested.as_deref(), now)?;
     let settled = emotion::is_settled(&date, &calendar, now);
-    let prev2 = prev.as_ref().and_then(|p| calendar.iter().rev().find(|d| d.as_str() < p.as_str()).cloned());
+    let prev2 = prev.as_ref().and_then(|p| {
+        calendar
+            .iter()
+            .rev()
+            .find(|d| d.as_str() < p.as_str())
+            .cloned()
+    });
     let prev_days = [prev.clone(), prev2];
     let mut gaps: Vec<String> = Vec::new();
     if prev_days.iter().any(Option::is_none) {
@@ -113,8 +143,22 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
     let date_compact = date.replace('-', "");
     let (today, p1, p2, reasons) = futures_util::join!(
         emotion::fetch_pool(client, PoolKind::LimitUp, &date_compact),
-        async { match &prev_days[0] { Some(d) => Some(emotion::fetch_pool(client, PoolKind::LimitUp, &d.replace('-', "")).await), None => None } },
-        async { match &prev_days[1] { Some(d) => Some(emotion::fetch_pool(client, PoolKind::LimitUp, &d.replace('-', "")).await), None => None } },
+        async {
+            match &prev_days[0] {
+                Some(d) => {
+                    Some(emotion::fetch_pool(client, PoolKind::LimitUp, &d.replace('-', "")).await)
+                }
+                None => None,
+            }
+        },
+        async {
+            match &prev_days[1] {
+                Some(d) => {
+                    Some(emotion::fetch_pool(client, PoolKind::LimitUp, &d.replace('-', "")).await)
+                }
+                None => None,
+            }
+        },
         theme_tree::limit_reasons(client, db, &date, settled),
     );
     let prev_pools: [Option<Vec<Row>>; 2] = [p1, p2].map(|p| p.and_then(Result::ok));
@@ -143,15 +187,28 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
     };
     let (groups, total) = match today {
         Ok(rows) if !rows.is_empty() => {
-            let g = build_tiers(&rows, [prev_pools[0].as_deref(), prev_pools[1].as_deref()], &tag_map);
+            let g = build_tiers(
+                &rows,
+                [prev_pools[0].as_deref(), prev_pools[1].as_deref()],
+                &tag_map,
+            );
             (g, Some(rows.len()))
         }
         Ok(_) => {
-            gaps.insert(0, format!("{date} 的涨停池是空的(盘前、休市日或日期不对时如此),没法分档"));
+            gaps.insert(
+                0,
+                format!("{date} 的涨停池是空的(盘前、休市日或日期不对时如此),没法分档"),
+            );
             (Vec::new(), None)
         }
         Err(e) => {
-            gaps.insert(0, format!("{date} 的涨停池没取到({}),没法分档", emotion::error_message("涨停池", &e)));
+            gaps.insert(
+                0,
+                format!(
+                    "{date} 的涨停池没取到({}),没法分档",
+                    emotion::error_message("涨停池", &e)
+                ),
+            );
             (Vec::new(), None)
         }
     };
@@ -162,7 +219,9 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
             json!({"id": id, "label": label, "rule": rule, "industries": g.len(), "stocks": g.iter().map(|x| x["today"].as_u64().unwrap_or(0)).sum::<u64>()})
         })
         .collect();
-    Ok(json!({"date": date, "settled": settled, "prev_dates": prev_days, "total": total, "groups": groups, "tiers": tiers, "gaps": gaps, "source": SOURCE}))
+    Ok(
+        json!({"date": date, "settled": settled, "prev_dates": prev_days, "total": total, "groups": groups, "tiers": tiers, "gaps": gaps, "source": SOURCE}),
+    )
 }
 
 #[cfg(test)]
@@ -170,46 +229,113 @@ mod tests {
     use super::*;
 
     fn row(code: &str, sector: &str, boards: i64, seal: &str) -> Row {
-        Row { code: code.into(), name: format!("N{code}"), sector: sector.into(), boards, first_seal: seal.into(), ..Row::default() }
+        Row {
+            code: code.into(),
+            name: format!("N{code}"),
+            sector: sector.into(),
+            boards,
+            first_seal: seal.into(),
+            ..Row::default()
+        }
     }
 
     #[test]
     fn tier_rule_uses_today_and_both_previous_days() {
         assert_eq!(tier_of(3, [Some(2), Some(5)]), "mainline");
         assert_eq!(tier_of(3, [Some(2), Some(1)]), "today");
-        assert_eq!(tier_of(3, [Some(2), None]), "today", "前一天没取到不能当连续");
+        assert_eq!(
+            tier_of(3, [Some(2), None]),
+            "today",
+            "前一天没取到不能当连续"
+        );
         assert_eq!(tier_of(4, [Some(0), Some(0)]), "today");
-        assert_eq!((tier_of(2, [Some(9), Some(9)]), tier_of(1, [None, None])), ("scattered", "single"));
+        assert_eq!(
+            (tier_of(2, [Some(9), Some(9)]), tier_of(1, [None, None])),
+            ("scattered", "single")
+        );
     }
 
     #[test]
     fn groups_sort_by_tier_then_count_and_stocks_by_board_then_seal_time() {
         let today = vec![
-            row("1", "汽车", 2, "093000"), row("2", "汽车", 3, "100000"), row("3", "汽车", 3, "094500"), row("4", "银行", 1, "093000"),
-            row("5", "电力", 1, "093000"), row("6", "电力", 1, ""), row("7", "", 1, "101500"),
+            row("1", "汽车", 2, "093000"),
+            row("2", "汽车", 3, "100000"),
+            row("3", "汽车", 3, "094500"),
+            row("4", "银行", 1, "093000"),
+            row("5", "电力", 1, "093000"),
+            row("6", "电力", 1, ""),
+            row("7", "", 1, "101500"),
         ];
-        let p1 = vec![row("a", "汽车", 1, ""), row("b", "汽车", 1, ""), row("c", "电力", 1, "")];
-        let p2 = vec![row("d", "汽车", 1, ""), row("e", "汽车", 1, ""), row("f", "汽车", 1, "")];
-        let reasons: HashMap<String, Vec<String>> = [("2".to_string(), vec!["兵装重组".to_string(), "无人机".to_string()]), ("3".into(), vec!["兵装重组".into()])].into_iter().collect();
+        let p1 = vec![
+            row("a", "汽车", 1, ""),
+            row("b", "汽车", 1, ""),
+            row("c", "电力", 1, ""),
+        ];
+        let p2 = vec![
+            row("d", "汽车", 1, ""),
+            row("e", "汽车", 1, ""),
+            row("f", "汽车", 1, ""),
+        ];
+        let reasons: HashMap<String, Vec<String>> = [
+            (
+                "2".to_string(),
+                vec!["兵装重组".to_string(), "无人机".to_string()],
+            ),
+            ("3".into(), vec!["兵装重组".into()]),
+        ]
+        .into_iter()
+        .collect();
         let g = build_tiers(&today, [Some(&p1), Some(&p2)], &reasons);
-        assert_eq!(g.iter().map(|x| (x["industry"].as_str().unwrap(), x["tier"].as_str().unwrap(), x["today"].as_u64().unwrap())).collect::<Vec<_>>(),
-            vec![("汽车", "mainline", 3), ("电力", "scattered", 2), ("未分类", "single", 1), ("银行", "single", 1)], "并列时按行业名的 Unicode 顺序(桌面版是拼音顺序,只影响并列项的先后)");
-        let car: Vec<&str> = g[0]["stocks"].as_array().unwrap().iter().map(|s| s["symbol"].as_str().unwrap()).collect();
+        assert_eq!(
+            g.iter()
+                .map(|x| (
+                    x["industry"].as_str().unwrap(),
+                    x["tier"].as_str().unwrap(),
+                    x["today"].as_u64().unwrap()
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                ("汽车", "mainline", 3),
+                ("电力", "scattered", 2),
+                ("未分类", "single", 1),
+                ("银行", "single", 1)
+            ],
+            "并列时按行业名的 Unicode 顺序(桌面版是拼音顺序,只影响并列项的先后)"
+        );
+        let car: Vec<&str> = g[0]["stocks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["symbol"].as_str().unwrap())
+            .collect();
         assert_eq!(car, vec!["3", "2", "1"], "连板多的在前,同板数首封早的在前");
         assert_eq!(g[0]["prev"], json!([2, 3]));
         assert_eq!(g[0]["tags"][0], json!({"tag": "兵装重组", "count": 2}));
-        assert_eq!(g[1]["stocks"][1]["first_seal"], Value::Null, "没有首封时间排后、不编时间");
+        assert_eq!(
+            g[1]["stocks"][1]["first_seal"],
+            Value::Null,
+            "没有首封时间排后、不编时间"
+        );
         assert_eq!(g[0]["stocks"][0]["first_seal"], "09:45:00");
     }
 
     #[test]
     fn missing_previous_pools_are_called_out_instead_of_guessed() {
-        let today: Vec<Row> = (1..=3).map(|i| row(&i.to_string(), "汽车", 1, "093000")).collect();
+        let today: Vec<Row> = (1..=3)
+            .map(|i| row(&i.to_string(), "汽车", 1, "093000"))
+            .collect();
         let g = build_tiers(&today, [None, None], &HashMap::new());
-        assert_eq!((g[0]["tier"].clone(), g[0]["prev"].clone()), (json!("today"), json!([null, null])));
+        assert_eq!(
+            (g[0]["tier"].clone(), g[0]["prev"].clone()),
+            (json!("today"), json!([null, null]))
+        );
         assert!(g[0]["note"].as_str().unwrap().contains("没取全"));
         let ok = build_tiers(&today, [Some(&[]), Some(&[])], &HashMap::new());
-        assert_eq!(ok[0]["prev"], json!([0, 0]), "取到了但行业没涨停 = 0,不是缺");
+        assert_eq!(
+            ok[0]["prev"],
+            json!([0, 0]),
+            "取到了但行业没涨停 = 0,不是缺"
+        );
         assert_eq!(ok[0]["note"], "");
     }
 
@@ -217,11 +343,23 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn live_tiers_probe() {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let dir = std::env::temp_dir().join(format!("vibe-tiers-live-{nonce}"));
         let app = crate::AppCore::new(dir.clone()).unwrap();
-        let r = app.handle(crate::MobileApiRequest { path: "/mobile/review/tiers".into(), method: "GET".into(), body: Value::Null }).await;
-        println!("status {} date {} prev {} total {} gaps {}", r.status, r.body["date"], r.body["prev_dates"], r.body["total"], r.body["gaps"]);
+        let r = app
+            .handle(crate::MobileApiRequest {
+                path: "/mobile/review/tiers".into(),
+                method: "GET".into(),
+                body: Value::Null,
+            })
+            .await;
+        println!(
+            "status {} date {} prev {} total {} gaps {}",
+            r.status, r.body["date"], r.body["prev_dates"], r.body["total"], r.body["gaps"]
+        );
         println!("tiers {}", r.body["tiers"]);
         if let Ok(out) = std::env::var("VIBE_TIERS_FIXTURE") {
             std::fs::write(out, serde_json::to_string_pretty(&r.body).unwrap()).unwrap();

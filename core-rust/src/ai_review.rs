@@ -39,15 +39,31 @@ pub fn clear_config(db_path: &Path) -> Result<Value> {
 }
 
 pub fn preview(db_path: &Path, body: &Value) -> Result<Value> {
-    let include_positions = body.get("include_positions").and_then(Value::as_bool).unwrap_or(false);
+    let include_positions = body
+        .get("include_positions")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let focus = custom_focus(body)?;
     let review = journal_review::view(db_path)?;
     let payload = build_payload(&review, include_positions);
     let prompt = build_user_prompt(&payload, &focus)?;
     let fields = if include_positions {
-        vec!["performance", "recent_10", "discipline", "playbooks", "risk", "positions"]
+        vec![
+            "performance",
+            "recent_10",
+            "discipline",
+            "playbooks",
+            "risk",
+            "positions",
+        ]
     } else {
-        vec!["performance", "recent_10", "discipline", "playbooks", "risk"]
+        vec![
+            "performance",
+            "recent_10",
+            "discipline",
+            "playbooks",
+            "risk",
+        ]
     };
     Ok(json!({
         "network_used": false,
@@ -61,7 +77,11 @@ pub fn preview(db_path: &Path, body: &Value) -> Result<Value> {
     }))
 }
 
-pub async fn run(client: &Client, db_path: &Path, body: &Value) -> std::result::Result<Value, RunError> {
+pub async fn run(
+    client: &Client,
+    db_path: &Path,
+    body: &Value,
+) -> std::result::Result<Value, RunError> {
     let config = ai_config::load(db_path)
         .map_err(RunError::Internal)?
         .ok_or_else(|| RunError::BadRequest("还没有配置模型 API".to_string()))?;
@@ -69,7 +89,10 @@ pub async fn run(client: &Client, db_path: &Path, body: &Value) -> std::result::
         return Err(RunError::BadRequest("模型 API 配置不完整".to_string()));
     }
 
-    let include_positions = body.get("include_positions").and_then(Value::as_bool).unwrap_or(false);
+    let include_positions = body
+        .get("include_positions")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let focus = custom_focus(body).map_err(RunError::Internal)?;
     let review = journal_review::view(db_path).map_err(RunError::Internal)?;
     let payload = build_payload(&review, include_positions);
@@ -103,7 +126,11 @@ pub async fn run(client: &Client, db_path: &Path, body: &Value) -> std::result::
         .map_err(|error| RunError::Upstream(format!("读取模型响应失败: {error}")))?;
     if !status.is_success() {
         let short = text.chars().take(500).collect::<String>();
-        return Err(RunError::Upstream(format!("模型 API 返回 HTTP {}: {}", status.as_u16(), short)));
+        return Err(RunError::Upstream(format!(
+            "模型 API 返回 HTTP {}: {}",
+            status.as_u16(),
+            short
+        )));
     }
 
     let root: Value = serde_json::from_str(&text)
@@ -141,7 +168,10 @@ fn build_payload(review: &Value, include_positions: bool) -> Value {
         "risk": review.get("risk").cloned().unwrap_or(Value::Null)
     });
     if include_positions {
-        payload["positions"] = review.get("positions").cloned().unwrap_or(Value::Array(Vec::new()));
+        payload["positions"] = review
+            .get("positions")
+            .cloned()
+            .unwrap_or(Value::Array(Vec::new()));
     }
     payload
 }
@@ -159,7 +189,11 @@ fn build_user_prompt(payload: &Value, focus: &str) -> Result<String> {
 }
 
 fn custom_focus(body: &Value) -> Result<String> {
-    let focus = body.get("focus").and_then(Value::as_str).unwrap_or("").trim();
+    let focus = body
+        .get("focus")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
     if focus.chars().count() > 1000 {
         return Err(anyhow!("额外关注点最多 1000 个字符"));
     }

@@ -39,28 +39,50 @@ pub fn act(db: &Path, body: &Value) -> Result<Value> {
     let conn = open(db)?;
     match body.get("action").and_then(Value::as_str) {
         Some("read") => {
-            let id = body.get("id").and_then(Value::as_i64).ok_or_else(|| anyhow::anyhow!("要给出消息 id"))?;
+            let id = body
+                .get("id")
+                .and_then(Value::as_i64)
+                .ok_or_else(|| anyhow::anyhow!("要给出消息 id"))?;
             conn.execute("UPDATE mobile_messages SET read = 1 WHERE id = ?1", [id])?;
         }
         Some("read_all") => {
             conn.execute("UPDATE mobile_messages SET read = 1", [])?;
         }
         Some("delete") => {
-            let id = body.get("id").and_then(Value::as_i64).ok_or_else(|| anyhow::anyhow!("要给出消息 id"))?;
+            let id = body
+                .get("id")
+                .and_then(Value::as_i64)
+                .ok_or_else(|| anyhow::anyhow!("要给出消息 id"))?;
             conn.execute("DELETE FROM mobile_messages WHERE id = ?1", [id])?;
         }
         Some("clear") => {
             conn.execute("DELETE FROM mobile_messages", [])?;
         }
-        _ => return Err(anyhow::anyhow!("action 只能是 read / read_all / delete / clear")),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "action 只能是 read / read_all / delete / clear"
+            ))
+        }
     }
     list(db)
 }
 
 /// 写一条消息:replace=false 时同 (kind, day) 已有就不动(返回 false);replace=true 覆盖正文并重新标未读
-pub(crate) fn put(conn: &Connection, kind: &str, day: &str, title: &str, body: &str, route: &str, replace: bool) -> Result<bool> {
+pub(crate) fn put(
+    conn: &Connection,
+    kind: &str,
+    day: &str,
+    title: &str,
+    body: &str,
+    route: &str,
+    replace: bool,
+) -> Result<bool> {
     let now = Utc::now().to_rfc3339();
-    let exists: i64 = conn.query_row("SELECT COUNT(*) FROM mobile_messages WHERE kind = ?1 AND day = ?2", params![kind, day], |r| r.get(0))?;
+    let exists: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM mobile_messages WHERE kind = ?1 AND day = ?2",
+        params![kind, day],
+        |r| r.get(0),
+    )?;
     if exists > 0 {
         if !replace {
             return Ok(false);
@@ -87,7 +109,9 @@ fn num(v: &Value) -> String {
 }
 
 fn rate(v: &Value) -> String {
-    pct(v).map(|x| format!("{:.1}%", x * 100.0)).unwrap_or_else(|| "—".into())
+    pct(v)
+        .map(|x| format!("{:.1}%", x * 100.0))
+        .unwrap_or_else(|| "—".into())
 }
 
 /// 自选里涨跌幅 ≥ MOVE_PCT 或触及涨跌停的(只看当天有报价的)。返回 (名称或代码, 描述)
@@ -104,27 +128,68 @@ pub(crate) fn movers(watchlist: &[Value], only_day: Option<&str>) -> Vec<(String
         } else if w["is_today"] != true {
             continue;
         }
-        let (Some(change), Some(price)) = (w["change_pct"].as_f64(), w["price"].as_f64()) else { continue };
+        let (Some(change), Some(price)) = (w["change_pct"].as_f64(), w["price"].as_f64()) else {
+            continue;
+        };
         let at_up = w["limit_up"].as_f64().is_some_and(|l| price >= l - 1e-6);
         let at_down = w["limit_down"].as_f64().is_some_and(|l| price <= l + 1e-6);
         if change.abs() < MOVE_PCT && !at_up && !at_down {
             continue;
         }
-        let name = w["name"].as_str().filter(|s| !s.is_empty()).unwrap_or(w["symbol"].as_str().unwrap_or("")).to_string();
-        let tag = if at_up { "涨停" } else if at_down { "跌停" } else { "" };
-        rows.push((change, name, format!("{} {}{:+.2}%{}", w["symbol"].as_str().unwrap_or(""), if tag.is_empty() { "" } else { "" }, change, if tag.is_empty() { String::new() } else { format!("({tag})") })));
+        let name = w["name"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .unwrap_or(w["symbol"].as_str().unwrap_or(""))
+            .to_string();
+        let tag = if at_up {
+            "涨停"
+        } else if at_down {
+            "跌停"
+        } else {
+            ""
+        };
+        rows.push((
+            change,
+            name,
+            format!(
+                "{} {:+.2}%{}",
+                w["symbol"].as_str().unwrap_or(""),
+                change,
+                if tag.is_empty() {
+                    String::new()
+                } else {
+                    format!("({tag})")
+                }
+            ),
+        ));
     }
-    rows.sort_by(|a, b| b.0.abs().partial_cmp(&a.0.abs()).unwrap_or(std::cmp::Ordering::Equal));
+    rows.sort_by(|a, b| {
+        b.0.abs()
+            .partial_cmp(&a.0.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     rows.into_iter().map(|(_, n, d)| (n, d)).collect()
 }
 
 /// 情绪复盘读数 → 几行文字(只列已发生的数)
 pub(crate) fn emotion_lines(emo: &Value) -> Vec<String> {
     let s = &emo["summary"];
-    let mut lines = vec![format!("涨停 {} 家 · 炸板 {} · 跌停 {} · 最高 {} 板 · 炸板率 {}", num(&s["limit_up"]), num(&s["broken"]), num(&s["limit_down"]), num(&s["highest"]), rate(&s["broken_rate"]))];
+    let mut lines = vec![format!(
+        "涨停 {} 家 · 炸板 {} · 跌停 {} · 最高 {} 板 · 炸板率 {}",
+        num(&s["limit_up"]),
+        num(&s["broken"]),
+        num(&s["limit_down"]),
+        num(&s["highest"]),
+        rate(&s["broken_rate"])
+    )];
     let m = &emo["money_effect"];
     if m["available"] == true {
-        lines.push(format!("昨日涨停股今日:平均 {}%、翻红率 {}、再度涨停率 {}", num(&m["avg"]), rate(&m["positive_rate"]), rate(&m["limit_up_again_rate"])));
+        lines.push(format!(
+            "昨日涨停股今日:平均 {}%、翻红率 {}、再度涨停率 {}",
+            num(&m["avg"]),
+            rate(&m["positive_rate"]),
+            rate(&m["limit_up_again_rate"])
+        ));
     }
     let p = &emo["promotion"];
     if p["available"] == true {
@@ -133,10 +198,22 @@ pub(crate) fn emotion_lines(emo: &Value) -> Vec<String> {
     lines
 }
 
-pub(crate) fn close_message(day: &str, emo: &Value, movers: &[(String, String)]) -> (String, String) {
+pub(crate) fn close_message(
+    day: &str,
+    emo: &Value,
+    movers: &[(String, String)],
+) -> (String, String) {
     let mut lines = emotion_lines(emo);
     if !movers.is_empty() {
-        lines.push(format!("自选里涨跌幅 ≥ {MOVE_PCT}% 或触及涨跌停:{}", movers.iter().take(8).map(|(n, d)| format!("{n} {d}")).collect::<Vec<_>>().join(";")));
+        lines.push(format!(
+            "自选里涨跌幅 ≥ {MOVE_PCT}% 或触及涨跌停:{}",
+            movers
+                .iter()
+                .take(8)
+                .map(|(n, d)| format!("{n} {d}"))
+                .collect::<Vec<_>>()
+                .join(";")
+        ));
     }
     lines.push("只列已经发生的读数,不构成买卖建议。".into());
     (format!("{day} 收盘摘要"), lines.join("\n"))
@@ -150,7 +227,12 @@ pub(crate) fn pre_open_message(day: &str, prev: &str, emo: &Value) -> (String, S
 }
 
 pub(crate) fn move_message(day: &str, movers: &[(String, String)]) -> (String, String) {
-    let body = movers.iter().take(12).map(|(n, d)| format!("{n} {d}")).collect::<Vec<_>>().join("\n");
+    let body = movers
+        .iter()
+        .take(12)
+        .map(|(n, d)| format!("{n} {d}"))
+        .collect::<Vec<_>>()
+        .join("\n");
     (format!("{day} 自选异动({} 只)", movers.len()), format!("{body}\n阈值:涨跌幅 ≥ {MOVE_PCT}% 或触及涨跌停;只在打开 App 时取一次行情,不是实时推送。"))
 }
 
@@ -164,17 +246,29 @@ pub async fn generate(client: &Client, db: &Path) -> Result<Value, DiscoveryErro
         Ok(c) => c,
         Err(e) => {
             skipped.push(json!({"kind": "all", "why": format!("没取到交易日历:{e}")}));
-            return Ok(json!({"created": created, "skipped": skipped, "list": list(db).map_err(DiscoveryError::Upstream)?}));
+            return Ok(
+                json!({"created": created, "skipped": skipped, "list": list(db).map_err(DiscoveryError::Upstream)?}),
+            );
         }
     };
-    let trading = calendar.iter().any(|d| *d == today);
-    let (last_day, prev_day) = emotion::review_day(&calendar, None, now).map_err(|e| DiscoveryError::Upstream(anyhow::anyhow!("{e:?}")))?;
+    let trading = calendar.contains(&today);
+    let (last_day, prev_day) = emotion::review_day(&calendar, None, now)
+        .map_err(|e| DiscoveryError::Upstream(anyhow::anyhow!("{e:?}")))?;
     let conn = open(db).map_err(DiscoveryError::Upstream)?;
     let wl = monitor::snapshot(client, db).await.ok();
-    let watch_rows: Vec<Value> = wl.as_ref().and_then(|v| v["watchlist"].as_array().cloned()).unwrap_or_default();
+    let watch_rows: Vec<Value> = wl
+        .as_ref()
+        .and_then(|v| v["watchlist"].as_array().cloned())
+        .unwrap_or_default();
 
     // 收盘摘要:最近一个已收盘交易日,每天一条
-    let have_close: i64 = conn.query_row("SELECT COUNT(*) FROM mobile_messages WHERE kind = 'close_summary' AND day = ?1", [&last_day], |r| r.get(0)).map_err(|e| DiscoveryError::Upstream(e.into()))?;
+    let have_close: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM mobile_messages WHERE kind = 'close_summary' AND day = ?1",
+            [&last_day],
+            |r| r.get(0),
+        )
+        .map_err(|e| DiscoveryError::Upstream(e.into()))?;
     let mut emo_cache: Option<Value> = None;
     if have_close == 0 {
         match emotion::emotion(client, &format!("/mobile/shortline/emotion?date={last_day}")).await {
@@ -192,11 +286,23 @@ pub async fn generate(client: &Client, db: &Path) -> Result<Value, DiscoveryErro
     }
     // 盘前提醒:交易日 09:30 前,当天一条,用上一交易日的读数
     if trading && hm < 930 {
-        let have: i64 = conn.query_row("SELECT COUNT(*) FROM mobile_messages WHERE kind = 'pre_open' AND day = ?1", [&today], |r| r.get(0)).map_err(|e| DiscoveryError::Upstream(e.into()))?;
+        let have: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM mobile_messages WHERE kind = 'pre_open' AND day = ?1",
+                [&today],
+                |r| r.get(0),
+            )
+            .map_err(|e| DiscoveryError::Upstream(e.into()))?;
         if have == 0 {
             let emo = match emo_cache.take() {
                 Some(e) => Ok(e),
-                None => emotion::emotion(client, &format!("/mobile/shortline/emotion?date={last_day}")).await,
+                None => {
+                    emotion::emotion(
+                        client,
+                        &format!("/mobile/shortline/emotion?date={last_day}"),
+                    )
+                    .await
+                }
             };
             match emo {
                 Ok(emo) if emo["summary"].is_object() => {
@@ -221,13 +327,17 @@ pub async fn generate(client: &Client, db: &Path) -> Result<Value, DiscoveryErro
                 skipped.push(json!({"kind": "watch_move", "why": format!("自选里没有涨跌幅 ≥ {MOVE_PCT}% 或触及涨跌停的(不生成空消息)")}));
             } else {
                 let (title, body) = move_message(&today, &m);
-                if put(&conn, "watch_move", &today, &title, &body, "monitor", true).map_err(DiscoveryError::Upstream)? {
+                if put(&conn, "watch_move", &today, &title, &body, "monitor", true)
+                    .map_err(DiscoveryError::Upstream)?
+                {
                     created.push("watch_move");
                 }
             }
         }
     }
-    Ok(json!({"created": created, "skipped": skipped, "list": list(db).map_err(DiscoveryError::Upstream)?}))
+    Ok(
+        json!({"created": created, "skipped": skipped, "list": list(db).map_err(DiscoveryError::Upstream)?}),
+    )
 }
 
 #[cfg(test)]
@@ -235,7 +345,10 @@ mod tests {
     use super::*;
 
     fn db(name: &str) -> std::path::PathBuf {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let path = std::env::temp_dir().join(format!("vibe-messages-{name}-{nonce}.sqlite3"));
         crate::storage::init(&path).unwrap();
         crate::journal::init(&path).unwrap();
@@ -259,8 +372,14 @@ mod tests {
     #[test]
     fn emotion_lines_only_list_readings_and_skip_unavailable_blocks() {
         let lines = emotion_lines(&emo());
-        assert_eq!(lines[0], "涨停 61 家 · 炸板 49 · 跌停 10 · 最高 11 板 · 炸板率 44.5%");
-        assert_eq!(lines[1], "昨日涨停股今日:平均 -1.3%、翻红率 35.1%、再度涨停率 18.9%");
+        assert_eq!(
+            lines[0],
+            "涨停 61 家 · 炸板 49 · 跌停 10 · 最高 11 板 · 炸板率 44.5%"
+        );
+        assert_eq!(
+            lines[1],
+            "昨日涨停股今日:平均 -1.3%、翻红率 35.1%、再度涨停率 18.9%"
+        );
         assert_eq!(lines[2], "整体晋级率 16.7%");
         let mut thin = emo();
         thin["money_effect"] = json!({"available": false, "reason": "x"});
@@ -280,12 +399,19 @@ mod tests {
         ];
         let m = movers(&rows, Some("2026-10-16"));
         let names: Vec<&str> = m.iter().map(|x| x.0.as_str()).collect();
-        assert_eq!(names, ["样本光模块", "样本新股", "样本白酒"], "按涨跌幅绝对值从大到小;1.2% 和旧日期、无报价的都不进");
+        assert_eq!(
+            names,
+            ["样本光模块", "样本新股", "样本白酒"],
+            "按涨跌幅绝对值从大到小;1.2% 和旧日期、无报价的都不进"
+        );
         assert!(m[0].1.contains("(涨停)") && m[1].1.contains("(跌停)") && !m[2].1.contains("("));
         assert!(m[0].1.contains("300308") && m[0].1.contains("+10.00%"));
         let (title, body) = close_message("2026-10-16", &emo(), &m);
         assert_eq!(title, "2026-10-16 收盘摘要");
-        assert!(body.contains("自选里涨跌幅 ≥ 5% 或触及涨跌停:样本光模块") && body.ends_with("不构成买卖建议。"));
+        assert!(
+            body.contains("自选里涨跌幅 ≥ 5% 或触及涨跌停:样本光模块")
+                && body.ends_with("不构成买卖建议。")
+        );
         let (_, none_body) = close_message("2026-10-16", &emo(), &[]);
         assert!(!none_body.contains("自选里"), "没有异动就不写这一行");
         let (t2, b2) = pre_open_message("2026-10-19", "2026-10-16", &emo());
@@ -300,30 +426,98 @@ mod tests {
     fn put_dedupes_per_kind_and_day_replace_resets_unread_and_old_messages_are_trimmed() {
         let path = db("put");
         let conn = Connection::open(&path).unwrap();
-        assert!(put(&conn, "close_summary", "2026-10-16", "t", "b1", "emotion", false).unwrap());
-        assert!(!put(&conn, "close_summary", "2026-10-16", "t", "b2", "emotion", false).unwrap(), "同一天同类型不重复");
+        assert!(put(
+            &conn,
+            "close_summary",
+            "2026-10-16",
+            "t",
+            "b1",
+            "emotion",
+            false
+        )
+        .unwrap());
+        assert!(
+            !put(
+                &conn,
+                "close_summary",
+                "2026-10-16",
+                "t",
+                "b2",
+                "emotion",
+                false
+            )
+            .unwrap(),
+            "同一天同类型不重复"
+        );
         assert_eq!(list(&path).unwrap()["messages"][0]["body"], "b1");
         act(&path, &json!({"action": "read_all"})).unwrap();
         assert_eq!(list(&path).unwrap()["unread"], 0);
-        assert!(put(&conn, "watch_move", "2026-10-16", "t", "m1", "monitor", true).unwrap());
-        assert!(put(&conn, "watch_move", "2026-10-16", "t", "m2", "monitor", true).unwrap(), "异动每次覆盖");
+        assert!(put(
+            &conn,
+            "watch_move",
+            "2026-10-16",
+            "t",
+            "m1",
+            "monitor",
+            true
+        )
+        .unwrap());
+        assert!(
+            put(
+                &conn,
+                "watch_move",
+                "2026-10-16",
+                "t",
+                "m2",
+                "monitor",
+                true
+            )
+            .unwrap(),
+            "异动每次覆盖"
+        );
         let l = list(&path).unwrap();
-        let wm = l["messages"].as_array().unwrap().iter().find(|m| m["kind"] == "watch_move").unwrap();
-        assert_eq!((wm["body"].clone(), wm["read"].clone()), (json!("m2"), json!(false)), "覆盖后重新标未读");
+        let wm = l["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["kind"] == "watch_move")
+            .unwrap();
+        assert_eq!(
+            (wm["body"].clone(), wm["read"].clone()),
+            (json!("m2"), json!(false)),
+            "覆盖后重新标未读"
+        );
         assert_eq!(l["unread"], 1);
         let id = wm["id"].as_i64().unwrap();
         act(&path, &json!({"action": "read", "id": id})).unwrap();
         assert_eq!(list(&path).unwrap()["unread"], 0);
         act(&path, &json!({"action": "delete", "id": id})).unwrap();
-        assert_eq!(list(&path).unwrap()["messages"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            list(&path).unwrap()["messages"].as_array().unwrap().len(),
+            1
+        );
         assert!(act(&path, &json!({"action": "x"})).is_err());
         assert!(act(&path, &json!({"action": "read"})).is_err());
         act(&path, &json!({"action": "clear"})).unwrap();
-        assert_eq!(list(&path).unwrap()["messages"].as_array().unwrap().len(), 0);
+        assert_eq!(
+            list(&path).unwrap()["messages"].as_array().unwrap().len(),
+            0
+        );
         for d in 0..(MESSAGES_MAX + 10) {
-            put(&conn, "close_summary", &format!("2020-01-{:02}-{d}", (d % 28) + 1), "t", "b", "", false).unwrap();
+            put(
+                &conn,
+                "close_summary",
+                &format!("2020-01-{:02}-{d}", (d % 28) + 1),
+                "t",
+                "b",
+                "",
+                false,
+            )
+            .unwrap();
         }
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM mobile_messages", [], |r| r.get(0)).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM mobile_messages", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(count, MESSAGES_MAX);
         let _ = std::fs::remove_file(path);
     }

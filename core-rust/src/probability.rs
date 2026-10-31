@@ -127,7 +127,7 @@ fn parse_kalshi(root: &Value) -> Result<Vec<Value>> {
                 p("yes_bid_dollars", "yes_bid"),
                 p("yes_ask_dollars", "yes_ask"),
             ) {
-                (Some(b), Some(a)) if 0.0 <= b && b <= a && a <= 1.0 && a>0.0 && b<1.0 => {
+                (Some(b), Some(a)) if 0.0 <= b && b <= a && a <= 1.0 && a > 0.0 && b < 1.0 => {
                     ((a + b) / 2.0, "bid_ask_mid")
                 }
                 _ => match p("last_price_dollars", "last_price") {
@@ -270,12 +270,21 @@ async fn scan(client: &Client, poly: bool) -> (Vec<Value>, Vec<Value>) {
     }
     // Build owned futures before awaiting: Tauri commands require a Send future
     // for every caller lifetime, including on Android.
-    async fn query(client:Client,url:String,args:Vec<(&'static str,String)>)->Result<Value>{discovery::get_json(&client,&url,&args).await}
-    let jobs:Vec<_>=queries.into_iter().map(|(url,args)|query(client.clone(),url,args)).collect();
+    async fn query(
+        client: Client,
+        url: String,
+        args: Vec<(&'static str, String)>,
+    ) -> Result<Value> {
+        discovery::get_json(&client, &url, &args).await
+    }
+    let jobs: Vec<_> = queries
+        .into_iter()
+        .map(|(url, args)| query(client.clone(), url, args))
+        .collect();
     let results = stream::iter(jobs)
-    .buffer_unordered(4)
-    .collect::<Vec<_>>()
-    .await;
+        .buffer_unordered(4)
+        .collect::<Vec<_>>()
+        .await;
     let mut items = Vec::new();
     for result in results {
         match result.and_then(|v| {

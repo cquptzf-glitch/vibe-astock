@@ -95,9 +95,13 @@ pub async fn scan(client: &Client, db: &Path, body: &Value) -> Result<Value> {
     let amount = number(body, "min_amount")?;
     let turnover = number(body, "min_turnover")?;
     let surge = number(body, "min_surge")?;
-    let fall=number(body,"max_surge")?;
-    if amount.is_some_and(|v|v<0.0)||turnover.is_some_and(|v|v<0.0){return Err(anyhow!("成交额和换手率下限不能为负数"));}
-    if surge.zip(fall).is_some_and(|(a,b)|a>b){return Err(anyhow!("采样变化下限不能高于上限"));}
+    let fall = number(body, "max_surge")?;
+    if amount.is_some_and(|v| v < 0.0) || turnover.is_some_and(|v| v < 0.0) {
+        return Err(anyhow!("成交额和换手率下限不能为负数"));
+    }
+    if surge.zip(fall).is_some_and(|(a, b)| a > b) {
+        return Err(anyhow!("采样变化下限不能高于上限"));
+    }
     if minimum.zip(maximum).is_some_and(|(a, b)| a > b) {
         return Err(anyhow!("涨跌幅下限不能高于上限"));
     }

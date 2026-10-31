@@ -26,9 +26,22 @@ pub async fn gpu_rent(client: &Client, path: &str) -> Result<Value, DiscoveryErr
         }.await;
         (gpu.to_string(), result)
     })).await;
-    let forward = match discovery::get_json(client, "https://api.elections.kalshi.com/trade-api/v2/markets", &[("series_ticker","KXB200MS".into()),("status","open".into()),("limit","200".into())]).await {
-        Ok(root) => parse_forward(&root).unwrap_or_else(|e| json!({"status":"failed","message":e.to_string()})),
-        Err(error) => json!({"status":"failed","message":discovery::failure("Kalshi",&error)["message"]}),
+    let forward = match discovery::get_json(
+        client,
+        "https://api.elections.kalshi.com/trade-api/v2/markets",
+        &[
+            ("series_ticker", "KXB200MS".into()),
+            ("status", "open".into()),
+            ("limit", "200".into()),
+        ],
+    )
+    .await
+    {
+        Ok(root) => parse_forward(&root)
+            .unwrap_or_else(|e| json!({"status":"failed","message":e.to_string()})),
+        Err(error) => {
+            json!({"status":"failed","message":discovery::failure("Kalshi",&error)["message"]})
+        }
     };
     let mut items = Vec::new();
     let mut errors = Vec::new();
@@ -60,38 +73,83 @@ pub async fn gpu_rent(client: &Client, path: &str) -> Result<Value, DiscoveryErr
 }
 
 pub(crate) fn parse_forward(root: &Value) -> Result<Value> {
-    parse_forward_at(root,&crate::emotion::now_china().0.format("%Y-%m").to_string())
+    parse_forward_at(
+        root,
+        &crate::emotion::now_china().0.format("%Y-%m").to_string(),
+    )
 }
-fn parse_forward_at(root:&Value,asof_month:&str)->Result<Value>{
-    let markets=root["markets"].as_array().ok_or_else(|| anyhow!("Kalshi 缺少 markets"))?;
-    let months=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-    let mut groups: BTreeMap<String,Vec<Value>>=BTreeMap::new();
+fn parse_forward_at(root: &Value, asof_month: &str) -> Result<Value> {
+    let markets = root["markets"]
+        .as_array()
+        .ok_or_else(|| anyhow!("Kalshi 缺少 markets"))?;
+    let months = [
+        "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+    ];
+    let mut groups: BTreeMap<String, Vec<Value>> = BTreeMap::new();
     for m in markets {
-        let parts:Vec<&str>=m["ticker"].as_str().unwrap_or("").split('-').collect();
-        if parts.len()!=3 || parts[0]!="KXB200MS" || parts[1].len()!=5 { continue; }
-        let token=parts[1];
-        if !token.is_ascii() || !token[..2].bytes().all(|b| b.is_ascii_digit()) { continue; }
-        let Some(month)=months.iter().position(|x| *x==&token[2..]) else {continue};
-        let Ok(strike)=parts[2].parse::<f64>() else {continue};
-        if !strike.is_finite() || strike<=0.0 {continue;}
-        // Prefer dollar-denominated API fields when available, then legacy cents.
-        let price=|d:&str,c:&str| discovery::number(m.get(d)).or_else(|| discovery::number(m.get(c)).map(|v| v/100.0));
-        let bid=price("yes_bid_dollars","yes_bid");
-        let ask=price("yes_ask_dollars","yes_ask");
-        let (prob,kind)=match (bid,ask) {
-            (Some(b),Some(a)) if 0.0<=b && b<=a && a<=1.0 && a>0.0 && b<1.0 => ((a+b)/2.0,"bid_ask_mid"),
-            _=>match price("last_price_dollars","last_price") {Some(p) if (0.0..=1.0).contains(&p) && (p>0.0 || discovery::number(m.get("volume")).is_some_and(|v|v>0.0))=>(p,"last_trade"),_=>continue},
+        let parts: Vec<&str> = m["ticker"].as_str().unwrap_or("").split('-').collect();
+        if parts.len() != 3 || parts[0] != "KXB200MS" || parts[1].len() != 5 {
+            continue;
+        }
+        let token = parts[1];
+        if !token.is_ascii() || !token[..2].bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        let Some(month) = months.iter().position(|x| *x == &token[2..]) else {
+            continue;
         };
-        let contract_month=format!("20{}-{:02}",&token[..2],month+1);
-        if contract_month.as_str()<asof_month{continue;}
+        let Ok(strike) = parts[2].parse::<f64>() else {
+            continue;
+        };
+        if !strike.is_finite() || strike <= 0.0 {
+            continue;
+        }
+        // Prefer dollar-denominated API fields when available, then legacy cents.
+        let price = |d: &str, c: &str| {
+            discovery::number(m.get(d)).or_else(|| discovery::number(m.get(c)).map(|v| v / 100.0))
+        };
+        let bid = price("yes_bid_dollars", "yes_bid");
+        let ask = price("yes_ask_dollars", "yes_ask");
+        let (prob, kind) = match (bid, ask) {
+            (Some(b), Some(a)) if 0.0 <= b && b <= a && a <= 1.0 && a > 0.0 && b < 1.0 => {
+                ((a + b) / 2.0, "bid_ask_mid")
+            }
+            _ => match price("last_price_dollars", "last_price") {
+                Some(p)
+                    if (0.0..=1.0).contains(&p)
+                        && (p > 0.0
+                            || discovery::number(m.get("volume")).is_some_and(|v| v > 0.0)) =>
+                {
+                    (p, "last_trade")
+                }
+                _ => continue,
+            },
+        };
+        let contract_month = format!("20{}-{:02}", &token[..2], month + 1);
+        if contract_month.as_str() < asof_month {
+            continue;
+        }
         groups.entry(contract_month).or_default().push(json!({"strike":strike,"p_above":prob,"price_type":kind,"ticker":m["ticker"],"close_time":m["close_time"]}));
     }
-    let Some((month,mut ladder))=groups.pop_first() else {return Ok(json!({"status":"unavailable","ladder":[],"message":"没有可解析且有有效报价的 B200 月均阶梯合约"}));};
-    ladder.sort_by(|a,b| a["strike"].as_f64().partial_cmp(&b["strike"].as_f64()).unwrap_or(std::cmp::Ordering::Equal));
-    let monotonic=ladder.windows(2).all(|w| w[0]["p_above"].as_f64()>=w[1]["p_above"].as_f64());
-    Ok(json!({"status":"ok","contract_month":month,"lowest_strike":ladder[0]["strike"],"p_below_lowest":1.0-ladder[0]["p_above"].as_f64().unwrap(),"ladder":ladder,"other_months":groups.keys().collect::<Vec<_>>(),"monotonic":monotonic,
+    let Some((month, mut ladder)) = groups.pop_first() else {
+        return Ok(
+            json!({"status":"unavailable","ladder":[],"message":"没有可解析且有有效报价的 B200 月均阶梯合约"}),
+        );
+    };
+    ladder.sort_by(|a, b| {
+        a["strike"]
+            .as_f64()
+            .partial_cmp(&b["strike"].as_f64())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let monotonic = ladder
+        .windows(2)
+        .all(|w| w[0]["p_above"].as_f64() >= w[1]["p_above"].as_f64());
+    Ok(
+        json!({"status":"ok","contract_month":month,"lowest_strike":ladder[0]["strike"],"p_below_lowest":1.0-ladder[0]["p_above"].as_f64().unwrap(),"ladder":ladder,"other_months":groups.keys().collect::<Vec<_>>(),"monotonic":monotonic,
         "partial":root["cursor"].as_str().is_some_and(|s| !s.is_empty()),"source":"Kalshi KXB200MS","source_url":"https://kalshi.com/markets/kxb200ms",
-        "note":"同一最近合约月内比较,不跨月混合。优先使用买卖盘中点,缺失时用最后成交并标记;报价可能陈旧或缺流动性。概率不等于预测租金。"}))
+        "note":"同一最近合约月内比较,不跨月混合。优先使用买卖盘中点,缺失时用最后成交并标记;报价可能陈旧或缺流动性。概率不等于预测租金。"}),
+    )
 }
 
 #[cfg(test)]
@@ -99,21 +157,39 @@ mod forward_tests {
     use super::*;
     #[tokio::test]
     #[ignore = "real Kalshi connectivity diagnostic"]
-    async fn live_forward_probe(){
-        let client=Client::builder().user_agent("Mozilla/5.0 VibeAStock-Mobile").build().unwrap();
-        let root=discovery::get_json(&client,"https://api.elections.kalshi.com/trade-api/v2/markets",&[("series_ticker","KXB200MS".into()),("status","open".into()),("limit","200".into())]).await.expect("Kalshi HTTP transport");
-        let parsed=parse_forward(&root).unwrap();eprintln!("forward: {parsed}");assert_ne!(parsed["status"],"failed");
+    async fn live_forward_probe() {
+        let client = Client::builder()
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile")
+            .build()
+            .unwrap();
+        let root = discovery::get_json(
+            &client,
+            "https://api.elections.kalshi.com/trade-api/v2/markets",
+            &[
+                ("series_ticker", "KXB200MS".into()),
+                ("status", "open".into()),
+                ("limit", "200".into()),
+            ],
+        )
+        .await
+        .expect("Kalshi HTTP transport");
+        let parsed = parse_forward(&root).unwrap();
+        eprintln!("forward: {parsed}");
+        assert_ne!(parsed["status"], "failed");
     }
     #[test]
     fn forward_does_not_mix_months_or_missing_quotes_and_keeps_price_type() {
-        let data=json!({"markets":[{"ticker":"KXB200MS-26OCT-2","last_price":40},{"ticker":"KXB200MS-26SEP-3","yes_bid_dollars":"0.60","yes_ask_dollars":"0.70"},{"ticker":"KXB200MS-26SEP-5","last_price":20},{"ticker":"KXB200MS-26SEP-X"}]});
-        let out=parse_forward_at(&data,"2026-09").unwrap();
-        assert_eq!(out["contract_month"],"2026-09");
-        assert!((out["p_below_lowest"].as_f64().unwrap()-0.35).abs()<1e-9);
-        assert_eq!(out["ladder"][0]["price_type"],"bid_ask_mid");
-        assert_eq!(out["ladder"][1]["price_type"],"last_trade");
-        assert_eq!(out["other_months"],json!(["2026-10"]));
-        assert_eq!(parse_forward(&json!({"markets":[{"ticker":"KXB200MS-26SEP-3"}]})).unwrap()["status"],"unavailable");
+        let data = json!({"markets":[{"ticker":"KXB200MS-26OCT-2","last_price":40},{"ticker":"KXB200MS-26SEP-3","yes_bid_dollars":"0.60","yes_ask_dollars":"0.70"},{"ticker":"KXB200MS-26SEP-5","last_price":20},{"ticker":"KXB200MS-26SEP-X"}]});
+        let out = parse_forward_at(&data, "2026-09").unwrap();
+        assert_eq!(out["contract_month"], "2026-09");
+        assert!((out["p_below_lowest"].as_f64().unwrap() - 0.35).abs() < 1e-9);
+        assert_eq!(out["ladder"][0]["price_type"], "bid_ask_mid");
+        assert_eq!(out["ladder"][1]["price_type"], "last_trade");
+        assert_eq!(out["other_months"], json!(["2026-10"]));
+        assert_eq!(
+            parse_forward(&json!({"markets":[{"ticker":"KXB200MS-26SEP-3"}]})).unwrap()["status"],
+            "unavailable"
+        );
     }
 }
 

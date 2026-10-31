@@ -8,7 +8,7 @@ const KINDS: [&str; 3] = ["note", "report", "inbox"];
 pub fn list(db_path: &Path, path: &str) -> Result<Value> {
     let kind = query_param(path, "kind").unwrap_or_else(|| "note".to_string());
     validate_kind(&kind)?;
-    apply_policy(db_path,&kind)?;
+    apply_policy(db_path, &kind)?;
     let conn = open(db_path)?;
     let mut stmt = conn.prepare(
         "SELECT id, kind, category, title, body, status, source, symbol, created_at, updated_at
@@ -28,34 +28,70 @@ pub fn list(db_path: &Path, path: &str) -> Result<Value> {
             "updated_at": row.get::<_, String>(9)?,
         }))
     })?;
-    let include_internal=query_param(path,"include_internal").as_deref()==Some("1");
-    let items:Vec<Value> = rows.collect::<rusqlite::Result<Vec<_>>>()?.into_iter().filter(|r|include_internal||!internal(r["source"].as_str().unwrap_or(""))).collect();
+    let include_internal = query_param(path, "include_internal").as_deref() == Some("1");
+    let items: Vec<Value> = rows
+        .collect::<rusqlite::Result<Vec<_>>>()?
+        .into_iter()
+        .filter(|r| include_internal || !internal(r["source"].as_str().unwrap_or("")))
+        .collect();
     Ok(json!({ "kind": kind, "count": items.len(), "items": items }))
 }
 
-fn internal(source:&str)->bool{source=="mobile_research_task"||source.starts_with(crate::research_calculations::PREFIX)||source.starts_with(crate::industry_library::PREFIX)||source.starts_with("calendar_reminder:")||source.starts_with("mobile_library_policy:")}
+fn internal(source: &str) -> bool {
+    source == "mobile_research_task"
+        || source.starts_with(crate::research_calculations::PREFIX)
+        || source.starts_with(crate::industry_library::PREFIX)
+        || source.starts_with("calendar_reminder:")
+        || source.starts_with("mobile_library_policy:")
+}
 
-pub fn policy(db:&Path,body:&Value)->Result<Value>{
+pub fn policy(db: &Path, body: &Value) -> Result<Value> {
     use rusqlite::OptionalExtension;
-    let kind=required_text(body,"kind",32)?;validate_kind(&kind)?;
-    let days=body["days"].as_u64().filter(|v|(7..=3650).contains(v)).ok_or_else(||anyhow!("归档时间应为 7–3650 天"))?;
-    let category=optional_text(body,"category",100)?.unwrap_or_default();
-    let source=format!("mobile_library_policy:{kind}");let conn=open(db)?;
-    let existing:Option<i64>=conn.query_row("SELECT id FROM mobile_documents WHERE source=?1",[&source],|r|r.get(0)).optional()?;
-    save(db,&json!({"id":existing,"kind":"note","title":format!("资料自动归档:{kind}"),"category":"本机设置","source":source,"body":json!({"kind":kind,"days":days,"category":category,"enabled":body["enabled"].as_bool().unwrap_or(true)}).to_string()}))?;
-    let changed=apply_policy(db,&kind)?;
+    let kind = required_text(body, "kind", 32)?;
+    validate_kind(&kind)?;
+    let days = body["days"]
+        .as_u64()
+        .filter(|v| (7..=3650).contains(v))
+        .ok_or_else(|| anyhow!("归档时间应为 7–3650 天"))?;
+    let category = optional_text(body, "category", 100)?.unwrap_or_default();
+    let source = format!("mobile_library_policy:{kind}");
+    let conn = open(db)?;
+    let existing: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM mobile_documents WHERE source=?1",
+            [&source],
+            |r| r.get(0),
+        )
+        .optional()?;
+    save(
+        db,
+        &json!({"id":existing,"kind":"note","title":format!("资料自动归档:{kind}"),"category":"本机设置","source":source,"body":json!({"kind":kind,"days":days,"category":category,"enabled":body["enabled"].as_bool().unwrap_or(true)}).to_string()}),
+    )?;
+    let changed = apply_policy(db, &kind)?;
     Ok(json!({"changed":changed,"enabled":body["enabled"].as_bool().unwrap_or(true)}))
 }
 
-fn apply_policy(db:&Path,kind:&str)->Result<usize>{
+fn apply_policy(db: &Path, kind: &str) -> Result<usize> {
     use rusqlite::OptionalExtension;
-    let conn=open(db)?;
-    let config:Option<String>=conn.query_row("SELECT body FROM mobile_documents WHERE source=?1",[format!("mobile_library_policy:{kind}")],|r|r.get(0)).optional()?;
-    let Some(config)=config else{return Ok(0)};let config:Value=serde_json::from_str(&config)?;
-    if config["enabled"]!=true{return Ok(0);}
-    let days=config["days"].as_i64().filter(|n|(7..=3650).contains(n)).ok_or_else(||anyhow!("归档规则损坏"))?;
-    let cutoff=(chrono::Utc::now()-chrono::Duration::days(days)).to_rfc3339();
-    let category=config["category"].as_str().unwrap_or("");
+    let conn = open(db)?;
+    let config: Option<String> = conn
+        .query_row(
+            "SELECT body FROM mobile_documents WHERE source=?1",
+            [format!("mobile_library_policy:{kind}")],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let Some(config) = config else { return Ok(0) };
+    let config: Value = serde_json::from_str(&config)?;
+    if config["enabled"] != true {
+        return Ok(0);
+    }
+    let days = config["days"]
+        .as_i64()
+        .filter(|n| (7..=3650).contains(n))
+        .ok_or_else(|| anyhow!("归档规则损坏"))?;
+    let cutoff = (chrono::Utc::now() - chrono::Duration::days(days)).to_rfc3339();
+    let category = config["category"].as_str().unwrap_or("");
     Ok(conn.execute("UPDATE mobile_documents SET status='archived' WHERE kind=?1 AND updated_at<?2 AND (?3='' OR category=?3) AND status IN ('active','read') AND source<>'mobile_research_task' AND source NOT LIKE 'mobile_research_calculation:%' AND source NOT LIKE 'mobile_industry_fact:%' AND source NOT LIKE 'calendar_reminder:%' AND source NOT LIKE 'mobile_library_policy:%'",params![kind,cutoff,category])?)
 }
 
@@ -66,7 +102,11 @@ pub fn save(db_path: &Path, body: &Value) -> Result<Value> {
     let document_body = optional_text(body, "body", 250_000)?.unwrap_or_default();
     let category = optional_text(body, "category", 100)?.unwrap_or_default();
     let status = optional_text(body, "status", 32)?.unwrap_or_else(|| {
-        if kind == "inbox" { "unread".to_string() } else { "active".to_string() }
+        if kind == "inbox" {
+            "unread".to_string()
+        } else {
+            "active".to_string()
+        }
     });
     let source = optional_text(body, "source", 300)?.unwrap_or_else(|| "manual".to_string());
     let symbol = optional_text(body, "symbol", 32)?;
@@ -85,7 +125,17 @@ pub fn save(db_path: &Path, body: &Value) -> Result<Value> {
             "UPDATE mobile_documents
              SET category=?1, title=?2, body=?3, status=?4, source=?5, symbol=?6, updated_at=?7
              WHERE id=?8 AND kind=?9",
-            params![category, title, document_body, status, source, symbol, now, id, kind],
+            params![
+                category,
+                title,
+                document_body,
+                status,
+                source,
+                symbol,
+                now,
+                id,
+                kind
+            ],
         )?;
         if changed == 0 {
             return Err(anyhow!("文档不存在或类型不匹配: {id}"));
@@ -164,14 +214,23 @@ fn validate_kind(kind: &str) -> Result<()> {
 }
 
 fn required_text(body: &Value, key: &str, max: usize) -> Result<String> {
-    optional_text(body, key, max)?.filter(|value| !value.trim().is_empty())
+    optional_text(body, key, max)?
+        .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| anyhow!("{key} 不能为空"))
 }
 
 fn optional_text(body: &Value, key: &str, max: usize) -> Result<Option<String>> {
-    let Some(value) = body.get(key) else { return Ok(None); };
-    if value.is_null() { return Ok(None); }
-    let text = value.as_str().ok_or_else(|| anyhow!("{key} 必须是字符串"))?.trim().to_string();
+    let Some(value) = body.get(key) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let text = value
+        .as_str()
+        .ok_or_else(|| anyhow!("{key} 必须是字符串"))?
+        .trim()
+        .to_string();
     if text.chars().count() > max {
         return Err(anyhow!("{key} 超过最大长度 {max}"));
     }
@@ -193,10 +252,16 @@ fn query_param(path: &str, key: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn temp_db() -> std::path::PathBuf {
-        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let path = std::env::temp_dir().join(format!("vibe-documents-{nonce}.sqlite3"));
         let conn = Connection::open(&path).unwrap();
         conn.execute_batch(
@@ -211,8 +276,9 @@ mod tests {
                 symbol TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
-            );"
-        ).unwrap();
+            );",
+        )
+        .unwrap();
         path
     }
 
@@ -223,9 +289,16 @@ mod tests {
         let id = saved["id"].as_i64().unwrap();
         assert_eq!(saved["title"], "测试");
 
-        let updated = save(&path, &json!({"id":id,"kind":"note","title":"更新","body":"正文2"})).unwrap();
+        let updated = save(
+            &path,
+            &json!({"id":id,"kind":"note","title":"更新","body":"正文2"}),
+        )
+        .unwrap();
         assert_eq!(updated["title"], "更新");
-        assert_eq!(list(&path, "/mobile/documents?kind=note").unwrap()["count"], 1);
+        assert_eq!(
+            list(&path, "/mobile/documents?kind=note").unwrap()["count"],
+            1
+        );
         assert_eq!(delete(&path, &json!({"id":id})).unwrap()["deleted"], true);
         let _ = fs::remove_file(path);
     }

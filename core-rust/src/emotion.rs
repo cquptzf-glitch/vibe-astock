@@ -124,10 +124,14 @@ pub async fn emotion(client: &Client, path: &str) -> Result<Value, DiscoveryErro
     let zt = match zt {
         Ok(rows) if !rows.is_empty() => rows,
         Ok(_) => {
-            return Ok(json!({"status": "failed", "date": date, "message": format!("{date} 涨停池为空(数据还没出或上游未提供)")}));
+            return Ok(
+                json!({"status": "failed", "date": date, "message": format!("{date} 涨停池为空(数据还没出或上游未提供)")}),
+            );
         }
         Err(error) => {
-            return Ok(json!({"status": "failed", "date": date, "message": error_message(PoolKind::LimitUp.label(), &error)}));
+            return Ok(
+                json!({"status": "failed", "date": date, "message": error_message(PoolKind::LimitUp.label(), &error)}),
+            );
         }
     };
     let mut errors = Vec::new();
@@ -142,7 +146,8 @@ pub async fn emotion(client: &Client, path: &str) -> Result<Value, DiscoveryErro
     let zb = keep(PoolKind::Broken, zb, &mut errors);
     let dt = keep(PoolKind::LimitDown, dt, &mut errors);
     let yzt = keep(PoolKind::Yesterday, yzt, &mut errors).and_then(|rows| {
-        let (with_ret, without): (Vec<Row>, Vec<Row>) = rows.into_iter().partition(|row| row.ret.is_some());
+        let (with_ret, without): (Vec<Row>, Vec<Row>) =
+            rows.into_iter().partition(|row| row.ret.is_some());
         if with_ret.is_empty() {
             Err("昨日涨停表现为空".to_string())
         } else {
@@ -162,7 +167,13 @@ pub async fn emotion(client: &Client, path: &str) -> Result<Value, DiscoveryErro
             Err(message)
         }
     };
-    let pools = Pools { zt, zb, dt, yzt, prev_zt };
+    let pools = Pools {
+        zt,
+        zb,
+        dt,
+        yzt,
+        prev_zt,
+    };
     let mut body = build(&date, prev.as_deref(), settled, &pools);
     body["status"] = json!(if errors.is_empty() { "ok" } else { "partial" });
     body["errors"] = Value::Array(errors);
@@ -178,8 +189,15 @@ pub async fn cycle(client: &Client, path: &str) -> Result<Value, DiscoveryError>
     let calendar = trade_dates(client).await?;
     let (date, _) = review_day(&calendar, requested.as_deref(), now)?;
     let today = now.0.format("%Y-%m-%d").to_string();
-    let mut window: Vec<String> = calendar.iter().filter(|day| day.as_str() <= date.as_str()).cloned().collect();
-    if window.last().is_some_and(|day| *day == today && !is_settled(day, &calendar, now)) {
+    let mut window: Vec<String> = calendar
+        .iter()
+        .filter(|day| day.as_str() <= date.as_str())
+        .cloned()
+        .collect();
+    if window
+        .last()
+        .is_some_and(|day| *day == today && !is_settled(day, &calendar, now))
+    {
         window.pop();
     }
     let start = window.len().saturating_sub(lookback);
@@ -194,7 +212,8 @@ pub async fn cycle(client: &Client, path: &str) -> Result<Value, DiscoveryError>
             (day.clone(), zt.ok(), zb.ok())
         }
     });
-    let days: Vec<(String, Option<Vec<Row>>, Option<Vec<Row>>)> = join_all(fetches).await;
+    type PoolSnapshot = (String, Option<Vec<Row>>, Option<Vec<Row>>);
+    let days: Vec<PoolSnapshot> = join_all(fetches).await;
     let summaries: Vec<Value> = days
         .iter()
         .filter_map(|(day, zt, zb)| day_summary(day, zt.as_deref()?, zb.as_deref()?))
@@ -219,12 +238,15 @@ pub(crate) fn now_china() -> ChinaNow {
 }
 
 pub(crate) fn date_parameter(path: &str) -> Result<Option<String>, DiscoveryError> {
-    let Some(raw) = discovery::parameter(path, "date").filter(|value| !value.trim().is_empty()) else {
+    let Some(raw) = discovery::parameter(path, "date").filter(|value| !value.trim().is_empty())
+    else {
         return Ok(None);
     };
     let compact = raw.trim().replace('-', "");
     if compact.len() != 8 || !compact.chars().all(|c| c.is_ascii_digit()) {
-        return Err(DiscoveryError::BadRequest("date 必须是 YYYY-MM-DD 或 YYYYMMDD".into()));
+        return Err(DiscoveryError::BadRequest(
+            "date 必须是 YYYY-MM-DD 或 YYYYMMDD".into(),
+        ));
     }
     let date = NaiveDate::parse_from_str(&compact, "%Y%m%d")
         .map_err(|_| DiscoveryError::BadRequest("date 不是有效日期".into()))?;
@@ -246,13 +268,16 @@ pub(crate) async fn trade_dates(client: &Client) -> Result<Vec<String>> {
                 .error_for_status()?
                 .json()
                 .await?;
-            parse_tencent_dates(&root).map_err(|fallback| anyhow!("交易日历取数失败:{primary};{fallback}"))
+            parse_tencent_dates(&root)
+                .map_err(|fallback| anyhow!("交易日历取数失败:{primary};{fallback}"))
         }
     }
 }
 
 pub(crate) fn parse_tencent_dates(root: &Value) -> Result<Vec<String>> {
-    let rows = root["data"]["sh000001"]["day"].as_array().ok_or_else(|| anyhow!("腾讯日线缺少 day"))?;
+    let rows = root["data"]["sh000001"]["day"]
+        .as_array()
+        .ok_or_else(|| anyhow!("腾讯日线缺少 day"))?;
     let lines: Vec<Value> = rows.iter().filter_map(|row| row.get(0).cloned()).collect();
     parse_trade_dates(&json!({"data": {"klines": lines}}))
 }
@@ -280,7 +305,9 @@ async fn eastmoney_trade_dates(client: &Client) -> Result<Vec<String>> {
 }
 
 pub(crate) fn parse_trade_dates(root: &Value) -> Result<Vec<String>> {
-    let lines = root["data"]["klines"].as_array().ok_or_else(|| anyhow!("交易日历缺少 klines"))?;
+    let lines = root["data"]["klines"]
+        .as_array()
+        .ok_or_else(|| anyhow!("交易日历缺少 klines"))?;
     let mut dates: Vec<String> = lines
         .iter()
         .filter_map(Value::as_str)
@@ -319,16 +346,22 @@ pub(crate) fn review_day(
             .rev()
             .find(|day| day.as_str() < today.as_str() || is_settled(day, calendar, now))
             .cloned()
-            .ok_or_else(|| DiscoveryError::BadRequest("交易日历里找不到最近的已收盘交易日".into()))?,
+            .ok_or_else(|| {
+                DiscoveryError::BadRequest("交易日历里找不到最近的已收盘交易日".into())
+            })?,
         Some(day) => {
             if day > today.as_str() {
                 return Err(DiscoveryError::BadRequest(format!("{day} 还没到")));
             }
             if day == today && now.1 < 930 && !calendar.iter().any(|d| d == day) {
-                return Err(DiscoveryError::BadRequest("今天还没开盘,先看上一交易日".into()));
+                return Err(DiscoveryError::BadRequest(
+                    "今天还没开盘,先看上一交易日".into(),
+                ));
             }
             if calendar.first().is_some_and(|first| day < first.as_str()) {
-                return Err(DiscoveryError::BadRequest(format!("{day} 早于可查范围(约一年)")));
+                return Err(DiscoveryError::BadRequest(format!(
+                    "{day} 早于可查范围(约一年)"
+                )));
             }
             if !calendar.iter().any(|d| d == day) {
                 return Err(DiscoveryError::BadRequest(format!("{day} 不是交易日")));
@@ -336,12 +369,20 @@ pub(crate) fn review_day(
             day.to_string()
         }
     };
-    let prev = calendar.iter().rev().find(|day| day.as_str() < date.as_str()).cloned();
+    let prev = calendar
+        .iter()
+        .rev()
+        .find(|day| day.as_str() < date.as_str())
+        .cloned();
     Ok((date, prev))
 }
 
 /// 东财池子的原始响应(未解析)
-pub(crate) async fn fetch_pool_root(client: &Client, kind: PoolKind, compact_date: &str) -> Result<Value> {
+pub(crate) async fn fetch_pool_root(
+    client: &Client,
+    kind: PoolKind,
+    compact_date: &str,
+) -> Result<Value> {
     let (api, sort) = kind.api();
     Ok(client
         .get(format!("https://push2ex.eastmoney.com/{api}"))
@@ -362,7 +403,11 @@ pub(crate) async fn fetch_pool_root(client: &Client, kind: PoolKind, compact_dat
         .await?)
 }
 
-pub(crate) async fn fetch_pool(client: &Client, kind: PoolKind, compact_date: &str) -> Result<Vec<Row>> {
+pub(crate) async fn fetch_pool(
+    client: &Client,
+    kind: PoolKind,
+    compact_date: &str,
+) -> Result<Vec<Row>> {
     let root = fetch_pool_root(client, kind, compact_date).await?;
     parse_pool(&root, kind, compact_date)
 }
@@ -387,7 +432,10 @@ pub(crate) fn raw_fields(root: &Value) -> Option<Vec<String>> {
 pub(crate) fn error_message(label: &str, error: &anyhow::Error) -> String {
     if error.downcast_ref::<reqwest::Error>().is_some() {
         let failure = discovery::failure(label, error);
-        format!("{label}:{}", failure["message"].as_str().unwrap_or("数据源暂不可用"))
+        format!(
+            "{label}:{}",
+            failure["message"].as_str().unwrap_or("数据源暂不可用")
+        )
     } else {
         // 本模块自己的错误串只含池名与日期,不含用户数据。
         format!("{label}:{error}")
@@ -410,7 +458,10 @@ fn int(value: Option<&Value>) -> Option<i64> {
 
 fn hhmmss(value: Option<&Value>) -> String {
     let raw = text(value).unwrap_or_default().replace(':', "");
-    if raw.is_empty() || !raw.chars().all(|c| c.is_ascii_digit()) || raw.trim_start_matches('0').is_empty() {
+    if raw.is_empty()
+        || !raw.chars().all(|c| c.is_ascii_digit())
+        || raw.trim_start_matches('0').is_empty()
+    {
         return String::new();
     }
     format!("{raw:0>6}")
@@ -421,15 +472,25 @@ fn price(value: Option<&Value>) -> Option<f64> {
 }
 
 fn is_st(name: &str) -> bool {
-    name.replace('Ｓ', "S").replace('Ｔ', "T").to_uppercase().contains("ST")
+    name.replace('Ｓ', "S")
+        .replace('Ｔ', "T")
+        .to_uppercase()
+        .contains("ST")
 }
 
 pub(crate) fn board_of(code: &str, name: &str) -> &'static str {
     let st = is_st(name);
-    if ["43", "83", "87", "88", "92"].iter().any(|p| code.starts_with(p)) {
+    if ["43", "83", "87", "88", "92"]
+        .iter()
+        .any(|p| code.starts_with(p))
+    {
         "北交所"
     } else if ["30", "688", "689"].iter().any(|p| code.starts_with(p)) {
-        if st { "20cm(ST)" } else { "20cm" }
+        if st {
+            "20cm(ST)"
+        } else {
+            "20cm"
+        }
     } else if st {
         "主板ST"
     } else {
@@ -440,7 +501,13 @@ pub(crate) fn board_of(code: &str, name: &str) -> &'static str {
 pub(crate) fn limit_pct(code: &str, name: &str, day: &str) -> f64 {
     match board_of(code, name) {
         "北交所" => 30.0,
-        "主板ST" => if day < ST_10PCT_FROM { 5.0 } else { 10.0 },
+        "主板ST" => {
+            if day < ST_10PCT_FROM {
+                5.0
+            } else {
+                10.0
+            }
+        }
         "20cm" | "20cm(ST)" if code.starts_with("30") && day < CHINEXT_20PCT_FROM => 10.0,
         "20cm" | "20cm(ST)" => 20.0,
         _ => 10.0,
@@ -448,7 +515,8 @@ pub(crate) fn limit_pct(code: &str, name: &str, day: &str) -> f64 {
 }
 
 fn is_limit_down(row: &Row, day: &str) -> bool {
-    row.ret.is_some_and(|ret| ret <= -(limit_pct(&row.code, &row.name, day) - 0.3))
+    row.ret
+        .is_some_and(|ret| ret <= -(limit_pct(&row.code, &row.name, day) - 0.3))
 }
 
 pub(crate) fn is_limit_up(row: &Row, day: &str) -> Option<bool> {
@@ -457,11 +525,16 @@ pub(crate) fn is_limit_up(row: &Row, day: &str) -> Option<bool> {
             return Some((close * 100.0).round() == (limit * 100.0).round());
         }
     }
-    row.ret.map(|ret| ret >= limit_pct(&row.code, &row.name, day) - 0.3)
+    row.ret
+        .map(|ret| ret >= limit_pct(&row.code, &row.name, day) - 0.3)
 }
 
 pub(crate) fn parse_pool(root: &Value, kind: PoolKind, requested: &str) -> Result<Vec<Row>> {
-    if root.get("rc").and_then(Value::as_i64).is_some_and(|rc| rc != 0) {
+    if root
+        .get("rc")
+        .and_then(Value::as_i64)
+        .is_some_and(|rc| rc != 0)
+    {
         return Err(anyhow!("上游返回业务错误"));
     }
     let data = match root.get("data") {
@@ -482,9 +555,14 @@ pub(crate) fn parse_pool(root: &Value, kind: PoolKind, requested: &str) -> Resul
     let mut rows = Vec::with_capacity(raw.len());
     let mut missing: BTreeMap<&str, usize> = BTreeMap::new();
     for item in raw {
-        let Some(obj) = item.as_object() else { continue };
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
         let code = format!("{:0>6}", text(obj.get("c")).unwrap_or_default());
-        if code.trim_start_matches('0').is_empty() || code.len() != 6 || !code.chars().all(|c| c.is_ascii_digit()) {
+        if code.trim_start_matches('0').is_empty()
+            || code.len() != 6
+            || !code.chars().all(|c| c.is_ascii_digit())
+        {
             continue;
         }
         for field in kind.required() {
@@ -498,7 +576,10 @@ pub(crate) fn parse_pool(root: &Value, kind: PoolKind, requested: &str) -> Resul
             }
         }
         let name = text(obj.get("n")).unwrap_or_default();
-        let stat = obj.get("zttj").and_then(Value::as_object).and_then(|z| Some((int(z.get("days"))?, int(z.get("ct"))?)));
+        let stat = obj
+            .get("zttj")
+            .and_then(Value::as_object)
+            .and_then(|z| Some((int(z.get("days"))?, int(z.get("ct"))?)));
         let one = |v: Option<i64>| v.filter(|n| *n != 0).unwrap_or(1);
         let mut row = Row {
             board: board_of(&code, &name),
@@ -545,7 +626,9 @@ pub(crate) fn parse_pool(root: &Value, kind: PoolKind, requested: &str) -> Resul
         rows.push(row);
     }
     if let Some((field, count)) = missing.iter().next() {
-        return Err(anyhow!("{count} 行缺「{field}」,上游格式可能变了,不按默认值补"));
+        return Err(anyhow!(
+            "{count} 行缺「{field}」,上游格式可能变了,不按默认值补"
+        ));
     }
     Ok(rows)
 }
@@ -561,7 +644,11 @@ pub(crate) fn r2(value: f64) -> f64 {
 }
 
 fn ratio(part: usize, total: usize) -> Value {
-    if total == 0 { Value::Null } else { json!(r3(part as f64 / total as f64)) }
+    if total == 0 {
+        Value::Null
+    } else {
+        json!(r3(part as f64 / total as f64))
+    }
 }
 
 fn mean(values: &[f64]) -> f64 {
@@ -572,7 +659,11 @@ pub(crate) fn median(values: &[f64]) -> f64 {
     let mut sorted = values.to_vec();
     sorted.sort_by(|a, b| a.total_cmp(b));
     let mid = sorted.len() / 2;
-    if sorted.len() % 2 == 0 { (sorted[mid - 1] + sorted[mid]) / 2.0 } else { sorted[mid] }
+    if sorted.len().is_multiple_of(2) {
+        (sorted[mid - 1] + sorted[mid]) / 2.0
+    } else {
+        sorted[mid]
+    }
 }
 
 fn display_time(raw: &str) -> Value {
@@ -619,11 +710,17 @@ pub(crate) fn build(date: &str, prev: Option<&str>, settled: bool, pools: &Pools
     // 昨日板数:前一交易日涨停池为准;东财偶有昨日涨停池里有、前一日涨停池漏掉的票,用昨日涨停池的「昨日连板」补上。
     // 晋级率仍只按前一交易日涨停池算,与桌面版口径一致。
     let mut prev_boards: HashMap<&str, i64> = prev_zt
-        .map(|rows| rows.iter().map(|row| (row.code.as_str(), row.boards)).collect())
+        .map(|rows| {
+            rows.iter()
+                .map(|row| (row.code.as_str(), row.boards))
+                .collect()
+        })
         .unwrap_or_default();
     if let Ok((rows, missing)) = &pools.yzt {
         for row in rows.iter().chain(missing) {
-            prev_boards.entry(row.code.as_str()).or_insert(row.prev_boards);
+            prev_boards
+                .entry(row.code.as_str())
+                .or_insert(row.prev_boards);
         }
     }
     let prev_known = prev_zt.is_some() || pools.yzt.is_ok();
@@ -711,7 +808,11 @@ fn stock_value(row: &Row) -> Value {
     })
 }
 
-fn pool_rows(pool: &Result<Vec<Row>, String>, prev_boards: &HashMap<&str, i64>, prev_ok: bool) -> Value {
+fn pool_rows(
+    pool: &Result<Vec<Row>, String>,
+    prev_boards: &HashMap<&str, i64>,
+    prev_ok: bool,
+) -> Value {
     match pool {
         Err(reason) => json!({"available": false, "reason": reason, "rows": []}),
         Ok(rows) => json!({
@@ -746,13 +847,25 @@ fn promotion(
     prev: Option<&str>,
     prev_result: &Result<Vec<Row>, String>,
 ) -> Value {
-    let Some(prev_day) = prev else { return unavailable("取不到前一交易日") };
+    let Some(prev_day) = prev else {
+        return unavailable("取不到前一交易日");
+    };
     let Some(prev_zt) = prev_zt else {
-        return unavailable(prev_result.as_ref().err().cloned().unwrap_or_else(|| format!("{prev_day} 涨停池取数失败")));
+        return unavailable(
+            prev_result
+                .as_ref()
+                .err()
+                .cloned()
+                .unwrap_or_else(|| format!("{prev_day} 涨停池取数失败")),
+        );
     };
     let mut buckets: [(usize, usize); 3] = [(0, 0); 3];
     for row in prev_zt {
-        let index = match row.boards { 1 => 0, 2 => 1, _ => 2 };
+        let index = match row.boards {
+            1 => 0,
+            2 => 1,
+            _ => 2,
+        };
         buckets[index].0 += 1;
         if today_codes.contains(row.code.as_str()) {
             buckets[index].1 += 1;
@@ -771,22 +884,36 @@ fn promotion(
     })
 }
 
-fn money_effect(pools: &Pools, today_codes: &HashSet<&str>, date: &str, prev: Option<&str>) -> Value {
+fn money_effect(
+    pools: &Pools,
+    today_codes: &HashSet<&str>,
+    date: &str,
+    prev: Option<&str>,
+) -> Value {
     let (rows, missing) = match &pools.yzt {
         Ok(value) => value,
         Err(reason) => return unavailable(reason.clone()),
     };
     let values: Vec<f64> = rows.iter().filter_map(|row| row.ret).collect();
-    let again = rows.iter().filter(|row| today_codes.contains(row.code.as_str()) || (today_codes.is_empty() && is_limit_up(row, date) == Some(true))).count();
-    with(coverage(values.len(), missing.len()), json!({
-        "available": true,
-        "prev_date": prev,
-        "source": "settled",
-        "avg": r2(mean(&values)),
-        "median": r2(median(&values)),
-        "positive_rate": ratio(values.iter().filter(|v| **v > 0.0).count(), values.len()),
-        "limit_up_again_rate": ratio(again, values.len()),
-    }))
+    let again = rows
+        .iter()
+        .filter(|row| {
+            today_codes.contains(row.code.as_str())
+                || (today_codes.is_empty() && is_limit_up(row, date) == Some(true))
+        })
+        .count();
+    with(
+        coverage(values.len(), missing.len()),
+        json!({
+            "available": true,
+            "prev_date": prev,
+            "source": "settled",
+            "avg": r2(mean(&values)),
+            "median": r2(median(&values)),
+            "positive_rate": ratio(values.iter().filter(|v| **v > 0.0).count(), values.len()),
+            "limit_up_again_rate": ratio(again, values.len()),
+        }),
+    )
 }
 
 fn consec_premium(pools: &Pools, prev: Option<&str>) -> Value {
@@ -794,19 +921,26 @@ fn consec_premium(pools: &Pools, prev: Option<&str>) -> Value {
         Ok(value) => value,
         Err(reason) => return unavailable(reason.clone()),
     };
-    let values: Vec<f64> = rows.iter().filter(|row| row.prev_boards >= 2).filter_map(|row| row.ret).collect();
+    let values: Vec<f64> = rows
+        .iter()
+        .filter(|row| row.prev_boards >= 2)
+        .filter_map(|row| row.ret)
+        .collect();
     if values.is_empty() {
         return unavailable(format!("{} 无 2 板以上个股", prev.unwrap_or("前一交易日")));
     }
     let miss = missing.iter().filter(|row| row.prev_boards >= 2).count();
-    with(coverage(values.len(), miss), json!({
-        "available": true,
-        "prev_date": prev,
-        "source": "settled",
-        "avg": r2(mean(&values)),
-        "median": r2(median(&values)),
-        "positive_rate": ratio(values.iter().filter(|v| **v > 0.0).count(), values.len()),
-    }))
+    with(
+        coverage(values.len(), miss),
+        json!({
+            "available": true,
+            "prev_date": prev,
+            "source": "settled",
+            "avg": r2(mean(&values)),
+            "median": r2(median(&values)),
+            "positive_rate": ratio(values.iter().filter(|v| **v > 0.0).count(), values.len()),
+        }),
+    )
 }
 
 fn ladder_gap(zt: &[Row]) -> Value {
@@ -823,7 +957,10 @@ fn ladder_gap(zt: &[Row]) -> Value {
     } else {
         format!(
             "板位缺档 {} → 最高标下方断层;是否有同题材承接需另查",
-            gaps.iter().map(|g| format!("{g}板")).collect::<Vec<_>>().join("、")
+            gaps.iter()
+                .map(|g| format!("{g}板"))
+                .collect::<Vec<_>>()
+                .join("、")
         )
     };
     json!({
@@ -840,8 +977,14 @@ fn seal_quality(zt: &[Row], zb: Option<&Vec<Row>>) -> Value {
     let total = zt.len();
     let never = zt.iter().filter(|row| row.broken_times == 0).count();
     let reopened = total - never;
-    let seconds = zt.iter().filter(|row| !row.first_seal.is_empty() && row.first_seal.as_str() <= "093500").count();
-    let late = zt.iter().filter(|row| !row.last_seal.is_empty() && row.last_seal.as_str() >= "143000").count();
+    let seconds = zt
+        .iter()
+        .filter(|row| !row.first_seal.is_empty() && row.first_seal.as_str() <= "093500")
+        .count();
+    let late = zt
+        .iter()
+        .filter(|row| !row.last_seal.is_empty() && row.last_seal.as_str() >= "143000")
+        .count();
     let broken_times: i64 = zt.iter().map(|row| row.broken_times).sum();
     json!({
         "available": true,
@@ -867,27 +1010,34 @@ fn loss_effect(pools: &Pools, date: &str, prev: Option<&str>) -> Value {
     let values: Vec<f64> = rows.iter().filter_map(|row| row.ret).collect();
     let deep5 = values.iter().filter(|v| **v <= -5.0).count();
     let worst = values.iter().copied().fold(f64::INFINITY, f64::min);
-    with(coverage(values.len(), missing.len()), json!({
-        "available": true,
-        "prev_date": prev,
-        "source": "settled",
-        "deep_loss_5_count": deep5,
-        "deep_loss_5_rate": ratio(deep5, values.len()),
-        "deep_loss_7_count": values.iter().filter(|v| **v <= -7.0).count(),
-        "limit_down_count": rows.iter().filter(|row| is_limit_down(row, date)).count(),
-        "worst": r2(worst),
-        "market_limit_down": pools.dt.as_ref().ok().map(Vec::len),
-        "prev_broken_recovery": Value::Null,
-        "note": if pools.dt.is_ok() {
-            "昨日强势股由定稿记录算;全市场跌停取复盘日东财跌停池。昨日炸板股修复见「昨日炸板股修复」卡片。"
-        } else {
-            "昨日强势股由定稿记录算;复盘日跌停池未取得。昨日炸板股修复见「昨日炸板股修复」卡片。"
-        },
-    }))
+    with(
+        coverage(values.len(), missing.len()),
+        json!({
+            "available": true,
+            "prev_date": prev,
+            "source": "settled",
+            "deep_loss_5_count": deep5,
+            "deep_loss_5_rate": ratio(deep5, values.len()),
+            "deep_loss_7_count": values.iter().filter(|v| **v <= -7.0).count(),
+            "limit_down_count": rows.iter().filter(|row| is_limit_down(row, date)).count(),
+            "worst": r2(worst),
+            "market_limit_down": pools.dt.as_ref().ok().map(Vec::len),
+            "prev_broken_recovery": Value::Null,
+            "note": if pools.dt.is_ok() {
+                "昨日强势股由定稿记录算;全市场跌停取复盘日东财跌停池。昨日炸板股修复见「昨日炸板股修复」卡片。"
+            } else {
+                "昨日强势股由定稿记录算;复盘日跌停池未取得。昨日炸板股修复见「昨日炸板股修复」卡片。"
+            },
+        }),
+    )
 }
 
 fn tier_name(boards: i64) -> String {
-    if boards <= 1 { "首板".into() } else { format!("{boards}板") }
+    if boards <= 1 {
+        "首板".into()
+    } else {
+        format!("{boards}板")
+    }
 }
 
 fn feedback(pools: &Pools, today_codes: &HashSet<&str>, date: &str, prev: Option<&str>) -> Value {
@@ -933,15 +1083,18 @@ fn feedback(pools: &Pools, today_codes: &HashSet<&str>, date: &str, prev: Option
             Value::Object(cell)
         })
         .collect();
-    with(coverage(details.len(), missing.len()), json!({
-        "available": true,
-        "prev_date": prev,
-        "source": "settled",
-        "result_order": RESULT_ORDER,
-        "rows": tiers,
-        "details": details.into_iter().map(|(_, value)| value).collect::<Vec<_>>(),
-        "note": "涨跌幅取昨日涨停股当日定稿记录;晋级以复盘日东财涨停池成员为准。记录不含昨日炸板股(单独算,见「昨日炸板股修复」卡片)。",
-    }))
+    with(
+        coverage(details.len(), missing.len()),
+        json!({
+            "available": true,
+            "prev_date": prev,
+            "source": "settled",
+            "result_order": RESULT_ORDER,
+            "rows": tiers,
+            "details": details.into_iter().map(|(_, value)| value).collect::<Vec<_>>(),
+            "note": "涨跌幅取昨日涨停股当日定稿记录;晋级以复盘日东财涨停池成员为准。记录不含昨日炸板股(单独算,见「昨日炸板股修复」卡片)。",
+        }),
+    )
 }
 
 fn themes(zt: &[Row], zb: Option<&Vec<Row>>, prev_zt: Option<&Vec<Row>>) -> Value {
@@ -956,16 +1109,34 @@ fn themes(zt: &[Row], zb: Option<&Vec<Row>>, prev_zt: Option<&Vec<Row>>) -> Valu
         prev: usize,
         continued: usize,
     }
-    let sector = |row: &Row| if row.sector.trim().is_empty() { "未分类".to_string() } else { row.sector.trim().to_string() };
+    let sector = |row: &Row| {
+        if row.sector.trim().is_empty() {
+            "未分类".to_string()
+        } else {
+            row.sector.trim().to_string()
+        }
+    };
     let today: HashSet<&str> = zt.iter().map(|row| row.code.as_str()).collect();
     let mut groups: HashMap<String, Group> = HashMap::new();
     for row in zt {
         let group = groups.entry(sector(row)).or_insert_with(|| Group {
-            limit_up: 0, first: 0, consec: 0, highest: 0, broken: 0, seals: vec![], names: vec![], prev: 0, continued: 0,
+            limit_up: 0,
+            first: 0,
+            consec: 0,
+            highest: 0,
+            broken: 0,
+            seals: vec![],
+            names: vec![],
+            prev: 0,
+            continued: 0,
         });
         group.limit_up += 1;
         group.highest = group.highest.max(row.boards);
-        if row.boards <= 1 { group.first += 1 } else { group.consec += 1 }
+        if row.boards <= 1 {
+            group.first += 1
+        } else {
+            group.consec += 1
+        }
         if !row.first_seal.is_empty() {
             group.seals.push(&row.first_seal);
         }
@@ -989,7 +1160,12 @@ fn themes(zt: &[Row], zb: Option<&Vec<Row>>, prev_zt: Option<&Vec<Row>>) -> Valu
         }
     }
     let mut rows: Vec<(String, Group)> = groups.into_iter().collect();
-    rows.sort_by(|a, b| b.1.limit_up.cmp(&a.1.limit_up).then(b.1.highest.cmp(&a.1.highest)).then(a.0.cmp(&b.0)));
+    rows.sort_by(|a, b| {
+        b.1.limit_up
+            .cmp(&a.1.limit_up)
+            .then(b.1.highest.cmp(&a.1.highest))
+            .then(a.0.cmp(&b.0))
+    });
     let themes: Vec<Value> = rows
         .iter_mut()
         .map(|(name, group)| {
@@ -1016,7 +1192,11 @@ fn themes(zt: &[Row], zb: Option<&Vec<Row>>, prev_zt: Option<&Vec<Row>>) -> Valu
             })
         })
         .collect();
-    let mut times: Vec<&str> = zt.iter().filter(|r| !r.first_seal.is_empty()).map(|r| r.first_seal.as_str()).collect();
+    let mut times: Vec<&str> = zt
+        .iter()
+        .filter(|r| !r.first_seal.is_empty())
+        .map(|r| r.first_seal.as_str())
+        .collect();
     times.sort();
     let mut low = "000000";
     let timeline: Vec<Value> = SLOTS
@@ -1038,7 +1218,14 @@ fn themes(zt: &[Row], zb: Option<&Vec<Row>>, prev_zt: Option<&Vec<Row>>) -> Valu
     })
 }
 
-fn events(zt: &[Row], zb: Option<&Vec<Row>>, dt: Option<&Vec<Row>>, prev_boards: &HashMap<&str, i64>, prev_ok: bool, prev: Option<&str>) -> Value {
+fn events(
+    zt: &[Row],
+    zb: Option<&Vec<Row>>,
+    dt: Option<&Vec<Row>>,
+    prev_boards: &HashMap<&str, i64>,
+    prev_ok: bool,
+    prev: Option<&str>,
+) -> Value {
     let unknown = "(昨日板数未取得)";
     let mut list: Vec<Value> = Vec::new();
     let mut add = |tag: &str, row: &Row, note: String| {
@@ -1054,9 +1241,17 @@ fn events(zt: &[Row], zb: Option<&Vec<Row>>, dt: Option<&Vec<Row>>, prev_boards:
             add("最高标", row, format!("今日最高 {top} 板"));
         }
         let mut by_broken: Vec<&Row> = zt.iter().collect();
-        by_broken.sort_by(|a, b| b.broken_times.cmp(&a.broken_times));
-        for row in by_broken.into_iter().take(3).filter(|row| row.broken_times >= 2) {
-            add("反复开板", row, format!("炸板 {} 次后回封", row.broken_times));
+        by_broken.sort_by_key(|b| std::cmp::Reverse(b.broken_times));
+        for row in by_broken
+            .into_iter()
+            .take(3)
+            .filter(|row| row.broken_times >= 2)
+        {
+            add(
+                "反复开板",
+                row,
+                format!("炸板 {} 次后回封", row.broken_times),
+            );
         }
         let mut by_seal: Vec<&Row> = zt.iter().filter(|row| !row.first_seal.is_empty()).collect();
         by_seal.sort_by(|a, b| a.first_seal.cmp(&b.first_seal));
@@ -1079,10 +1274,30 @@ fn events(zt: &[Row], zb: Option<&Vec<Row>>, dt: Option<&Vec<Row>>, prev_boards:
     });
     for row in broken.into_iter().take(6) {
         match prev_boards.get(row.code.as_str()).copied() {
-            Some(pb) if pb >= 3 => add("高位断板", row, format!("昨日 {pb} 板,今日炸板未回封(炸 {} 次)", row.broken_times)),
+            Some(pb) if pb >= 3 => add(
+                "高位断板",
+                row,
+                format!("昨日 {pb} 板,今日炸板未回封(炸 {} 次)", row.broken_times),
+            ),
             Some(pb) if pb >= 2 => add("连板断板", row, format!("昨日 {pb} 板,今日炸板未回封")),
-            Some(pb) => add("炸板", row, format!("炸板 {} 次未回封,昨日 {pb} 板", row.broken_times)),
-            None => add("炸板", row, format!("炸板 {} 次未回封{}", row.broken_times, if prev_ok { "(昨日未涨停)" } else { unknown })),
+            Some(pb) => add(
+                "炸板",
+                row,
+                format!("炸板 {} 次未回封,昨日 {pb} 板", row.broken_times),
+            ),
+            None => add(
+                "炸板",
+                row,
+                format!(
+                    "炸板 {} 次未回封{}",
+                    row.broken_times,
+                    if prev_ok {
+                        "(昨日未涨停)"
+                    } else {
+                        unknown
+                    }
+                ),
+            ),
         }
     }
     let mut down: Vec<&Row> = dt.into_iter().flatten().collect();
@@ -1098,11 +1313,24 @@ fn events(zt: &[Row], zb: Option<&Vec<Row>>, dt: Option<&Vec<Row>>, prev_boards:
             None if prev_ok => String::new(),
             None => unknown.to_string(),
         };
-        add(if pb.is_some_and(|pb| pb >= 2) { "高标跌停" } else { "跌停" }, row, format!("连续跌停 {} 天{suffix}", row.consec_dt.max(1)));
+        add(
+            if pb.is_some_and(|pb| pb >= 2) {
+                "高标跌停"
+            } else {
+                "跌停"
+            },
+            row,
+            format!("连续跌停 {} 天{suffix}", row.consec_dt.max(1)),
+        );
     }
     let loss = ["高位断板", "连板断板", "炸板", "高标跌停", "跌停"];
     let gain = ["最高标", "题材首封"];
-    let pick = |filter: &dyn Fn(&str) -> bool| list.iter().filter(|e| filter(e["tag"].as_str().unwrap_or(""))).cloned().collect::<Vec<_>>();
+    let pick = |filter: &dyn Fn(&str) -> bool| {
+        list.iter()
+            .filter(|e| filter(e["tag"].as_str().unwrap_or("")))
+            .cloned()
+            .collect::<Vec<_>>()
+    };
     json!({
         "available": true,
         "count": list.len(),
@@ -1116,9 +1344,23 @@ fn events(zt: &[Row], zb: Option<&Vec<Row>>, dt: Option<&Vec<Row>>, prev_boards:
     })
 }
 
-fn by_board(zt: &[Row], zb: Option<&Vec<Row>>, dt: Option<&Vec<Row>>, prev_zt: Option<&Vec<Row>>, date: &str, prev: Option<&str>) -> Value {
+fn by_board(
+    zt: &[Row],
+    zb: Option<&Vec<Row>>,
+    dt: Option<&Vec<Row>>,
+    prev_zt: Option<&Vec<Row>>,
+    date: &str,
+    prev: Option<&str>,
+) -> Value {
     #[derive(Default)]
-    struct Stat { limit_up: usize, highest: i64, broken: usize, limit_down: usize, prev_base: usize, promoted: usize }
+    struct Stat {
+        limit_up: usize,
+        highest: i64,
+        broken: usize,
+        limit_down: usize,
+        prev_base: usize,
+        promoted: usize,
+    }
     let today: HashSet<&str> = zt.iter().map(|row| row.code.as_str()).collect();
     let mut out: BTreeMap<&str, Stat> = BTreeMap::new();
     for row in zt {
@@ -1167,11 +1409,20 @@ fn by_board(zt: &[Row], zb: Option<&Vec<Row>>, dt: Option<&Vec<Row>>, prev_zt: O
 
 fn ladder(pools: &Pools, today_codes: &HashSet<&str>, prev: Option<&str>) -> Value {
     #[derive(Default)]
-    struct Level { stocks: Vec<Value>, fell: Vec<(Option<f64>, Value)>, base: Option<usize>, promoted: Option<usize> }
+    struct Level {
+        stocks: Vec<Value>,
+        fell: Vec<(Option<f64>, Value)>,
+        base: Option<usize>,
+        promoted: Option<usize>,
+    }
     let zt = &pools.zt;
     let mut levels: BTreeMap<i64, Level> = BTreeMap::new();
     for row in zt {
-        levels.entry(row.boards.max(1)).or_default().stocks.push(stock_value(row));
+        levels
+            .entry(row.boards.max(1))
+            .or_default()
+            .stocks
+            .push(stock_value(row));
     }
     let prev_note = match (&pools.prev_zt, prev) {
         (Ok(_), _) => String::new(),
@@ -1179,12 +1430,30 @@ fn ladder(pools: &Pools, today_codes: &HashSet<&str>, prev: Option<&str>) -> Val
         (Err(_), None) => "取不到前一交易日".into(),
     };
     if let Ok(prev_zt) = &pools.prev_zt {
-        let settled: HashMap<&str, f64> = pools.yzt.as_ref().ok().into_iter()
+        let settled: HashMap<&str, f64> = pools
+            .yzt
+            .as_ref()
+            .ok()
+            .into_iter()
             .flat_map(|(rows, _)| rows.iter())
             .filter_map(|row| Some((row.code.as_str(), row.ret?)))
             .collect();
-        let zb: HashMap<&str, &Row> = pools.zb.as_ref().ok().into_iter().flatten().map(|r| (r.code.as_str(), r)).collect();
-        let dt: HashMap<&str, &Row> = pools.dt.as_ref().ok().into_iter().flatten().map(|r| (r.code.as_str(), r)).collect();
+        let zb: HashMap<&str, &Row> = pools
+            .zb
+            .as_ref()
+            .ok()
+            .into_iter()
+            .flatten()
+            .map(|r| (r.code.as_str(), r))
+            .collect();
+        let dt: HashMap<&str, &Row> = pools
+            .dt
+            .as_ref()
+            .ok()
+            .into_iter()
+            .flatten()
+            .map(|r| (r.code.as_str(), r))
+            .collect();
         for row in prev_zt {
             let level = levels.entry(row.boards + 1).or_default();
             level.base = Some(level.base.unwrap_or(0) + 1);
@@ -1245,11 +1514,20 @@ fn ladder(pools: &Pools, today_codes: &HashSet<&str>, prev: Option<&str>) -> Val
 fn first_board(zt: &[Row]) -> Value {
     let mut stocks: Vec<&Row> = zt.iter().filter(|row| row.boards <= 1).collect();
     stocks.sort_by(|a, b| {
-        let key = |row: &Row| if row.first_seal.is_empty() { "999999".to_string() } else { row.first_seal.clone() };
+        let key = |row: &Row| {
+            if row.first_seal.is_empty() {
+                "999999".to_string()
+            } else {
+                row.first_seal.clone()
+            }
+        };
         key(a).cmp(&key(b))
     });
     let values: Vec<Value> = stocks.iter().map(|row| stock_value(row)).collect();
-    let rebound = values.iter().filter(|value| value["rebound"] == true).count();
+    let rebound = values
+        .iter()
+        .filter(|value| value["rebound"] == true)
+        .count();
     json!({
         "available": true,
         "total_limit_up": zt.len(),
@@ -1305,24 +1583,44 @@ fn recent_trend(scores: &[f64]) -> &'static str {
 }
 
 /// 分数 = 涨停家数、最高连板、(1 − 炸板率)各自在窗口内归一化后取平均 —— 是相对读数,没有绝对含义。
-pub(crate) fn cycle_position(mut series: Vec<Value>, requested: usize, calendar_days: usize) -> Value {
+pub(crate) fn cycle_position(
+    mut series: Vec<Value>,
+    requested: usize,
+    calendar_days: usize,
+) -> Value {
     if calendar_days < 3 {
         return unavailable("可用交易日不足 3 天,无法定位周期");
     }
     if series.len() < 3 {
         return unavailable(format!("涨停池可用天数不足({}/3)", series.len()));
     }
-    let pick = |key: &str| series.iter().map(|s| s[key].as_f64().unwrap_or(0.0)).collect::<Vec<_>>();
-    let (zt, hc, br) = (minmax(&pick("limit_up")), minmax(&pick("highest_consec")), minmax(&pick("broken_rate")));
+    let pick = |key: &str| {
+        series
+            .iter()
+            .map(|s| s[key].as_f64().unwrap_or(0.0))
+            .collect::<Vec<_>>()
+    };
+    let (zt, hc, br) = (
+        minmax(&pick("limit_up")),
+        minmax(&pick("highest_consec")),
+        minmax(&pick("broken_rate")),
+    );
     for (index, day) in series.iter_mut().enumerate() {
         day["score"] = json!(r3((zt[index] + hc[index] + (1.0 - br[index])) / 3.0));
         day["broken_rate"] = json!(r3(day["broken_rate"].as_f64().unwrap_or(0.0)));
     }
-    let scores: Vec<f64> = series.iter().map(|s| s["score"].as_f64().unwrap_or(0.0)).collect();
-    let (trough_index, trough) = scores
+    let scores: Vec<f64> = series
         .iter()
-        .enumerate()
-        .fold((0, f64::INFINITY), |best, (i, v)| if *v < best.1 { (i, *v) } else { best });
+        .map(|s| s["score"].as_f64().unwrap_or(0.0))
+        .collect();
+    let (trough_index, trough) =
+        scores
+            .iter()
+            .enumerate()
+            .fold(
+                (0, f64::INFINITY),
+                |best, (i, v)| if *v < best.1 { (i, *v) } else { best },
+            );
     let top = scores.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let current = *scores.last().unwrap_or(&0.0);
     json!({
@@ -1345,16 +1643,40 @@ pub(crate) fn cycle_position(mut series: Vec<Value>, requested: usize, calendar_
 mod tests {
     use super::*;
 
-    fn zt(code: &str, name: &str, boards: i64, first: &str, last: &str, broken: i64, sector: &str) -> Row {
+    fn zt(
+        code: &str,
+        name: &str,
+        boards: i64,
+        first: &str,
+        last: &str,
+        broken: i64,
+        sector: &str,
+    ) -> Row {
         Row {
-            code: code.into(), name: name.into(), board: board_of(code, name), ret: Some(10.0), close: Some(10.0),
-            sector: sector.into(), first_seal: first.into(), last_seal: last.into(), broken_times: broken,
-            boards, ..Row::default()
+            code: code.into(),
+            name: name.into(),
+            board: board_of(code, name),
+            ret: Some(10.0),
+            close: Some(10.0),
+            sector: sector.into(),
+            first_seal: first.into(),
+            last_seal: last.into(),
+            broken_times: broken,
+            boards,
+            ..Row::default()
         }
     }
 
     fn yzt(code: &str, name: &str, prev_boards: i64, ret: Option<f64>, sector: &str) -> Row {
-        Row { code: code.into(), name: name.into(), board: board_of(code, name), ret, prev_boards, sector: sector.into(), ..Row::default() }
+        Row {
+            code: code.into(),
+            name: name.into(),
+            board: board_of(code, name),
+            ret,
+            prev_boards,
+            sector: sector.into(),
+            ..Row::default()
+        }
     }
 
     fn fixture() -> Pools {
@@ -1365,8 +1687,24 @@ mod tests {
                 zt("300003", "首板C", 1, "101500", "145000", 3, "算力"),
                 zt("000004", "首板D", 1, "140500", "140500", 1, "机器人"),
             ],
-            zb: Ok(vec![Row { code: "600005".into(), name: "断板E".into(), board: "10cm", ret: Some(3.0), broken_times: 2, sector: "算力".into(), ..Row::default() }]),
-            dt: Ok(vec![Row { code: "600006".into(), name: "跌停F".into(), board: "10cm", ret: Some(-10.0), consec_dt: 1, sector: "机器人".into(), ..Row::default() }]),
+            zb: Ok(vec![Row {
+                code: "600005".into(),
+                name: "断板E".into(),
+                board: "10cm",
+                ret: Some(3.0),
+                broken_times: 2,
+                sector: "算力".into(),
+                ..Row::default()
+            }]),
+            dt: Ok(vec![Row {
+                code: "600006".into(),
+                name: "跌停F".into(),
+                board: "10cm",
+                ret: Some(-10.0),
+                consec_dt: 1,
+                sector: "机器人".into(),
+                ..Row::default()
+            }]),
             yzt: Ok((
                 vec![
                     yzt("600001", "高标A", 3, Some(10.0), "机器人"),
@@ -1392,9 +1730,18 @@ mod tests {
     fn promotion_tiers_follow_previous_limit_up_membership() {
         let value = build("2026-10-16", Some("2026-10-15"), true, &fixture());
         let tiers = &value["promotion"]["tiers"];
-        assert_eq!(tiers["1进2"], json!({"base": 4, "promoted": 1, "rate": 0.25}));
-        assert_eq!(tiers["2进3"], json!({"base": 1, "promoted": 0, "rate": 0.0}));
-        assert_eq!(tiers["3板以上晋级"], json!({"base": 1, "promoted": 1, "rate": 1.0}));
+        assert_eq!(
+            tiers["1进2"],
+            json!({"base": 4, "promoted": 1, "rate": 0.25})
+        );
+        assert_eq!(
+            tiers["2进3"],
+            json!({"base": 1, "promoted": 0, "rate": 0.0})
+        );
+        assert_eq!(
+            tiers["3板以上晋级"],
+            json!({"base": 1, "promoted": 1, "rate": 1.0})
+        );
         assert_eq!(value["promotion"]["overall"]["rate"], json!(0.333));
     }
 
@@ -1420,8 +1767,16 @@ mod tests {
         assert_eq!(three["stocks"].as_array().unwrap().len(), 0);
         assert_eq!(three["fell"][0]["outcome"], "炸板");
         let two = levels.iter().find(|l| l["boards"] == 2).unwrap();
-        assert_eq!((two["base"].as_u64(), two["promoted"].as_u64()), (Some(4), Some(1)));
-        let outcomes: Vec<&str> = two["fell"].as_array().unwrap().iter().map(|f| f["outcome"].as_str().unwrap()).collect();
+        assert_eq!(
+            (two["base"].as_u64(), two["promoted"].as_u64()),
+            (Some(4), Some(1))
+        );
+        let outcomes: Vec<&str> = two["fell"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["outcome"].as_str().unwrap())
+            .collect();
         assert_eq!(outcomes, vec!["没涨停", "跌停", "没取到"]);
     }
 
@@ -1429,7 +1784,14 @@ mod tests {
     fn seal_quality_themes_and_board_stats_use_pool_definitions() {
         let value = build("2026-10-16", Some("2026-10-15"), true, &fixture());
         let seal = &value["seal_quality"];
-        assert_eq!((seal["never_broken"].as_u64(), seal["opening_seconds"].as_u64(), seal["late_seal"].as_u64()), (Some(2), Some(2), Some(1)));
+        assert_eq!(
+            (
+                seal["never_broken"].as_u64(),
+                seal["opening_seconds"].as_u64(),
+                seal["late_seal"].as_u64()
+            ),
+            (Some(2), Some(2), Some(1))
+        );
         assert_eq!(seal["broken_rate"], json!(0.2));
         let themes = value["themes"]["themes"].as_array().unwrap();
         assert_eq!(themes[0]["sector"], "机器人");
@@ -1439,7 +1801,10 @@ mod tests {
         assert_eq!(value["themes"]["faded"][0]["sector"], "汽车");
         let boards = value["by_board"]["boards"].as_array().unwrap();
         let ten = boards.iter().find(|b| b["board"] == "10cm").unwrap();
-        assert_eq!((ten["broken"].as_u64(), ten["limit_down"].as_u64()), (Some(1), Some(1)));
+        assert_eq!(
+            (ten["broken"].as_u64(), ten["limit_down"].as_u64()),
+            (Some(1), Some(1))
+        );
         assert_eq!(value["first_board"]["first_count"], 2);
         assert_eq!(value["first_board"]["stocks"][0]["first_seal"], "10:15:00");
     }
@@ -1449,8 +1814,20 @@ mod tests {
         let value = build("2026-10-16", Some("2026-10-15"), true, &fixture());
         let feedback = &value["feedback"];
         assert_eq!(feedback["details"][0]["result"], "跌停");
-        let first = feedback["rows"].as_array().unwrap().iter().find(|r| r["tier"] == "首板").unwrap();
-        assert_eq!((first["晋级涨停"].as_u64(), first["跌停"].as_u64(), first["小跌"].as_u64()), (Some(1), Some(1), Some(1)));
+        let first = feedback["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["tier"] == "首板")
+            .unwrap();
+        assert_eq!(
+            (
+                first["晋级涨停"].as_u64(),
+                first["跌停"].as_u64(),
+                first["小跌"].as_u64()
+            ),
+            (Some(1), Some(1), Some(1))
+        );
         assert_eq!(value["loss_effect"]["limit_down_count"], 1);
         assert_eq!(value["loss_effect"]["market_limit_down"], 1);
     }
@@ -1487,7 +1864,13 @@ mod tests {
         let missing = json!({"rc": 0, "data": {"pool": [{"c": "600001", "n": "缺列", "lbc": 1}]}});
         assert!(parse_pool(&missing, PoolKind::LimitUp, "20261016").is_err());
         assert!(parse_pool(&ok, PoolKind::LimitUp, "20261019").is_err());
-        assert!(parse_pool(&json!({"rc": 0, "data": null}), PoolKind::Broken, "20261016").unwrap().is_empty());
+        assert!(parse_pool(
+            &json!({"rc": 0, "data": null}),
+            PoolKind::Broken,
+            "20261016"
+        )
+        .unwrap()
+        .is_empty());
     }
 
     #[test]
@@ -1501,10 +1884,16 @@ mod tests {
 
     #[test]
     fn review_day_defaults_to_latest_settled_session_and_rejects_bad_days() {
-        let calendar: Vec<String> = ["2026-10-14", "2026-10-15", "2026-10-16"].iter().map(|s| s.to_string()).collect();
+        let calendar: Vec<String> = ["2026-10-14", "2026-10-15", "2026-10-16"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         let day = NaiveDate::from_ymd_opt(2026, 10, 16).unwrap();
         let (date, prev) = review_day(&calendar, None, (day, 1100)).unwrap();
-        assert_eq!((date.as_str(), prev.as_deref()), ("2026-10-15", Some("2026-10-14")));
+        assert_eq!(
+            (date.as_str(), prev.as_deref()),
+            ("2026-10-15", Some("2026-10-14"))
+        );
         let (date, _) = review_day(&calendar, None, (day, 1510)).unwrap();
         assert_eq!(date, "2026-10-16");
         assert!(review_day(&calendar, Some("2026-10-17"), (day, 1510)).is_err());
@@ -1531,13 +1920,32 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn live_emotion_and_cycle_probe() {
-        let client = Client::builder().timeout(Duration::from_secs(20)).user_agent("Mozilla/5.0 VibeAStock-Mobile/test").build().unwrap();
+        let client = Client::builder()
+            .timeout(Duration::from_secs(20))
+            .user_agent("Mozilla/5.0 VibeAStock-Mobile/test")
+            .build()
+            .unwrap();
         let value = emotion(&client, "/mobile/shortline/emotion").await.unwrap();
-        println!("{} {} {} errors={}", value["status"], value["date"], value["summary"], value["errors"]);
-        println!("promotion={} money={}", value["promotion"]["overall"], value["money_effect"]["median"]);
-        println!("ladder levels={} themes={}", value["ladder"]["levels"].as_array().map_or(0, Vec::len), value["themes"]["theme_count"]);
-        let cycle = cycle(&client, "/mobile/shortline/cycle?days=10").await.unwrap();
-        println!("cycle={} {}", cycle["cycle"]["window"], cycle["cycle"]["trend"]);
+        println!(
+            "{} {} {} errors={}",
+            value["status"], value["date"], value["summary"], value["errors"]
+        );
+        println!(
+            "promotion={} money={}",
+            value["promotion"]["overall"], value["money_effect"]["median"]
+        );
+        println!(
+            "ladder levels={} themes={}",
+            value["ladder"]["levels"].as_array().map_or(0, Vec::len),
+            value["themes"]["theme_count"]
+        );
+        let cycle = cycle(&client, "/mobile/shortline/cycle?days=10")
+            .await
+            .unwrap();
+        println!(
+            "cycle={} {}",
+            cycle["cycle"]["window"], cycle["cycle"]["trend"]
+        );
         if let Ok(dir) = std::env::var("VIBE_EMOTION_DUMP") {
             std::fs::write(format!("{dir}/emotion.json"), value.to_string()).unwrap();
             std::fs::write(format!("{dir}/cycle.json"), cycle.to_string()).unwrap();
@@ -1548,9 +1956,16 @@ mod tests {
     #[test]
     fn trade_dates_parse_index_kline_dates() {
         let root = json!({"data": {"klines": ["2026-10-15,1", "2026-10-16,2", "bad"]}});
-        assert_eq!(parse_trade_dates(&root).unwrap(), vec!["2026-10-15", "2026-10-16"]);
+        assert_eq!(
+            parse_trade_dates(&root).unwrap(),
+            vec!["2026-10-15", "2026-10-16"]
+        );
         assert!(parse_trade_dates(&json!({"data": {"klines": []}})).is_err());
-        let tencent = json!({"data": {"sh000001": {"day": [["2026-10-16", "1"], ["2026-10-15", "1"]]}}});
-        assert_eq!(parse_tencent_dates(&tencent).unwrap(), vec!["2026-10-15", "2026-10-16"]);
+        let tencent =
+            json!({"data": {"sh000001": {"day": [["2026-10-16", "1"], ["2026-10-15", "1"]]}}});
+        assert_eq!(
+            parse_tencent_dates(&tencent).unwrap(),
+            vec!["2026-10-15", "2026-10-16"]
+        );
     }
 }

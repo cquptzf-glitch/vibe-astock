@@ -10,7 +10,11 @@ const PLAYBOOKS: [&str; 6] = ["打板", "低吸", "接力", "半路", "套利", 
 pub fn view(db_path: &Path) -> Result<Value> {
     let conn = Connection::open(db_path).context("open mobile journal review sqlite")?;
     let fee_cfg = crate::journal_settings::load(db_path)?.fees;
-    let settled: std::collections::HashMap<_,_> = crate::journal_risk::load_entries(db_path)?.into_iter().enumerate().map(|(i,e)| (e.id,crate::journal_risk::settle(e,&fee_cfg,i))).collect();
+    let settled: std::collections::HashMap<_, _> = crate::journal_risk::load_entries(db_path)?
+        .into_iter()
+        .enumerate()
+        .map(|(i, e)| (e.id, crate::journal_risk::settle(e, &fee_cfg, i)))
+        .collect();
     let mut stmt = conn.prepare(
         "SELECT id, kind, symbol, name, date, playbook, as_planned,
                 planned_stop, planned_target, pnl_pct
@@ -49,8 +53,14 @@ pub fn view(db_path: &Path) -> Result<Value> {
         let entry = row?;
         let metrics = if entry.kind == "episode" {
             let r = &settled[&entry.id];
-            EpisodeMetrics { pnl_pct:r.pnl_pct, realized_pnl:r.realized_pnl, closed:r.closed, open_shares:r.open_shares,
-                avg_cost:(r.avg_cost>0.0).then_some(r.avg_cost), open_cost:Some(r.avg_cost*r.open_shares) }
+            EpisodeMetrics {
+                pnl_pct: r.pnl_pct,
+                realized_pnl: r.realized_pnl,
+                closed: r.closed,
+                open_shares: r.open_shares,
+                avg_cost: (r.avg_cost > 0.0).then_some(r.avg_cost),
+                open_cost: Some(r.avg_cost * r.open_shares),
+            }
         } else {
             EpisodeMetrics {
                 pnl_pct: entry.pnl_pct,
@@ -90,7 +100,10 @@ pub fn view(db_path: &Path) -> Result<Value> {
                     stop_covered += 1;
                     let amount = per_share * metrics.open_shares;
                     planned_risk_total += amount;
-                    (Some(round2(amount)), Some(round2(per_share / avg_cost * 100.0)))
+                    (
+                        Some(round2(amount)),
+                        Some(round2(per_share / avg_cost * 100.0)),
+                    )
                 }
                 (_, Some(_)) => {
                     stop_covered += 1;
@@ -126,7 +139,11 @@ pub fn view(db_path: &Path) -> Result<Value> {
     let open_count = positions.len();
     let playbooks = PLAYBOOKS
         .iter()
-        .filter_map(|name| playbook_stats.get(*name).map(|stats| stats.to_json(Some(name))))
+        .filter_map(|name| {
+            playbook_stats
+                .get(*name)
+                .map(|stats| stats.to_json(Some(name)))
+        })
         .collect::<Vec<_>>();
 
     Ok(json!({
@@ -234,8 +251,16 @@ impl Stats {
 
     fn to_json(&self, label: Option<&str>) -> Value {
         let directional = self.wins + self.losses;
-        let avg_win = if self.wins > 0 { Some(self.win_sum_pct / self.wins as f64) } else { None };
-        let avg_loss = if self.losses > 0 { Some(self.loss_sum_pct / self.losses as f64) } else { None };
+        let avg_win = if self.wins > 0 {
+            Some(self.win_sum_pct / self.wins as f64)
+        } else {
+            None
+        };
+        let avg_loss = if self.losses > 0 {
+            Some(self.loss_sum_pct / self.losses as f64)
+        } else {
+            None
+        };
         let payoff = match (avg_win, avg_loss) {
             (Some(win), Some(loss)) if loss < 0.0 => Some(win / loss.abs()),
             _ => None,

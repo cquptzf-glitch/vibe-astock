@@ -307,7 +307,12 @@ fn render_position_item(item: &Value, quote: Option<&QuoteRow>, today: &str) -> 
 }
 
 /// 止损 / 目标状态只按今天的行情判断,避免周末和旧行情误报
-pub(crate) fn risk_state(price: Option<f64>, stop: Option<f64>, target: Option<f64>, quote_today: bool) -> &'static str {
+pub(crate) fn risk_state(
+    price: Option<f64>,
+    stop: Option<f64>,
+    target: Option<f64>,
+    quote_today: bool,
+) -> &'static str {
     match (price, stop, target, quote_today) {
         (Some(p), Some(stop), _, true) if p <= stop => "stop_reached",
         (Some(p), _, Some(target), true) if p >= target => "target_reached",
@@ -386,16 +391,41 @@ mod tests {
 
     #[test]
     fn watch_rows_carry_valuation_turnover_group_and_tags_without_inventing_values() {
-        let item = json!({"symbol": "600519", "name": "贵州茅台", "group": "白酒", "tags": ["核心"]});
+        let item =
+            json!({"symbol": "600519", "name": "贵州茅台", "group": "白酒", "tags": ["核心"]});
         let quote = QuoteRow {
-            name: "贵州茅台".into(), price: Some(1329.0), change_pct: Some(1.22), amount_yuan: None, limit_up: None, limit_down: None,
-            quote_date: Some("2026-10-16".into()), pe_ttm: Some(20.4), pb: Some(6.61), turnover_pct: Some(0.31),
+            name: "贵州茅台".into(),
+            price: Some(1329.0),
+            change_pct: Some(1.22),
+            amount_yuan: None,
+            limit_up: None,
+            limit_down: None,
+            quote_date: Some("2026-10-16".into()),
+            pe_ttm: Some(20.4),
+            pb: Some(6.61),
+            turnover_pct: Some(0.31),
         };
         let row = render_watch_item(&item, Some(&quote), "2026-10-16");
-        assert_eq!((row["pe_ttm"].clone(), row["pb"].clone(), row["turnover_pct"].clone()), (json!(20.4), json!(6.61), json!(0.31)));
-        assert_eq!((row["group"].clone(), row["tags"].clone()), (json!("白酒"), json!(["核心"])));
+        assert_eq!(
+            (
+                row["pe_ttm"].clone(),
+                row["pb"].clone(),
+                row["turnover_pct"].clone()
+            ),
+            (json!(20.4), json!(6.61), json!(0.31))
+        );
+        assert_eq!(
+            (row["group"].clone(), row["tags"].clone()),
+            (json!("白酒"), json!(["核心"]))
+        );
         let none = render_watch_item(&json!({"symbol": "000001"}), None, "2026-10-16");
-        assert!(none["pe_ttm"].is_null() && none["turnover_pct"].is_null(), "没行情不补 0");
-        assert_eq!((none["group"].clone(), none["tags"].clone()), (json!(""), json!([])));
+        assert!(
+            none["pe_ttm"].is_null() && none["turnover_pct"].is_null(),
+            "没行情不补 0"
+        );
+        assert_eq!(
+            (none["group"].clone(), none["tags"].clone()),
+            (json!(""), json!([]))
+        );
     }
 }

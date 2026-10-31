@@ -615,16 +615,21 @@ async fn ask_stage(
     let answer = ai_chat::answer_of(&root).ok_or_else(|| anyhow!("模型没有返回正文"))?;
     ai_backtest::extract_json(&answer).ok_or_else(|| anyhow!("模型没有返回有效 JSON"))
 }
+struct StagePrompt {
+    system: String,
+    prompt: Value,
+}
+
 async fn calculated_stage(
     client: &Client,
     db: &Path,
     task: &Value,
     config: &ai_config::AiConfig,
     key: &str,
-    system: String,
-    prompt: Value,
+    input: StagePrompt,
     generated: &mut Vec<Value>,
 ) -> Result<Value> {
+    let StagePrompt { system, prompt } = input;
     let id = task["id"].as_i64().unwrap();
     let revision = task["revision"].as_u64();
     let mut available = crate::research_calculations::records(db, id)?;
@@ -735,9 +740,8 @@ pub async fn advance(client: &Client, db: &Path, id: i64, body: &Value) -> Resul
             db,
             &task,
             &config,
-            &key,
-            system,
-            prompt,
+            key,
+            StagePrompt { system, prompt },
             &mut generated,
         ),
     )
@@ -849,7 +853,7 @@ mod tests {
             check_calculated_claim(
                 &json!({"value":0.2,"calculation":"ratio","path":"/value"}),
                 &json!([]),
-                &[record.clone()]
+                std::slice::from_ref(&record)
             )["ok"],
             false
         );

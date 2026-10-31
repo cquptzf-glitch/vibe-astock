@@ -236,7 +236,10 @@ fn optional_text(body: &Value, key: &str, max: usize) -> Result<Option<String>> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn temp_db() -> std::path::PathBuf {
         let nonce = SystemTime::now()
@@ -299,9 +302,18 @@ mod tests {
                 format!("/mobile/stock/{expected}")
             );
         }
-        assert_eq!(notification_route(&json!({"symbol": "SZ600519"})), "/mobile/reminders");
-        assert_eq!(notification_route(&json!({"symbol": "../settings"})), "/mobile/reminders");
-        assert_eq!(notification_route(&json!({"kind": "daily_review"})), "/mobile/journal/daily");
+        assert_eq!(
+            notification_route(&json!({"symbol": "SZ600519"})),
+            "/mobile/reminders"
+        );
+        assert_eq!(
+            notification_route(&json!({"symbol": "../settings"})),
+            "/mobile/reminders"
+        );
+        assert_eq!(
+            notification_route(&json!({"kind": "daily_review"})),
+            "/mobile/journal/daily"
+        );
     }
 
     #[test]

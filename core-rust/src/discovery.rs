@@ -56,7 +56,11 @@ fn limiter() -> &'static tokio::sync::Semaphore {
 }
 
 /// 一次尝试:Err 里带「值不值得重试」
-async fn get_bytes_once(client: &Client, url: &str, params: &[(&str, String)]) -> std::result::Result<Vec<u8>, (bool, anyhow::Error)> {
+async fn get_bytes_once(
+    client: &Client,
+    url: &str,
+    params: &[(&str, String)],
+) -> std::result::Result<Vec<u8>, (bool, anyhow::Error)> {
     let response = client.get(url).query(params)
         .timeout(Duration::from_secs(12))
         .header("Accept", "application/json, application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5")
@@ -64,15 +68,24 @@ async fn get_bytes_once(client: &Client, url: &str, params: &[(&str, String)]) -
         .map_err(|e| (true, anyhow::Error::from(e)))?;
     // 保留 reqwest::Error(带状态码):`failure()` 靠它写「数据源返回 HTTP xxx」
     let mut response = response.error_for_status().map_err(|e| {
-        let retry = e.status().is_some_and(|s| s.as_u16() == 429 || s.is_server_error());
+        let retry = e
+            .status()
+            .is_some_and(|s| s.as_u16() == 429 || s.is_server_error());
         (retry, anyhow::Error::from(e))
     })?;
     const MAX_BYTES: usize = 2 * 1024 * 1024;
-    if response.content_length().is_some_and(|size| size > MAX_BYTES as u64) {
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_BYTES as u64)
+    {
         return Err((false, anyhow!("数据源响应超过 2 MiB")));
     }
     let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|e| (true, anyhow::Error::from(e)))? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| (true, anyhow::Error::from(e)))?
+    {
         if bytes.len() + chunk.len() > MAX_BYTES {
             return Err((false, anyhow!("数据源响应超过 2 MiB")));
         }
@@ -83,14 +96,21 @@ async fn get_bytes_once(client: &Client, url: &str, params: &[(&str, String)]) -
 
 /// 统一取数入口:并发上限 + 瞬时错误退避重试(300ms、600ms)。幂等的 GET 才走这里
 pub async fn get_bytes(client: &Client, url: &str, params: &[(&str, String)]) -> Result<Vec<u8>> {
-    let _permit = limiter().acquire().await.map_err(|_| anyhow!("取数通道已关闭"))?;
+    let _permit = limiter()
+        .acquire()
+        .await
+        .map_err(|_| anyhow!("取数通道已关闭"))?;
     let mut attempt = 0usize;
     loop {
         match get_bytes_once(client, url, params).await {
             Ok(bytes) => return Ok(bytes),
             Err((retry, error)) => {
                 if !retry || attempt >= RETRIES {
-                    return Err(if attempt > 0 { error.context(format!("已重试 {attempt} 次仍失败")) } else { error });
+                    return Err(if attempt > 0 {
+                        error.context(format!("已重试 {attempt} 次仍失败"))
+                    } else {
+                        error
+                    });
                 }
                 attempt += 1;
                 tokio::time::sleep(Duration::from_millis(RETRY_BASE_MS * attempt as u64)).await;
@@ -169,7 +189,10 @@ mod retry_tests {
                 let (mut stream, _) = listener.accept().unwrap();
                 let mut buf = [0u8; 2048];
                 let _ = stream.read(&mut buf);
-                let reply = format!("HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+                let reply = format!(
+                    "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
                 stream.write_all(reply.as_bytes()).unwrap();
                 served += 1;
             }
@@ -200,6 +223,10 @@ mod retry_tests {
         let error = get_bytes(&Client::new(), &url, &[]).await.unwrap_err();
         assert_eq!(server.join().unwrap(), 3, "首次 + 2 次重试");
         assert!(format!("{error:#}").contains("已重试 2 次"), "{error:#}");
-        assert_eq!(failure("x", &error)["message"], "数据源返回 HTTP 500", "包了重试说明后状态码仍能取到");
+        assert_eq!(
+            failure("x", &error)["message"],
+            "数据源返回 HTTP 500",
+            "包了重试说明后状态码仍能取到"
+        );
     }
 }

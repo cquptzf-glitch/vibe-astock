@@ -1,5 +1,14 @@
 # Android / Rust migration parity matrix
 
+## 当前入口：0.1.47 Rust 工程收尾（2026-10-31，本地候选）
+
+Rust Core 严格 Clippy 的 69 项独立诊断已清理，未通过新增 lint 屏蔽放行。回测共享具名配置、报价证据点与研究阶段输入整理为明确结构，复杂类型增加别名，大枚举使用间接存储；交易复查拒绝非有限成本。Core、Tauri 和本地插件完成 rustfmt 统一。Android 预览与正式分发 CI 新增格式/严格 lint 检查并安装对应组件，YAML 本地解析通过；平台执行尚未通过。
+
+本地 Core/Tauri 格式检查、Core 严格 Clippy（含测试）通过。Rust 单元测试 322 通过/30 ignored，证券代码契约 1 通过；9 个合成夹具生成测试通过。五组收益/体检/回放/风险/复查输出与 0.1.46 的实际测试程序输出一致（仅排除风险设置生成时间）；388 个冻结计算对照散列匹配。本轮未改前端，沿用 0.1.46 的 584 项前端与四尺寸明暗主题布局基线。详情及发布回执见 [0.1.47](docs/android/releases/0.1.47.md)。
+
+这解决了此前的 Core lint 和项目 Rust 格式缺口，不代表真机、全依赖审计、全部历史数据或旧运行时的完整端到端等价已经验收。SQLite v13 / 业务备份 v11 不变。
+
+
 ### 0.1.46 发布尝试（2026-10-31）
 
 功能提交 `ecc4e21f6f43ae8b53990f2cd92469b127d88878` 已推送并经 GitHub 分支接口确认。Android 工作流以 publish_preview=true 触发后，平台再次返回 HTTP 422 `Actions has been disabled for this repository.`，没有生成本版 APK。本地交付为 `.local/delivery/0.1.46/`，含四尺寸明暗主题的 24 张合成持仓截图、166 组全页检查和 8 组最终持仓布局检查的回执，ZIP SHA256 为 `2d94356ab0660e11cedc3a7a253655ec8ff0b56878523ab669de7105cee38e74`。配置预期 versionCode 1046 不代表已构建或安装。
@@ -101,7 +110,7 @@ Desktop CI PASS
 Android APK PASS
 ```
 
-## Current mobile matrix — 0.1.46 local candidate (2026-10-31)
+## Current mobile matrix — 0.1.47 local candidate (2026-10-31)
 
 | Area | Mobile implementation | Evidence | Status |
 | --- | --- | --- | --- |
@@ -115,6 +124,7 @@ Android APK PASS
 | Advanced backtest | backtest_advanced / backtest_rules / ai_backtest | deterministic resampling, WFO no future dependence, rebalance cash bounds; live single/multi run | Implemented SH/SZ historical ST/IPO metadata; special relisting/delisting/BJ source coverage remains partial |
 | Corporate actions / opening positions | journal_fills v13 + unified settle; backup v11 | FIFO/partial sell/restore/no fake cash flow tests | Implemented; registered splits normalize MFE prices/quantities to exit-share basis; unknown actions and cash-dividend caveats remain |
 | Portfolio performance / journal price integrity | portfolio_perf + journal_excursion; SH/SZ Tencent and BJ Eastmoney unadjusted daily bars | missing-first-buy / malformed / duplicate / identity / stale-price tests; synthetic portfolio; public BJ probe; invalid-cache regression | Implemented mobile returns including BJ; reject missing buy-day prices and incomplete fill-date excursion windows; intermediate gaps and unknown actions remain disclosed |
+| Rust maintainability gates | named simulation / evidence / stage inputs, type aliases, bounded enum, rustfmt; Android workflow checks | Core/Tauri fmt checks; Core strict Clippy including tests; 322 unit + 1 symbol tests; five actual 0.1.46/0.1.47 synthetic output comparisons | Locally passed; CI platform rejection, dependency audit and device acceptance remain separate |
 | Scan / Android service | market_scan + MarketMonitorService | parsing and native source compile | Full-market quote/minute sampling; official month calendar gates native sampling and rollover stops; exchange tick feed and device lifecycle unverified |
 | Calendar / event reminders | calendar_sources + native rules | complete-month validation, reminder/backup/done state tests; live SZSE | Implemented SZSE month semantics; special exchange-specific coverage pending |
 | General AI chat | ai_chat + AiChatPanel / SQLite threads | native streaming/cancel/history and frontend regressions; cross-platform CI | Implemented streaming, stop, threads and bounded tools; real model/device quality not certified |

@@ -46,14 +46,23 @@ fn flag(key: &str, text: String) -> Value {
 }
 
 /// `rows` 要是桌面版顺序(入场日新的在前);`excursions` = None 表示这一类判定整个没做;`excursion_skipped` = 卖光了、但行情没缓存所以跳过的笔数
-pub(crate) fn build(rows: &[Row], rules: &Rules, rules_default: bool, excursions: Option<&BTreeMap<String, Lite>>, excursion_skipped: usize) -> Value {
+pub(crate) fn build(
+    rows: &[Row],
+    rules: &Rules,
+    rules_default: bool,
+    excursions: Option<&BTreeMap<String, Lite>>,
+    excursion_skipped: usize,
+) -> Value {
     let recent = &rows[..rows.len().min(INBOX_LIMIT)];
     if recent.is_empty() {
         return json!({"available": false, "reason": "还没有交易记录"});
     }
     let cap_of = |r: &Row| (r.e.kind == "episode" && r.peak_cost > 0.0).then(|| r2(r.peak_cost));
     let caps: Vec<f64> = recent.iter().filter_map(cap_of).collect();
-    let holds: Vec<f64> = recent.iter().filter_map(|r| r.hold_days.map(|h| h as f64)).collect();
+    let holds: Vec<f64> = recent
+        .iter()
+        .filter_map(|r| r.hold_days.map(|h| h as f64))
+        .collect();
     let med_cap = (caps.len() >= MIN_HISTORY).then(|| median(&caps));
     let med_hold = (holds.len() >= MIN_HISTORY).then(|| median(&holds));
     let mut items: Vec<(String, Value)> = Vec::new();
@@ -62,32 +71,77 @@ pub(crate) fn build(rows: &[Row], rules: &Rules, rules_default: bool, excursions
         let (lim, pnl) = (rules.max_loss_per_trade_pct, r.pnl_pct);
         if let Some(p) = pnl {
             if lim > 0.0 && p < -lim {
-                flags.push(flag("over_loss_limit", format!("亏 {:.1}%,超过你自己写的单笔上限 {}%", p, g(lim))));
+                flags.push(flag(
+                    "over_loss_limit",
+                    format!("亏 {:.1}%,超过你自己写的单笔上限 {}%", p, g(lim)),
+                ));
             }
         }
         if let (Some(m), Some(c)) = (med_cap, cap_of(r)) {
             if m > 0.0 && c > m * DEVIATION_X {
-                flags.push(flag("oversized", format!("占用 {} 元,是你中位仓位({})的 {:.1} 倍", money0(c), money0(m), c / m)));
+                flags.push(flag(
+                    "oversized",
+                    format!(
+                        "占用 {} 元,是你中位仓位({})的 {:.1} 倍",
+                        money0(c),
+                        money0(m),
+                        c / m
+                    ),
+                ));
             }
         }
         if let (Some(m), Some(h)) = (med_hold, r.hold_days) {
             if m > 0.0 && h as f64 > m * DEVIATION_X {
-                flags.push(flag("held_long", format!("持有 {h} 天,是你中位持有({} 天)的 {:.1} 倍", g(m), h as f64 / m)));
+                flags.push(flag(
+                    "held_long",
+                    format!(
+                        "持有 {h} 天,是你中位持有({} 天)的 {:.1} 倍",
+                        g(m),
+                        h as f64 / m
+                    ),
+                ));
             }
         }
         if r.e.as_planned == Some(false) {
             flags.push(flag("unplanned", "自己标了「计划外」".into()));
         }
-        if r.e.kind == "episode" && !r.closed && r.e.planned_stop.map_or(true, |s| s == 0.0) {
-            flags.push(flag("no_stop", "还在手上,但没写计划止损 —— 最坏情况无从估计".into()));
+        if r.e.kind == "episode" && !r.closed && r.e.planned_stop.is_none_or(|s| s == 0.0) {
+            flags.push(flag(
+                "no_stop",
+                "还在手上,但没写计划止损 —— 最坏情况无从估计".into(),
+            ));
         }
         if let Some(ex) = excursions.and_then(|m| m.get(&format!("mobile:{}", r.e.id))) {
             if ex.mae_pct <= DEEP_MAE {
-                flags.push(flag("deep_mae", format!("中途最多浮亏 {:.1}%({})", ex.mae_pct, if ex.realized_pct > 0.0 { "最后还是赚的" } else { "最后亏了" })));
+                flags.push(flag(
+                    "deep_mae",
+                    format!(
+                        "中途最多浮亏 {:.1}%({})",
+                        ex.mae_pct,
+                        if ex.realized_pct > 0.0 {
+                            "最后还是赚的"
+                        } else {
+                            "最后亏了"
+                        }
+                    ),
+                ));
             }
             if let Some(cr) = ex.capture_rate {
                 if cr < LOW_CAPTURE {
-                    flags.push(flag("low_capture", format!("这段最多能赚 {:.1}%,实际落袋 {:.1}%(吃到 {:.0}%){}", ex.mfe_pct, ex.realized_pct, cr * 100.0, if ex.same_day { ";同日进出,最大浮盈只是上界" } else { "" })));
+                    flags.push(flag(
+                        "low_capture",
+                        format!(
+                            "这段最多能赚 {:.1}%,实际落袋 {:.1}%(吃到 {:.0}%){}",
+                            ex.mfe_pct,
+                            ex.realized_pct,
+                            cr * 100.0,
+                            if ex.same_day {
+                                ";同日进出,最大浮盈只是上界"
+                            } else {
+                                ""
+                            }
+                        ),
+                    ));
                 }
             }
         }
@@ -105,7 +159,9 @@ pub(crate) fn build(rows: &[Row], rules: &Rules, rules_default: bool, excursions
     let mut by_flag: BTreeMap<String, usize> = BTreeMap::new();
     for it in &ordered {
         for f in it["flags"].as_array().into_iter().flatten() {
-            *by_flag.entry(f["key"].as_str().unwrap_or("").to_string()).or_default() += 1;
+            *by_flag
+                .entry(f["key"].as_str().unwrap_or("").to_string())
+                .or_default() += 1;
         }
     }
     json!({
@@ -130,8 +186,15 @@ pub fn view(db: &Path) -> Result<Value> {
     journal_risk::va_order(&mut rows);
     let recent = &rows[..rows.len().min(INBOX_LIMIT)];
     let (map, skipped) = journal_excursion::cached_excursions(db, recent)?;
-    let mut v = build(&rows, &a.settings.rules, a.settings.rules_default, Some(&map), skipped);
-    v["settings"] = json!({"rules": a.settings.rules.to_value(), "rules_default": a.settings.rules_default});
+    let mut v = build(
+        &rows,
+        &a.settings.rules,
+        a.settings.rules_default,
+        Some(&map),
+        skipped,
+    );
+    v["settings"] =
+        json!({"rules": a.settings.rules.to_value(), "rules_default": a.settings.rules_default});
     v["generated_at"] = json!(chrono::Utc::now().to_rfc3339());
     Ok(v)
 }
@@ -142,7 +205,13 @@ mod tests {
     use crate::journal_risk::{Entry, Fill};
     use crate::journal_settings::Fees;
 
-    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
+    const ZERO: Fees = Fees {
+        commission_rate: 0.0,
+        commission_min: 0.0,
+        stamp_tax_rate: 0.0,
+        transfer_fee_rate: 0.0,
+        fifo: false,
+    };
 
     fn rules() -> Rules {
         crate::journal_settings::settings_of(None).rules
@@ -154,8 +223,28 @@ mod tests {
         let sell = buy + chrono::Duration::days(hold);
         let fmt = |d: chrono::NaiveDate| d.format("%Y-%m-%d").to_string();
         let e = Entry {
-            id, kind: "episode".into(), symbol: format!("600{id:03}"), name: format!("N{id}"), date: fmt(buy), created_at: format!("{}T09:00:00Z", fmt(buy)),
-            fills: vec![Fill { side: "buy".into(), date: fmt(buy), price: 10.0, shares, fee: Some(0.0) }, Fill { side: "sell".into(), date: fmt(sell), price: sell_price, shares, fee: Some(0.0) }],
+            id,
+            kind: "episode".into(),
+            symbol: format!("600{id:03}"),
+            name: format!("N{id}"),
+            date: fmt(buy),
+            created_at: format!("{}T09:00:00Z", fmt(buy)),
+            fills: vec![
+                Fill {
+                    side: "buy".into(),
+                    date: fmt(buy),
+                    price: 10.0,
+                    shares,
+                    fee: Some(0.0),
+                },
+                Fill {
+                    side: "sell".into(),
+                    date: fmt(sell),
+                    price: sell_price,
+                    shares,
+                    fee: Some(0.0),
+                },
+            ],
             ..Entry::default()
         };
         journal_risk::settle(e, &ZERO, id as usize)
@@ -167,7 +256,19 @@ mod tests {
     }
 
     fn flags_of(v: &Value, id: i64) -> Vec<String> {
-        v["items"].as_array().unwrap().iter().filter(|i| i["key"] == format!("mobile:{id}")).flat_map(|i| i["flags"].as_array().unwrap().iter().map(|f| f["key"].as_str().unwrap().to_string())).collect()
+        v["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|i| i["key"] == format!("mobile:{id}"))
+            .flat_map(|i| {
+                i["flags"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|f| f["key"].as_str().unwrap().to_string())
+            })
+            .collect()
     }
 
     #[test]
@@ -178,8 +279,16 @@ mod tests {
         let v = build(&ordered(rows.clone()), &rules(), true, None, 0);
         assert_eq!(v["baseline"]["median_capital"], 1000.0);
         assert_eq!(v["baseline"]["median_hold_days"], 1.0);
-        assert_eq!(flags_of(&v, 10), vec!["over_loss_limit", "oversized", "held_long"]);
-        let text = v["items"][0]["flags"].as_array().unwrap().iter().map(|f| f["text"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            flags_of(&v, 10),
+            vec!["over_loss_limit", "oversized", "held_long"]
+        );
+        let text = v["items"][0]["flags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["text"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>();
         assert_eq!(text[0], "亏 -8.0%,超过你自己写的单笔上限 5%");
         assert_eq!(text[1], "占用 10,000 元,是你中位仓位(1,000)的 10.0 倍");
         assert_eq!(text[2], "持有 5 天,是你中位持有(1 天)的 5.0 倍");
@@ -187,7 +296,13 @@ mod tests {
         assert_eq!(v["by_flag"]["oversized"], 1);
         // 不到 8 笔:不做「相对自己习惯」的判定,只剩规矩类
         let few = build(&ordered(rows[5..].to_vec()), &rules(), true, None, 0);
-        assert_eq!((few["baseline"]["history_enough"].clone(), flags_of(&few, 10)), (json!(false), vec!["over_loss_limit".to_string()]));
+        assert_eq!(
+            (
+                few["baseline"]["history_enough"].clone(),
+                flags_of(&few, 10)
+            ),
+            (json!(false), vec!["over_loss_limit".to_string()])
+        );
         assert_eq!(build(&[], &rules(), true, None, 0)["available"], false);
     }
 
@@ -195,7 +310,24 @@ mod tests {
     fn unplanned_and_unprotected_open_positions_and_date_ordering() {
         let mut a = closed(1, 100.0, 10.1, 1);
         a.e.as_planned = Some(false);
-        let open = journal_risk::settle(Entry { id: 2, kind: "episode".into(), symbol: "600002".into(), date: "2026-10-16".into(), fills: vec![Fill { side: "buy".into(), date: "2026-10-16".into(), price: 10.0, shares: 100.0, fee: Some(0.0) }], ..Entry::default() }, &ZERO, 1);
+        let open = journal_risk::settle(
+            Entry {
+                id: 2,
+                kind: "episode".into(),
+                symbol: "600002".into(),
+                date: "2026-10-16".into(),
+                fills: vec![Fill {
+                    side: "buy".into(),
+                    date: "2026-10-16".into(),
+                    price: 10.0,
+                    shares: 100.0,
+                    fee: Some(0.0),
+                }],
+                ..Entry::default()
+            },
+            &ZERO,
+            1,
+        );
         let mut stopped = open.clone();
         stopped.e.id = 3;
         stopped.e.planned_stop = Some(9.0);
@@ -211,24 +343,76 @@ mod tests {
     fn excursion_flags_use_cached_bars_only_and_report_what_was_skipped() {
         let rows = ordered(vec![closed(1, 100.0, 10.2, 1), closed(2, 100.0, 9.9, 1)]);
         let mut map = BTreeMap::new();
-        map.insert("mobile:1".to_string(), Lite { mfe_pct: 12.0, mae_pct: -9.0, realized_pct: 2.0, capture_rate: Some(0.167), same_day: false });
-        map.insert("mobile:2".to_string(), Lite { mfe_pct: 10.0, mae_pct: -1.0, realized_pct: -1.0, capture_rate: Some(-0.1), same_day: true });
+        map.insert(
+            "mobile:1".to_string(),
+            Lite {
+                mfe_pct: 12.0,
+                mae_pct: -9.0,
+                realized_pct: 2.0,
+                capture_rate: Some(0.167),
+                same_day: false,
+            },
+        );
+        map.insert(
+            "mobile:2".to_string(),
+            Lite {
+                mfe_pct: 10.0,
+                mae_pct: -1.0,
+                realized_pct: -1.0,
+                capture_rate: Some(-0.1),
+                same_day: true,
+            },
+        );
         let v = build(&rows, &rules(), true, Some(&map), 3);
         assert_eq!(flags_of(&v, 1), vec!["deep_mae", "low_capture"]);
         assert_eq!(flags_of(&v, 2), vec!["low_capture"]);
-        let texts: Vec<String> = v["items"].as_array().unwrap().iter().flat_map(|i| i["flags"].as_array().unwrap().iter().map(|f| f["text"].as_str().unwrap().to_string())).collect();
-        assert!(texts.contains(&"中途最多浮亏 -9.0%(最后还是赚的)".to_string()), "{texts:?}");
+        let texts: Vec<String> = v["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|i| {
+                i["flags"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|f| f["text"].as_str().unwrap().to_string())
+            })
+            .collect();
+        assert!(
+            texts.contains(&"中途最多浮亏 -9.0%(最后还是赚的)".to_string()),
+            "{texts:?}"
+        );
         assert!(texts.contains(&"这段最多能赚 12.0%,实际落袋 2.0%(吃到 17%)".to_string()));
-        assert!(texts.iter().any(|t| t.ends_with(";同日进出,最大浮盈只是上界")));
-        assert_eq!((v["excursion_available"].clone(), v["excursion_skipped"].clone()), (json!(true), json!(3)));
-        assert!(v["excursion_hint"].as_str().unwrap().contains("3 笔的行情还没缓存"));
+        assert!(texts
+            .iter()
+            .any(|t| t.ends_with(";同日进出,最大浮盈只是上界")));
+        assert_eq!(
+            (
+                v["excursion_available"].clone(),
+                v["excursion_skipped"].clone()
+            ),
+            (json!(true), json!(3))
+        );
+        assert!(v["excursion_hint"]
+            .as_str()
+            .unwrap()
+            .contains("3 笔的行情还没缓存"));
         let none = build(&rows, &rules(), true, None, 0);
-        assert_eq!((none["excursion_available"].clone(), none["excursion_hint"].clone()), (json!(false), Value::Null));
+        assert_eq!(
+            (
+                none["excursion_available"].clone(),
+                none["excursion_hint"].clone()
+            ),
+            (json!(false), Value::Null)
+        );
     }
 
     #[test]
     fn view_reads_the_database_without_network() {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let dir = std::env::temp_dir().join(format!("vibe-jinbox-{nonce}-{}", std::process::id()));
         let app = crate::AppCore::new(dir.clone()).unwrap();
         let db = app.db_path().to_path_buf();

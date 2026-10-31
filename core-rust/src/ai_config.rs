@@ -48,12 +48,18 @@ pub(crate) fn save(db_path: &Path, body: &Value, key_present: bool) -> Result<Va
     let base_url = match body.get("base_url") {
         Some(Value::String(value)) => normalize_base_url(value)?,
         Some(_) => return Err(anyhow!("base_url 必须是字符串")),
-        None => current.as_ref().map(|value| value.base_url.clone()).unwrap_or_default(),
+        None => current
+            .as_ref()
+            .map(|value| value.base_url.clone())
+            .unwrap_or_default(),
     };
     let model = match body.get("model") {
         Some(Value::String(value)) => normalize_model(value)?,
         Some(_) => return Err(anyhow!("model 必须是字符串")),
-        None => current.as_ref().map(|value| value.model.clone()).unwrap_or_default(),
+        None => current
+            .as_ref()
+            .map(|value| value.model.clone())
+            .unwrap_or_default(),
     };
     let vision = match body.get("vision") {
         Some(Value::Bool(value)) => *value,
@@ -191,7 +197,11 @@ fn normalize_base_url(value: &str) -> Result<String> {
     if url.host_str().is_none() {
         return Err(anyhow!("Base URL 缺少主机名"));
     }
-    if !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
+    if !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
         return Err(anyhow!("Base URL 不应包含账号、密码、查询参数或片段"));
     }
     Ok(value.to_string())
@@ -238,7 +248,11 @@ mod tests {
 
         let conn = Connection::open(&path).expect("open db");
         let persisted: String = conn
-            .query_row("SELECT api_key FROM mobile_ai_config WHERE id = 1", [], |row| row.get(0))
+            .query_row(
+                "SELECT api_key FROM mobile_ai_config WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
             .expect("read persisted key");
         assert!(persisted.is_empty());
         drop(conn);
@@ -253,7 +267,12 @@ mod tests {
         conn.execute(
             "INSERT INTO mobile_ai_config(id, base_url, model, api_key, updated_at)
              VALUES (1, ?1, ?2, ?3, ?4)",
-            params!["https://legacy.example/v1", "legacy-model", "legacy-secret", "now"],
+            params![
+                "https://legacy.example/v1",
+                "legacy-model",
+                "legacy-secret",
+                "now"
+            ],
         )
         .expect("insert legacy config");
         drop(conn);
@@ -271,16 +290,44 @@ mod tests {
 
     #[test]
     fn vision_switch_defaults_off_persists_and_is_kept_when_other_fields_change() {
-        let path = std::env::temp_dir().join(format!("vibe-ai-vision-{}.sqlite3", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        let path = std::env::temp_dir().join(format!(
+            "vibe-ai-vision-{}.sqlite3",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         init(&path).unwrap();
-        assert_eq!(view(&path, false).unwrap()["vision"], false, "没配置时是关的");
-        let saved = save(&path, &json!({"base_url": "https://example.com/v1", "model": "m1"}), false).unwrap();
+        assert_eq!(
+            view(&path, false).unwrap()["vision"],
+            false,
+            "没配置时是关的"
+        );
+        let saved = save(
+            &path,
+            &json!({"base_url": "https://example.com/v1", "model": "m1"}),
+            false,
+        )
+        .unwrap();
         assert_eq!(saved["vision"], false, "不填就是关,不替用户打开");
-        assert_eq!(save(&path, &json!({"vision": true}), false).unwrap()["vision"], true);
-        assert_eq!(save(&path, &json!({"model": "m2"}), false).unwrap()["vision"], true, "只改模型名不动开关");
-        assert!(save(&path, &json!({"vision": "yes"}), false).unwrap_err().to_string().contains("布尔值"));
-        assert_eq!(save(&path, &json!({"vision": false}), false).unwrap()["vision"], false);
-        assert_eq!(load(&path).unwrap().unwrap().vision, false);
+        assert_eq!(
+            save(&path, &json!({"vision": true}), false).unwrap()["vision"],
+            true
+        );
+        assert_eq!(
+            save(&path, &json!({"model": "m2"}), false).unwrap()["vision"],
+            true,
+            "只改模型名不动开关"
+        );
+        assert!(save(&path, &json!({"vision": "yes"}), false)
+            .unwrap_err()
+            .to_string()
+            .contains("布尔值"));
+        assert_eq!(
+            save(&path, &json!({"vision": false}), false).unwrap()["vision"],
+            false
+        );
+        assert!(!load(&path).unwrap().unwrap().vision);
         let _ = std::fs::remove_file(path);
     }
 }

@@ -8,6 +8,7 @@
 //!    2. 开新版本不覆盖旧版本 —— 已发生的交易永远归它当时生效的版本,历史不能被追溯改写。
 //!       打法(playbook)也进版本:它决定哪些交易归这张卡,只放卡片层的话改一次就把历史全部重新归属了。
 //!    3. 样本不够不比较 —— 每个版本少于 6 笔标「不够」,不给倾向性结论。
+//!
 //! 🔴 生效日:建卡当天就是第一版;之后改动从**次日**生效(当天的交易不做日内先后归因)。
 //! 🔴 超长直接拒收,不截断(截断等于替用户改了规则)。字数按「字」数,不是字节。
 //! ⛔ 模式卡是用户自己的打法,只留在本机,不进任何 AI;进备份(备份 v7)。
@@ -27,7 +28,13 @@ pub(crate) const PLAYBOOKS: [&str; 6] = ["打板", "低吸", "接力", "半路",
 pub(crate) const MIN_PER_VERSION: usize = 6;
 /// 只看最近这么多笔(桌面版同);超出时整个暂停比较(样本被截断了)
 const MODES_LIMIT: usize = 1000;
-pub(crate) const TEXT_FIELDS: [(&str, &str); 5] = [("setup", "什么情况下做"), ("entry", "怎么进"), ("exit", "怎么出"), ("sizing", "仓位"), ("phase", "适用的情绪阶段")];
+pub(crate) const TEXT_FIELDS: [(&str, &str); 5] = [
+    ("setup", "什么情况下做"),
+    ("entry", "怎么进"),
+    ("exit", "怎么出"),
+    ("sizing", "仓位"),
+    ("phase", "适用的情绪阶段"),
+];
 pub(crate) const TEXT_MAX: usize = 800;
 pub(crate) const NAME_MAX: usize = 60;
 pub(crate) const CHANGES_MAX: usize = 300;
@@ -95,12 +102,29 @@ fn open(db: &Path) -> Result<Connection> {
 pub(crate) fn read_cards(conn: &Connection) -> Result<Vec<Card>> {
     let mut stmt = conn.prepare("SELECT id, name, playbook, versions, created_at, updated_at FROM mobile_journal_modes ORDER BY created_at, id")?;
     let raw = stmt
-        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, String>(4)?, r.get::<_, String>(5)?)))?
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, String>(5)?,
+            ))
+        })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     raw.into_iter()
         .map(|(id, name, playbook, versions, created_at, updated_at)| {
-            let versions = serde_json::from_str::<Vec<Version>>(&versions).with_context(|| format!("模式卡 {id} 的版本记录损坏"))?;
-            Ok(Card { id, name, playbook, versions, created_at, updated_at })
+            let versions = serde_json::from_str::<Vec<Version>>(&versions)
+                .with_context(|| format!("模式卡 {id} 的版本记录损坏"))?;
+            Ok(Card {
+                id,
+                name,
+                playbook,
+                versions,
+                created_at,
+                updated_at,
+            })
         })
         .collect()
 }
@@ -127,7 +151,11 @@ fn is_playbook(text: &str) -> bool {
 
 /// 备份 / 读取共用的检查:返回第一个问题
 pub(crate) fn card_problem(card: &Card) -> Option<String> {
-    let label = if card.name.is_empty() { format!("#{}", card.id) } else { card.name.clone() };
+    let label = if card.name.is_empty() {
+        format!("#{}", card.id)
+    } else {
+        card.name.clone()
+    };
     if card.id <= 0 {
         return Some(format!("模式卡 id 无效:{}", card.id));
     }
@@ -147,17 +175,29 @@ pub(crate) fn card_problem(card: &Card) -> Option<String> {
         }
         last = v.version;
         if !valid_day(&v.since) {
-            return Some(format!("模式卡 {label} v{} 的生效日不是有效日期:{}", v.version, v.since));
+            return Some(format!(
+                "模式卡 {label} v{} 的生效日不是有效日期:{}",
+                v.version, v.since
+            ));
         }
         if !is_playbook(&v.playbook) {
-            return Some(format!("模式卡 {label} v{} 的打法不认识:{}", v.version, v.playbook));
+            return Some(format!(
+                "模式卡 {label} v{} 的打法不认识:{}",
+                v.version, v.playbook
+            ));
         }
         if char_len(&v.changes) > CHANGES_MAX {
-            return Some(format!("模式卡 {label} v{} 的「改了什么」超过 {CHANGES_MAX} 字", v.version));
+            return Some(format!(
+                "模式卡 {label} v{} 的「改了什么」超过 {CHANGES_MAX} 字",
+                v.version
+            ));
         }
         for (key, name) in TEXT_FIELDS {
             if char_len(v.text(key)) > TEXT_MAX {
-                return Some(format!("模式卡 {label} v{} 的「{name}」超过 {TEXT_MAX} 字", v.version));
+                return Some(format!(
+                    "模式卡 {label} v{} 的「{name}」超过 {TEXT_MAX} 字",
+                    v.version
+                ));
             }
         }
     }
@@ -173,7 +213,7 @@ fn version_at<'a>(versions: &'a [Version], date: &str) -> Option<&'a Version> {
         if v.since.as_str() > date {
             continue;
         }
-        if best.map_or(true, |b| v.since > b.since || (v.since == b.since && v.version > b.version)) {
+        if best.is_none_or(|b| v.since > b.since || (v.since == b.since && v.version > b.version)) {
             best = Some(v);
         }
     }
@@ -208,7 +248,14 @@ pub(crate) fn performance(cards: &[Card], rows: &[Row]) -> Value {
         return json!({"available": false, "reason": "还没有模式卡 —— 先把「我这套打法」写下来,统计才有分段依据"});
     }
     let truncated = rows.len() > MODES_LIMIT;
-    let scored: Vec<(String, Option<&str>, f64)> = rows.iter().take(MODES_LIMIT).filter_map(|r| r.pnl_pct.map(|p| (journal_risk::entry_day(r), r.e.playbook.as_deref(), p))).collect();
+    let scored: Vec<(String, Option<&str>, f64)> = rows
+        .iter()
+        .take(MODES_LIMIT)
+        .filter_map(|r| {
+            r.pnl_pct
+                .map(|p| (journal_risk::entry_day(r), r.e.playbook.as_deref(), p))
+        })
+        .collect();
     let out: Vec<Value> = cards
         .iter()
         .map(|c| {
@@ -287,7 +334,11 @@ pub(crate) fn performance(cards: &[Card], rows: &[Row]) -> Value {
 /// 卡片文字是否改了(决定要不要开新版本)
 fn changed(last: Option<&Version>, playbook: &str, texts: &[String; 5]) -> bool {
     let Some(last) = last else { return true };
-    last.playbook != playbook || TEXT_FIELDS.iter().zip(texts).any(|((key, _), t)| last.text(key) != t)
+    last.playbook != playbook
+        || TEXT_FIELDS
+            .iter()
+            .zip(texts)
+            .any(|((key, _), t)| last.text(key) != t)
 }
 
 // ---------------------------------------------------------------- 读与写
@@ -346,7 +397,12 @@ fn save(db: &Path, body: &Value, today: &str, now: &str) -> Result<Value> {
     if name.is_empty() {
         return Err(anyhow!("模式卡要有名字"));
     }
-    let playbook = body.get("playbook").and_then(Value::as_str).unwrap_or("").trim().to_string();
+    let playbook = body
+        .get("playbook")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
     if !is_playbook(&playbook) {
         return Err(anyhow!("打法只能是 {}", PLAYBOOKS.join(" / ")));
     }
@@ -356,8 +412,16 @@ fn save(db: &Path, body: &Value, today: &str, now: &str) -> Result<Value> {
     }
     let changes = text_of(body, "changes", "改了什么", CHANGES_MAX)?;
     let make = |version: i64, since: String, changes: String| Version {
-        version, since, changes, playbook: playbook.clone(),
-        setup: texts[0].clone(), entry: texts[1].clone(), exit: texts[2].clone(), sizing: texts[3].clone(), phase: texts[4].clone(), saved_at: now.to_string(),
+        version,
+        since,
+        changes,
+        playbook: playbook.clone(),
+        setup: texts[0].clone(),
+        entry: texts[1].clone(),
+        exit: texts[2].clone(),
+        sizing: texts[3].clone(),
+        phase: texts[4].clone(),
+        saved_at: now.to_string(),
     };
     let mut conn = open(db)?;
     let tx = conn.transaction()?;
@@ -376,15 +440,28 @@ fn save(db: &Path, body: &Value, today: &str, now: &str) -> Result<Value> {
         }
         Some(v) => {
             let id = v.as_i64().ok_or_else(|| anyhow!("card_id 要是数字"))?;
-            let prev = read_cards(&tx)?.into_iter().find(|c| c.id == id).ok_or_else(|| anyhow!("没找到这张模式卡,可能已经删了;请刷新后重试"))?;
+            let prev = read_cards(&tx)?
+                .into_iter()
+                .find(|c| c.id == id)
+                .ok_or_else(|| anyhow!("没找到这张模式卡,可能已经删了;请刷新后重试"))?;
             let last = prev.versions.last();
             let is_changed = changed(last, &playbook, &texts);
             let mut versions = prev.versions.clone();
             if is_changed {
                 let n = last.map_or(0, |l| l.version) + 1;
-                versions.push(make(n, add_day(today)?, if changes.is_empty() { "(没写改了什么)".into() } else { changes }));
+                versions.push(make(
+                    n,
+                    add_day(today)?,
+                    if changes.is_empty() {
+                        "(没写改了什么)".into()
+                    } else {
+                        changes
+                    },
+                ));
                 if versions.len() > VERSIONS_MAX {
-                    return Err(anyhow!("一张卡最多 {VERSIONS_MAX} 个版本;换了一套打法就新建一张卡"));
+                    return Err(anyhow!(
+                        "一张卡最多 {VERSIONS_MAX} 个版本;换了一套打法就新建一张卡"
+                    ));
                 }
             } else if let Some(l) = versions.last_mut() {
                 l.saved_at = now.to_string();
@@ -398,8 +475,14 @@ fn save(db: &Path, body: &Value, today: &str, now: &str) -> Result<Value> {
 }
 
 fn delete(db: &Path, body: &Value) -> Result<Value> {
-    let id = body.get("card_id").and_then(Value::as_i64).ok_or_else(|| anyhow!("要给出模式卡的 id"))?;
-    let removed = open(db)?.execute("DELETE FROM mobile_journal_modes WHERE id = ?1", params![id])? > 0;
+    let id = body
+        .get("card_id")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| anyhow!("要给出模式卡的 id"))?;
+    let removed = open(db)?.execute(
+        "DELETE FROM mobile_journal_modes WHERE id = ?1",
+        params![id],
+    )? > 0;
     if !removed {
         return Err(anyhow!("没找到这张模式卡,可能已经删了"));
     }
@@ -426,30 +509,72 @@ mod tests {
     use crate::journal_risk::{Entry, Fill};
     use crate::journal_settings::Fees;
 
-    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
+    const ZERO: Fees = Fees {
+        commission_rate: 0.0,
+        commission_min: 0.0,
+        stamp_tax_rate: 0.0,
+        transfer_fee_rate: 0.0,
+        fifo: false,
+    };
 
     fn db(label: &str) -> (crate::AppCore, std::path::PathBuf) {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
-        let dir = std::env::temp_dir().join(format!("vibe-jmodes-{label}-{nonce}-{}", std::process::id()));
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "vibe-jmodes-{label}-{nonce}-{}",
+            std::process::id()
+        ));
         let app = crate::AppCore::new(dir.clone()).unwrap();
         (app, dir)
     }
 
     fn v(version: i64, since: &str, playbook: &str) -> Version {
-        Version { version, since: since.into(), changes: String::new(), playbook: playbook.into(), ..Version::default() }
+        Version {
+            version,
+            since: since.into(),
+            changes: String::new(),
+            playbook: playbook.into(),
+            ..Version::default()
+        }
     }
 
     fn card(versions: Vec<Version>) -> Card {
-        Card { id: 1, name: "首板早封".into(), playbook: versions[0].playbook.clone(), versions, created_at: "2026-10-01T00:00:00Z".into(), updated_at: "2026-10-01T00:00:00Z".into() }
+        Card {
+            id: 1,
+            name: "首板早封".into(),
+            playbook: versions[0].playbook.clone(),
+            versions,
+            created_at: "2026-10-01T00:00:00Z".into(),
+            updated_at: "2026-10-01T00:00:00Z".into(),
+        }
     }
 
     /// pnl_pct = pnl_per_share / 10 * 100,入场日 = 买入日
     fn row(id: i64, day: &str, playbook: &str, pnl_pct: f64) -> Row {
         let e = Entry {
-            id, kind: "episode".into(), symbol: format!("60{id:04}"), date: day.into(), created_at: format!("{day}T09:00:00Z"), playbook: Some(playbook.into()),
+            id,
+            kind: "episode".into(),
+            symbol: format!("60{id:04}"),
+            date: day.into(),
+            created_at: format!("{day}T09:00:00Z"),
+            playbook: Some(playbook.into()),
             fills: vec![
-                Fill { side: "buy".into(), date: day.into(), price: 10.0, shares: 100.0, fee: Some(0.0) },
-                Fill { side: "sell".into(), date: day.into(), price: 10.0 + pnl_pct / 10.0, shares: 100.0, fee: Some(0.0) },
+                Fill {
+                    side: "buy".into(),
+                    date: day.into(),
+                    price: 10.0,
+                    shares: 100.0,
+                    fee: Some(0.0),
+                },
+                Fill {
+                    side: "sell".into(),
+                    date: day.into(),
+                    price: 10.0 + pnl_pct / 10.0,
+                    shares: 100.0,
+                    fee: Some(0.0),
+                },
             ],
             ..Entry::default()
         };
@@ -458,10 +583,21 @@ mod tests {
 
     #[test]
     fn version_at_picks_the_latest_effective_version_and_prefers_higher_number_on_same_day() {
-        let vs = vec![v(1, "2026-10-01", "打板"), v(2, "2026-10-10", "打板"), v(3, "2026-10-10", "接力")];
-        assert!(version_at(&vs, "2026-09-30").is_none(), "早于第一版没有生效版本");
+        let vs = vec![
+            v(1, "2026-10-01", "打板"),
+            v(2, "2026-10-10", "打板"),
+            v(3, "2026-10-10", "接力"),
+        ];
+        assert!(
+            version_at(&vs, "2026-09-30").is_none(),
+            "早于第一版没有生效版本"
+        );
         assert_eq!(version_at(&vs, "2026-10-09").unwrap().version, 1);
-        assert_eq!(version_at(&vs, "2026-10-10").unwrap().version, 3, "同一天以版本号大的为准");
+        assert_eq!(
+            version_at(&vs, "2026-10-10").unwrap().version,
+            3,
+            "同一天以版本号大的为准"
+        );
         assert_eq!(version_at(&vs, "2026-12-01").unwrap().version, 3);
     }
 
@@ -471,8 +607,11 @@ mod tests {
         let c = card(vec![v(1, "2026-10-01", "打板"), v(2, "2026-10-08", "接力")]);
         let mut rows = vec![
             row(1, "2026-09-30", "打板", 4.0), // 建卡之前:单独列
-            row(2, "2026-10-02", "打板", 2.0), row(3, "2026-10-03", "打板", -1.0), row(4, "2026-10-07", "接力", 9.0), // 接力在 v1 区间不归卡
-            row(5, "2026-10-09", "接力", 3.0), row(6, "2026-10-10", "打板", 7.0), // 打板在 v2 区间不归卡
+            row(2, "2026-10-02", "打板", 2.0),
+            row(3, "2026-10-03", "打板", -1.0),
+            row(4, "2026-10-07", "接力", 9.0), // 接力在 v1 区间不归卡
+            row(5, "2026-10-09", "接力", 3.0),
+            row(6, "2026-10-10", "打板", 7.0), // 打板在 v2 区间不归卡
         ];
         journal_risk::va_order(&mut rows);
         let p = performance(&[c], &rows);
@@ -491,21 +630,42 @@ mod tests {
 
     #[test]
     fn comparison_needs_enough_samples_in_both_versions_and_ignores_same_day_duplicates() {
-        let c = card(vec![v(1, "2026-09-01", "打板"), v(2, "2026-09-20", "打板"), v(3, "2026-09-20", "打板")]);
+        let c = card(vec![
+            v(1, "2026-09-01", "打板"),
+            v(2, "2026-09-20", "打板"),
+            v(3, "2026-09-20", "打板"),
+        ]);
         let mut rows: Vec<Row> = Vec::new();
         for i in 0..6 {
-            rows.push(row(10 + i, &format!("2026-09-{:02}", 2 + i), "打板", if i < 3 { 2.0 } else { -2.0 })); // v1:3 胜 3 负
+            rows.push(row(
+                10 + i,
+                &format!("2026-09-{:02}", 2 + i),
+                "打板",
+                if i < 3 { 2.0 } else { -2.0 },
+            )); // v1:3 胜 3 负
         }
         for i in 0..6 {
-            rows.push(row(30 + i, &format!("2026-09-{:02}", 21 + i), "打板", if i < 5 { 2.0 } else { -2.0 })); // 同日 v2、v3,按 v3 归属:5 胜 1 负
+            rows.push(row(
+                30 + i,
+                &format!("2026-09-{:02}", 21 + i),
+                "打板",
+                if i < 5 { 2.0 } else { -2.0 },
+            )); // 同日 v2、v3,按 v3 归属:5 胜 1 负
         }
         journal_risk::va_order(&mut rows);
         let p = performance(&[c], &rows);
         let card = &p["cards"][0];
-        assert_eq!(card["by_version"][1]["trades"], 0, "同一天生效的两个版本,交易归版本号大的");
+        assert_eq!(
+            card["by_version"][1]["trades"], 0,
+            "同一天生效的两个版本,交易归版本号大的"
+        );
         assert_eq!(card["by_version"][2]["trades"], 6);
         let cmp = &card["latest_vs_prev"];
-        assert_eq!((cmp["from_version"].clone(), cmp["to_version"].clone()), (json!(1), json!(3)), "同日两版只认最后那个");
+        assert_eq!(
+            (cmp["from_version"].clone(), cmp["to_version"].clone()),
+            (json!(1), json!(3)),
+            "同日两版只认最后那个"
+        );
         assert_eq!(cmp["win_rate_delta"], r3(5.0 / 6.0 - 0.5));
         assert_eq!(performance(&[], &rows)["available"], false);
     }
@@ -516,15 +676,36 @@ mod tests {
         let path = app.db_path().to_path_buf();
         let body = json!({"action": "save", "name": " 首板早封 ", "playbook": "打板", "setup": "10 点前封", "entry": "排板", "exit": "", "sizing": "1/3", "phase": "回暖"});
         let made = act_on(&path, &body, "2026-10-16", "2026-10-16T01:00:00Z").unwrap();
-        assert_eq!((made["result"]["created"].clone(), made["result"]["new_version"].clone()), (json!(true), json!(false)));
+        assert_eq!(
+            (
+                made["result"]["created"].clone(),
+                made["result"]["new_version"].clone()
+            ),
+            (json!(true), json!(false))
+        );
         let id = made["result"]["card_id"].as_i64().unwrap();
         let cards = read_cards(&Connection::open(&path).unwrap()).unwrap();
-        assert_eq!((cards[0].name.as_str(), cards[0].versions.len(), cards[0].versions[0].since.as_str(), cards[0].versions[0].changes.as_str()), ("首板早封", 1, "2026-10-16", "初版"));
+        assert_eq!(
+            (
+                cards[0].name.as_str(),
+                cards[0].versions.len(),
+                cards[0].versions[0].since.as_str(),
+                cards[0].versions[0].changes.as_str()
+            ),
+            ("首板早封", 1, "2026-10-16", "初版")
+        );
         // 只改名字:不开新版本,只更新最后一版的保存时间
         let renamed = act_on(&path, &json!({"action": "save", "card_id": id, "name": "首板 2.0", "playbook": "打板", "setup": "10 点前封", "entry": "排板", "sizing": "1/3", "phase": "回暖"}), "2026-10-16", "2026-10-16T02:00:00Z").unwrap();
         assert_eq!(renamed["result"]["new_version"], false);
         let cards = read_cards(&Connection::open(&path).unwrap()).unwrap();
-        assert_eq!((cards[0].name.as_str(), cards[0].versions.len(), cards[0].versions[0].saved_at.as_str()), ("首板 2.0", 1, "2026-10-16T02:00:00Z"));
+        assert_eq!(
+            (
+                cards[0].name.as_str(),
+                cards[0].versions.len(),
+                cards[0].versions[0].saved_at.as_str()
+            ),
+            ("首板 2.0", 1, "2026-10-16T02:00:00Z")
+        );
         // 改了文字:开 v2,次日生效,旧版本原样
         let before = cards[0].versions[0].clone();
         let changed_body = json!({"action": "save", "card_id": id, "name": "首板 2.0", "playbook": "打板", "setup": "9:45 前封", "entry": "排板", "sizing": "1/3", "phase": "回暖", "changes": "收紧封板时间"});
@@ -532,17 +713,45 @@ mod tests {
         assert_eq!(v2["result"]["new_version"], true);
         let cards = read_cards(&Connection::open(&path).unwrap()).unwrap();
         assert_eq!(cards[0].versions[0], before, "旧版本不动");
-        assert_eq!((cards[0].versions[1].version, cards[0].versions[1].since.as_str(), cards[0].versions[1].changes.as_str()), (2, "2026-10-17", "收紧封板时间"));
+        assert_eq!(
+            (
+                cards[0].versions[1].version,
+                cards[0].versions[1].since.as_str(),
+                cards[0].versions[1].changes.as_str()
+            ),
+            (2, "2026-10-17", "收紧封板时间")
+        );
         // 改打法也开新版本;没写改了什么给占位说明
         let v3 = act_on(&path, &json!({"action": "save", "card_id": id, "name": "首板 2.0", "playbook": "接力", "setup": "9:45 前封", "entry": "排板", "sizing": "1/3", "phase": "回暖"}), "2026-10-17", "2026-10-17T03:00:00Z").unwrap();
         assert_eq!(v3["result"]["new_version"], true);
         let cards = read_cards(&Connection::open(&path).unwrap()).unwrap();
-        assert_eq!((cards[0].versions[2].since.as_str(), cards[0].versions[2].changes.as_str(), cards[0].playbook.as_str()), ("2026-10-18", "(没写改了什么)", "接力"));
+        assert_eq!(
+            (
+                cards[0].versions[2].since.as_str(),
+                cards[0].versions[2].changes.as_str(),
+                cards[0].playbook.as_str()
+            ),
+            ("2026-10-18", "(没写改了什么)", "接力")
+        );
         // 视图带回版本业绩;删除
         assert_eq!(v3["view"]["modes"]["cards"][0]["version_count"], 3);
-        let gone = act_on(&path, &json!({"action": "delete", "card_id": id}), "2026-10-17", "x").unwrap();
+        let gone = act_on(
+            &path,
+            &json!({"action": "delete", "card_id": id}),
+            "2026-10-17",
+            "x",
+        )
+        .unwrap();
         assert_eq!(gone["view"]["modes"]["available"], false);
-        assert!(act_on(&path, &json!({"action": "delete", "card_id": id}), "2026-10-17", "x").unwrap_err().to_string().contains("没找到"));
+        assert!(act_on(
+            &path,
+            &json!({"action": "delete", "card_id": id}),
+            "2026-10-17",
+            "x"
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("没找到"));
         drop(app);
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -554,20 +763,46 @@ mod tests {
         let base = |setup: String| json!({"action": "save", "name": "卡", "playbook": "低吸", "setup": setup});
         // 800 个汉字(2400 字节)可以,801 个拒收
         assert!(act_on(&path, &base("字".repeat(800)), "2026-10-16", "n").is_ok());
-        let err = act_on(&path, &base("字".repeat(801)), "2026-10-16", "n").unwrap_err().to_string();
+        let err = act_on(&path, &base("字".repeat(801)), "2026-10-16", "n")
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("最多 800 字") && err.contains("801"), "{err}");
         let stored = read_cards(&Connection::open(&path).unwrap()).unwrap();
-        assert_eq!((stored.len(), char_len(&stored[0].versions[0].setup)), (1, 800), "拒收不留半张卡");
+        assert_eq!(
+            (stored.len(), char_len(&stored[0].versions[0].setup)),
+            (1, 800),
+            "拒收不留半张卡"
+        );
         for (body, needle) in [
-            (json!({"action": "save", "name": "", "playbook": "低吸"}), "要有名字"),
-            (json!({"action": "save", "name": "x".repeat(61), "playbook": "低吸"}), "最多 60 字"),
-            (json!({"action": "save", "name": "卡", "playbook": "追涨"}), "打法只能是"),
-            (json!({"action": "save", "name": "卡", "playbook": "低吸", "entry": 5}), "要是文字"),
-            (json!({"action": "save", "name": "卡", "playbook": "低吸", "changes": "改".repeat(301), "card_id": 1}), "最多 300 字"),
-            (json!({"action": "save", "card_id": 99, "name": "卡", "playbook": "低吸"}), "没找到"),
+            (
+                json!({"action": "save", "name": "", "playbook": "低吸"}),
+                "要有名字",
+            ),
+            (
+                json!({"action": "save", "name": "x".repeat(61), "playbook": "低吸"}),
+                "最多 60 字",
+            ),
+            (
+                json!({"action": "save", "name": "卡", "playbook": "追涨"}),
+                "打法只能是",
+            ),
+            (
+                json!({"action": "save", "name": "卡", "playbook": "低吸", "entry": 5}),
+                "要是文字",
+            ),
+            (
+                json!({"action": "save", "name": "卡", "playbook": "低吸", "changes": "改".repeat(301), "card_id": 1}),
+                "最多 300 字",
+            ),
+            (
+                json!({"action": "save", "card_id": 99, "name": "卡", "playbook": "低吸"}),
+                "没找到",
+            ),
             (json!({"action": "nope"}), "不认识的动作"),
         ] {
-            let e = act_on(&path, &body, "2026-10-16", "n").unwrap_err().to_string();
+            let e = act_on(&path, &body, "2026-10-16", "n")
+                .unwrap_err()
+                .to_string();
             assert!(e.contains(needle), "{e} 应含 {needle}");
         }
         drop(app);
@@ -578,7 +813,13 @@ mod tests {
     fn view_counts_only_a_share_stocks_and_reports_the_rest() {
         let (app, dir) = db("view");
         let path = app.db_path().to_path_buf();
-        act_on(&path, &json!({"action": "save", "name": "卡", "playbook": "低吸"}), "2026-10-01", "n").unwrap();
+        act_on(
+            &path,
+            &json!({"action": "save", "name": "卡", "playbook": "低吸"}),
+            "2026-10-01",
+            "n",
+        )
+        .unwrap();
         for (code, pb) in [("600519", "低吸"), ("510300", "低吸")] {
             crate::journal::act(&path, &json!({"action": "record", "symbol": code, "name": code, "playbook": pb,
                 "fills": [{"type": "buy", "date": "2026-10-12", "price": 10, "shares": 100, "fee": 0}, {"type": "sell", "date": "2026-10-13", "price": 11, "shares": 100, "fee": 0}]})).unwrap();
@@ -624,12 +865,27 @@ mod tests {
         };
         // 建卡之前一笔;卡 v1 区间(09-14~10-05)7 笔打板;v2 区间(10-06 起)6 笔打板;各夹一笔别的打法
         trade(1, "2026-09-10", "2026-09-11", "打板", 10.0, 10.4);
-        let v1 = [("2026-09-14", 10.0, 10.5), ("2026-09-15", 12.0, 11.7), ("2026-09-17", 9.0, 9.6), ("2026-09-21", 15.0, 14.4), ("2026-09-24", 8.0, 8.5), ("2026-09-28", 20.0, 19.0), ("2026-10-02", 11.0, 11.4)];
+        let v1 = [
+            ("2026-09-14", 10.0, 10.5),
+            ("2026-09-15", 12.0, 11.7),
+            ("2026-09-17", 9.0, 9.6),
+            ("2026-09-21", 15.0, 14.4),
+            ("2026-09-24", 8.0, 8.5),
+            ("2026-09-28", 20.0, 19.0),
+            ("2026-10-02", 11.0, 11.4),
+        ];
         for (i, (d, bp, sp)) in v1.iter().enumerate() {
             trade(10 + i, d, d, "打板", *bp, *sp);
         }
         trade(30, "2026-09-18", "2026-09-19", "接力", 10.0, 11.0);
-        let v2 = [("2026-10-06", 10.0, 10.9), ("2026-10-07", 12.0, 12.8), ("2026-10-09", 9.0, 9.1), ("2026-10-12", 15.0, 14.9), ("2026-10-14", 8.0, 8.9), ("2026-10-16", 20.0, 21.2)];
+        let v2 = [
+            ("2026-10-06", 10.0, 10.9),
+            ("2026-10-07", 12.0, 12.8),
+            ("2026-10-09", 9.0, 9.1),
+            ("2026-10-12", 15.0, 14.9),
+            ("2026-10-14", 8.0, 8.9),
+            ("2026-10-16", 20.0, 21.2),
+        ];
         for (i, (d, bp, sp)) in v2.iter().enumerate() {
             trade(40 + i, d, d, "打板", *bp, *sp);
         }
@@ -644,7 +900,13 @@ mod tests {
             std::fs::write(out, serde_json::to_string_pretty(&v).unwrap()).unwrap();
         }
         let first = &v["modes"]["cards"][1];
-        println!("cards {} v1 {} v2 {} cmp {}", v["modes"]["cards"].as_array().unwrap().len(), first["by_version"][0]["trades"], first["by_version"][1]["trades"], first["latest_vs_prev"]);
+        println!(
+            "cards {} v1 {} v2 {} cmp {}",
+            v["modes"]["cards"].as_array().unwrap().len(),
+            first["by_version"][0]["trades"],
+            first["by_version"][1]["trades"],
+            first["latest_vs_prev"]
+        );
         drop(app);
         let _ = std::fs::remove_dir_all(dir);
     }

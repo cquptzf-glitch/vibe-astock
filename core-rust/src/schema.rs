@@ -112,8 +112,12 @@ const REQUIRED_TABLES: &[&str] = &[
 ];
 
 pub fn migrate(db_path: &Path) -> Result<()> {
-    let conn = Connection::open(db_path)
-        .with_context(|| format!("open mobile sqlite for schema migration: {}", db_path.display()))?;
+    let conn = Connection::open(db_path).with_context(|| {
+        format!(
+            "open mobile sqlite for schema migration: {}",
+            db_path.display()
+        )
+    })?;
     conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")?;
 
     let version = user_version(&conn)?;
@@ -129,7 +133,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
         ));
     }
     if version == CURRENT_SCHEMA_VERSION {
-        verify_tables(&conn, &REQUIRED_TABLES)?;
+        verify_tables(&conn, REQUIRED_TABLES)?;
         return Ok(());
     }
     if version == 0 {
@@ -159,7 +163,7 @@ pub fn migrate(db_path: &Path) -> Result<()> {
 pub fn info(db_path: &Path) -> Result<Value> {
     let conn = Connection::open(db_path).context("open mobile sqlite for schema info")?;
     let version = user_version(&conn)?;
-    let missing = missing_tables(&conn, &REQUIRED_TABLES)?;
+    let missing = missing_tables(&conn, REQUIRED_TABLES)?;
     Ok(json!({
         "version": version,
         "current_version": CURRENT_SCHEMA_VERSION,
@@ -375,7 +379,16 @@ fn migrate_6_to_7(conn: &Connection) -> Result<()> {
         );",
     )?;
     // v7 的表清单 = 当前清单去掉 v8 才加的表
-    let v7: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| !matches!(*t, "mobile_dividends" | "mobile_messages" | "mobile_ai_threads")).collect();
+    let v7: Vec<&str> = REQUIRED_TABLES
+        .iter()
+        .copied()
+        .filter(|t| {
+            !matches!(
+                *t,
+                "mobile_dividends" | "mobile_messages" | "mobile_ai_threads"
+            )
+        })
+        .collect();
     verify_tables(conn, &v7)?;
     conn.pragma_update(None, "user_version", 7)?;
     Ok(())
@@ -388,9 +401,18 @@ fn migrate_7_to_8(conn: &Connection) -> Result<()> {
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<std::result::Result<_, _>>()?;
     for (column, ddl) in [
-        ("grp", "ALTER TABLE watchlist ADD COLUMN grp TEXT NOT NULL DEFAULT ''"),
-        ("tags", "ALTER TABLE watchlist ADD COLUMN tags TEXT NOT NULL DEFAULT ''"),
-        ("sort_order", "ALTER TABLE watchlist ADD COLUMN sort_order INTEGER"),
+        (
+            "grp",
+            "ALTER TABLE watchlist ADD COLUMN grp TEXT NOT NULL DEFAULT ''",
+        ),
+        (
+            "tags",
+            "ALTER TABLE watchlist ADD COLUMN tags TEXT NOT NULL DEFAULT ''",
+        ),
+        (
+            "sort_order",
+            "ALTER TABLE watchlist ADD COLUMN sort_order INTEGER",
+        ),
     ] {
         if !have.iter().any(|name| name == column) {
             conn.execute(ddl, [])?;
@@ -408,7 +430,11 @@ fn migrate_7_to_8(conn: &Connection) -> Result<()> {
             updated_at TEXT NOT NULL
         );",
     )?;
-    let v8: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| !matches!(*t, "mobile_messages" | "mobile_ai_threads")).collect();
+    let v8: Vec<&str> = REQUIRED_TABLES
+        .iter()
+        .copied()
+        .filter(|t| !matches!(*t, "mobile_messages" | "mobile_ai_threads"))
+        .collect();
     verify_tables(conn, &v8)?;
     conn.pragma_update(None, "user_version", 8)?;
     Ok(())
@@ -421,9 +447,16 @@ fn migrate_8_to_9(conn: &Connection) -> Result<()> {
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<std::result::Result<_, _>>()?;
     if !have.iter().any(|name| name == "vision") {
-        conn.execute("ALTER TABLE mobile_ai_config ADD COLUMN vision INTEGER NOT NULL DEFAULT 0", [])?;
+        conn.execute(
+            "ALTER TABLE mobile_ai_config ADD COLUMN vision INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
     }
-    let v9: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| !matches!(*t, "mobile_messages" | "mobile_ai_threads")).collect();
+    let v9: Vec<&str> = REQUIRED_TABLES
+        .iter()
+        .copied()
+        .filter(|t| !matches!(*t, "mobile_messages" | "mobile_ai_threads"))
+        .collect();
     verify_tables(conn, &v9)?;
     conn.pragma_update(None, "user_version", 9)?;
     Ok(())
@@ -445,7 +478,11 @@ fn migrate_9_to_10(conn: &Connection) -> Result<()> {
             UNIQUE(kind, day)
         );",
     )?;
-    let v10: Vec<&str> = REQUIRED_TABLES.iter().copied().filter(|t| *t != "mobile_ai_threads").collect();
+    let v10: Vec<&str> = REQUIRED_TABLES
+        .iter()
+        .copied()
+        .filter(|t| *t != "mobile_ai_threads")
+        .collect();
     verify_tables(conn, &v10)?;
     conn.pragma_update(None, "user_version", 10)?;
     Ok(())
@@ -466,7 +503,10 @@ fn migrate_10_to_11(conn: &Connection) -> Result<()> {
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<std::result::Result<_, _>>()?;
     if !have.iter().any(|name| name == "thread_id") {
-        conn.execute("ALTER TABLE mobile_ai_messages ADD COLUMN thread_id INTEGER NOT NULL DEFAULT 1", [])?;
+        conn.execute(
+            "ALTER TABLE mobile_ai_messages ADD COLUMN thread_id INTEGER NOT NULL DEFAULT 1",
+            [],
+        )?;
     }
     conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_mobile_ai_messages_thread ON mobile_ai_messages(thread_id, id);")?;
     crate::ai_chat::ensure_default_thread(conn)?;
@@ -482,7 +522,10 @@ fn migrate_11_to_12(conn: &Connection) -> Result<()> {
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<std::result::Result<_, _>>()?;
     if !have.iter().any(|name| name == "cost_method") {
-        conn.execute("ALTER TABLE mobile_journal_settings ADD COLUMN cost_method TEXT", [])?;
+        conn.execute(
+            "ALTER TABLE mobile_journal_settings ADD COLUMN cost_method TEXT",
+            [],
+        )?;
     }
     verify_tables(conn, REQUIRED_TABLES)?;
     conn.pragma_update(None, "user_version", 12)?;
@@ -492,8 +535,15 @@ fn migrate_11_to_12(conn: &Connection) -> Result<()> {
 /// Preserve fill IDs/order and foreign keys while extending the CHECK constraint.
 fn migrate_12_to_13(conn: &Connection) -> Result<()> {
     use rusqlite::OptionalExtension;
-    let previous_seq:Option<i64>=conn.query_row("SELECT seq FROM sqlite_sequence WHERE name='journal_fills'",[],|r|r.get(0)).optional()?;
-    conn.execute_batch("BEGIN IMMEDIATE;
+    let previous_seq: Option<i64> = conn
+        .query_row(
+            "SELECT seq FROM sqlite_sequence WHERE name='journal_fills'",
+            [],
+            |r| r.get(0),
+        )
+        .optional()?;
+    conn.execute_batch(
+        "BEGIN IMMEDIATE;
         CREATE TABLE journal_fills_v13 (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           entry_id INTEGER NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
@@ -504,12 +554,15 @@ fn migrate_12_to_13(conn: &Connection) -> Result<()> {
         DROP TABLE journal_fills;
         ALTER TABLE journal_fills_v13 RENAME TO journal_fills;
         CREATE INDEX idx_journal_fills_entry ON journal_fills(entry_id,sort_order,id);
-        ")?;
-    conn.execute("UPDATE sqlite_sequence SET seq=MAX(seq,?1) WHERE name='journal_fills'",[previous_seq.unwrap_or(0)])?;
+        ",
+    )?;
+    conn.execute(
+        "UPDATE sqlite_sequence SET seq=MAX(seq,?1) WHERE name='journal_fills'",
+        [previous_seq.unwrap_or(0)],
+    )?;
     conn.execute_batch("PRAGMA user_version=13; COMMIT;")?;
     Ok(())
 }
-
 
 fn verify_tables(conn: &Connection, required: &[&str]) -> Result<()> {
     let missing = missing_tables(conn, required)?;
@@ -561,7 +614,10 @@ mod tests {
     }
 
     fn create_legacy_tables(conn: &Connection) {
-        for table in LEGACY_REQUIRED_TABLES.iter().filter(|t|**t!="journal_fills") {
+        for table in LEGACY_REQUIRED_TABLES
+            .iter()
+            .filter(|t| **t != "journal_fills")
+        {
             conn.execute_batch(&format!("CREATE TABLE {table}(id INTEGER PRIMARY KEY);"))
                 .expect("create required table");
         }
@@ -579,12 +635,15 @@ mod tests {
 
         migrate(&path).expect("migrate legacy schema");
         let conn = Connection::open(&path).expect("reopen temp db");
-        assert_eq!(user_version(&conn).expect("user_version"), CURRENT_SCHEMA_VERSION);
+        assert_eq!(
+            user_version(&conn).expect("user_version"),
+            CURRENT_SCHEMA_VERSION
+        );
         let sentinel: i64 = conn
             .query_row("SELECT id FROM watchlist", [], |row| row.get(0))
             .expect("sentinel preserved");
         assert_eq!(sentinel, 42);
-        assert!(missing_tables(&conn, &REQUIRED_TABLES).unwrap().is_empty());
+        assert!(missing_tables(&conn, REQUIRED_TABLES).unwrap().is_empty());
         drop(conn);
         let _ = fs::remove_file(path);
     }
@@ -628,7 +687,7 @@ mod tests {
             migrate(&path).unwrap();
             let conn = Connection::open(&path).unwrap();
             assert_eq!(user_version(&conn).unwrap(), CURRENT_SCHEMA_VERSION);
-            assert!(missing_tables(&conn, &REQUIRED_TABLES).unwrap().is_empty());
+            assert!(missing_tables(&conn, REQUIRED_TABLES).unwrap().is_empty());
             drop(conn);
             let _ = fs::remove_file(path);
         }

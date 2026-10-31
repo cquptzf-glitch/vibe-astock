@@ -28,7 +28,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 /// 四格。顺序别改,页面按 key 取
-pub(crate) const QUADRANTS: [(&str, &str); 4] = [("right_win", "判对 + 赚钱"), ("right_lose", "判对 + 亏钱"), ("wrong_win", "判错 + 赚钱"), ("wrong_lose", "判错 + 亏钱")];
+pub(crate) const QUADRANTS: [(&str, &str); 4] = [
+    ("right_win", "判对 + 赚钱"),
+    ("right_lose", "判对 + 亏钱"),
+    ("wrong_win", "判错 + 赚钱"),
+    ("wrong_lose", "判错 + 亏钱"),
+];
 /// 少于这么多天,四格分布是噪声,不给倾向性描述
 pub(crate) const ATTR_MIN_DAYS: usize = 8;
 /// 只看最近这么多笔(桌面版同)
@@ -57,10 +62,27 @@ pub(crate) struct DayRead {
 pub(crate) fn reads_of(days: &[Value]) -> HashMap<String, DayRead> {
     let mut out = HashMap::new();
     for d in days {
-        let (decided, hit) = (d["decided"].as_i64().unwrap_or(0), d["hit"].as_i64().unwrap_or(0));
-        let verdict = if decided > 0 && hit * 2 > decided { Verdict::Right } else if decided > 0 && hit * 2 < decided { Verdict::Wrong } else { Verdict::Undecided };
+        let (decided, hit) = (
+            d["decided"].as_i64().unwrap_or(0),
+            d["hit"].as_i64().unwrap_or(0),
+        );
+        let verdict = if decided > 0 && hit * 2 > decided {
+            Verdict::Right
+        } else if decided > 0 && hit * 2 < decided {
+            Verdict::Wrong
+        } else {
+            Verdict::Undecided
+        };
         if let Some(date) = d["date"].as_str() {
-            out.insert(date.to_string(), DayRead { set_date: d["set_date"].as_str().unwrap_or("").to_string(), decided, hit, verdict });
+            out.insert(
+                date.to_string(),
+                DayRead {
+                    set_date: d["set_date"].as_str().unwrap_or("").to_string(),
+                    decided,
+                    hit,
+                    verdict,
+                },
+            );
         }
     }
     out
@@ -93,7 +115,13 @@ pub(crate) fn compute_attribution(rows: &[Row], reads: &HashMap<String, DayRead>
             undecided += 1;
             continue;
         }
-        let b = by_day.entry(day.clone()).or_insert_with(|| AttrDay { date: day, pnl: 0.0, trades: 0, unplanned: 0, read: read.clone() });
+        let b = by_day.entry(day.clone()).or_insert_with(|| AttrDay {
+            date: day,
+            pnl: 0.0,
+            trades: 0,
+            unplanned: 0,
+            read: read.clone(),
+        });
         b.pnl += pnl;
         b.trades += 1;
         if r.e.as_planned == Some(false) {
@@ -110,7 +138,8 @@ pub(crate) fn compute_attribution(rows: &[Row], reads: &HashMap<String, DayRead>
         skipped(&mut v);
         return v;
     }
-    let mut cells: BTreeMap<&str, Vec<Value>> = QUADRANTS.iter().map(|(k, _)| (*k, Vec::new())).collect();
+    let mut cells: BTreeMap<&str, Vec<Value>> =
+        QUADRANTS.iter().map(|(k, _)| (*k, Vec::new())).collect();
     for (_, mut b) in by_day {
         b.pnl = r2(b.pnl);
         // 盈亏恰好为 0 的日子不进任何一格:硬塞进「亏钱」格会凭空造出执行问题(同战绩里「持平不进分母」)
@@ -118,7 +147,11 @@ pub(crate) fn compute_attribution(rows: &[Row], reads: &HashMap<String, DayRead>
             continue;
         }
         let right = b.read.verdict == Verdict::Right;
-        let key = format!("{}_{}", if right { "right" } else { "wrong" }, if b.pnl > 0.0 { "win" } else { "lose" });
+        let key = format!(
+            "{}_{}",
+            if right { "right" } else { "wrong" },
+            if b.pnl > 0.0 { "win" } else { "lose" }
+        );
         cells.get_mut(key.as_str()).expect("四格").push(json!({
             "date": b.date, "pnl": b.pnl, "trades": b.trades, "unplanned": b.unplanned, "set_date": b.read.set_date, "decided": b.read.decided, "hit": b.read.hit, "right": right,
         }));
@@ -146,21 +179,36 @@ pub(crate) fn compute_attribution(rows: &[Row], reads: &HashMap<String, DayRead>
 }
 
 fn day_param(path: &str, today: &str) -> Result<Option<String>, DiscoveryError> {
-    let Some(raw) = discovery::parameter(path, "date").filter(|v| !v.trim().is_empty()) else { return Ok(None) };
+    let Some(raw) = discovery::parameter(path, "date").filter(|v| !v.trim().is_empty()) else {
+        return Ok(None);
+    };
     let day = raw.trim();
     if day.len() != 10 || NaiveDate::parse_from_str(day, "%Y-%m-%d").is_err() || day > today {
-        return Err(DiscoveryError::BadRequest("date 要写成 YYYY-MM-DD,而且不能晚于今天".into()));
+        return Err(DiscoveryError::BadRequest(
+            "date 要写成 YYYY-MM-DD,而且不能晚于今天".into(),
+        ));
     }
     Ok(Some(day.to_string()))
 }
 
 /// 最近一个交易日(今天开盘了算今天):交易日历取上证指数日线日期,今天不是交易日就是之前最近的一个
 fn latest_trading_day(calendar: &[String], today: &str) -> String {
-    calendar.iter().filter(|d| d.as_str() <= today).next_back().cloned().unwrap_or_else(|| today.to_string())
+    calendar
+        .iter()
+        .rfind(|d| d.as_str() <= today)
+        .cloned()
+        .unwrap_or_else(|| today.to_string())
 }
 
 /// 纯部分:给定读数窗口和验证条件,算出整页(便于测试)
-pub(crate) fn build_view(rows: &[Row], date: &str, series: &[emotion_history::DayRecord], items: &[emotion_history::Item], next: Option<&str>, now: ChinaNow) -> Value {
+pub(crate) fn build_view(
+    rows: &[Row],
+    date: &str,
+    series: &[emotion_history::DayRecord],
+    items: &[emotion_history::Item],
+    next: Option<&str>,
+    now: ChinaNow,
+) -> Value {
     let v = emotion_history::verify_view(date, series, items, next, now);
     let days: Vec<Value> = v["track"]["days"].as_array().cloned().unwrap_or_default();
     let reads = reads_of(&days);
@@ -181,15 +229,28 @@ pub async fn view(client: &Client, db: &Path, path: &str) -> Result<Value, Disco
     let a = journal_risk::analysis(db).map_err(DiscoveryError::Upstream)?;
     let mut rows = a.rows;
     journal_risk::va_order(&mut rows);
-    let calendar = emotion::trade_dates(client).await.map_err(DiscoveryError::Upstream)?;
+    let calendar = emotion::trade_dates(client)
+        .await
+        .map_err(DiscoveryError::Upstream)?;
     let date = requested.unwrap_or_else(|| latest_trading_day(&calendar, &today));
-    let (series, gaps) = emotion_history::series(client, db, &calendar, &date, emotion_history::BASELINE_DAYS, false, now).await.map_err(DiscoveryError::Upstream)?;
+    let (series, gaps) = emotion_history::series(
+        client,
+        db,
+        &calendar,
+        &date,
+        emotion_history::BASELINE_DAYS,
+        false,
+        now,
+    )
+    .await
+    .map_err(DiscoveryError::Upstream)?;
     let items = emotion_history::load_items(db).map_err(DiscoveryError::Upstream)?;
     let next = emotion_history::next_session(&calendar, &date);
     let mut out = build_view(&rows, &date, &series, &items, next.as_deref(), now);
     out["gaps"] = json!(gaps);
     out["date"] = json!(date);
-    out["source"] = json!("明日验证的对账结果(东财涨停 / 炸板 / 跌停 / 昨日涨停池,已收盘的日子存本机)");
+    out["source"] =
+        json!("明日验证的对账结果(东财涨停 / 炸板 / 跌停 / 昨日涨停池,已收盘的日子存本机)");
     out["generated_at"] = json!(Utc::now().to_rfc3339());
     Ok(out)
 }
@@ -200,13 +261,39 @@ mod tests {
     use crate::journal_risk::{Entry, Fill};
     use crate::journal_settings::Fees;
 
-    const ZERO: Fees = Fees { commission_rate: 0.0, commission_min: 0.0, stamp_tax_rate: 0.0, transfer_fee_rate: 0.0, fifo: false };
+    const ZERO: Fees = Fees {
+        commission_rate: 0.0,
+        commission_min: 0.0,
+        stamp_tax_rate: 0.0,
+        transfer_fee_rate: 0.0,
+        fifo: false,
+    };
 
     /// 买入 100 股 @ 10,卖出 @ 10 + pnl/100(盈亏 = pnl 元)
     fn trade(id: i64, day: &str, pnl: f64, planned: Option<bool>) -> Row {
         let e = Entry {
-            id, kind: "episode".into(), symbol: format!("6000{id:02}"), date: day.into(), created_at: format!("{day}T09:{id:02}:00Z"), as_planned: planned,
-            fills: vec![Fill { side: "buy".into(), date: day.into(), price: 10.0, shares: 100.0, fee: Some(0.0) }, Fill { side: "sell".into(), date: day.into(), price: 10.0 + pnl / 100.0, shares: 100.0, fee: Some(0.0) }],
+            id,
+            kind: "episode".into(),
+            symbol: format!("6000{id:02}"),
+            date: day.into(),
+            created_at: format!("{day}T09:{id:02}:00Z"),
+            as_planned: planned,
+            fills: vec![
+                Fill {
+                    side: "buy".into(),
+                    date: day.into(),
+                    price: 10.0,
+                    shares: 100.0,
+                    fee: Some(0.0),
+                },
+                Fill {
+                    side: "sell".into(),
+                    date: day.into(),
+                    price: 10.0 + pnl / 100.0,
+                    shares: 100.0,
+                    fee: Some(0.0),
+                },
+            ],
             ..Entry::default()
         };
         journal_risk::settle(e, &ZERO, id as usize)
@@ -223,50 +310,169 @@ mod tests {
 
     #[test]
     fn verdict_needs_a_strict_majority_and_ties_or_nothing_decided_are_left_out() {
-        let r = reads_of(&[day("2026-10-12", "2026-10-09", 3, 2), day("2026-10-13", "2026-10-12", 3, 1), day("2026-10-14", "2026-10-13", 2, 1), day("2026-10-15", "2026-10-14", 0, 0)]);
-        assert_eq!((r["2026-10-12"].verdict.clone(), r["2026-10-13"].verdict.clone(), r["2026-10-14"].verdict.clone(), r["2026-10-15"].verdict.clone()), (Verdict::Right, Verdict::Wrong, Verdict::Undecided, Verdict::Undecided));
+        let r = reads_of(&[
+            day("2026-10-12", "2026-10-09", 3, 2),
+            day("2026-10-13", "2026-10-12", 3, 1),
+            day("2026-10-14", "2026-10-13", 2, 1),
+            day("2026-10-15", "2026-10-14", 0, 0),
+        ]);
+        assert_eq!(
+            (
+                r["2026-10-12"].verdict.clone(),
+                r["2026-10-13"].verdict.clone(),
+                r["2026-10-14"].verdict.clone(),
+                r["2026-10-15"].verdict.clone()
+            ),
+            (
+                Verdict::Right,
+                Verdict::Wrong,
+                Verdict::Undecided,
+                Verdict::Undecided
+            )
+        );
         assert_eq!(r["2026-10-12"].set_date, "2026-10-09");
     }
 
     #[test]
     fn four_cells_align_by_entry_day_and_show_luck_separately() {
-        let reads = reads_of(&[day("2026-10-12", "2026-10-09", 3, 3), day("2026-10-13", "2026-10-12", 3, 0), day("2026-10-14", "2026-10-13", 2, 1), day("2026-10-15", "2026-10-14", 4, 3), day("2026-10-16", "2026-10-15", 4, 0)]);
+        let reads = reads_of(&[
+            day("2026-10-12", "2026-10-09", 3, 3),
+            day("2026-10-13", "2026-10-12", 3, 0),
+            day("2026-10-14", "2026-10-13", 2, 1),
+            day("2026-10-15", "2026-10-14", 4, 3),
+            day("2026-10-16", "2026-10-15", 4, 0),
+        ]);
         let rows = ordered(vec![
-            trade(1, "2026-10-12", 300.0, Some(true)),   // 判对 + 赚钱
-            trade(2, "2026-10-13", 150.0, Some(false)),  // 判错 + 赚钱(运气),计划外
-            trade(3, "2026-10-13", 50.0, Some(true)),    // 同一天:累加成 200
-            trade(4, "2026-10-14", -80.0, None),         // 一半对一半错:不进四格
-            trade(5, "2026-10-15", -120.0, Some(true)),  // 判对 + 亏钱(执行问题)
-            trade(6, "2026-10-16", -60.0, Some(false)),  // 判错 + 亏钱
-            trade(7, "2026-10-17", 40.0, None),          // 那天前一晚没有读数
+            trade(1, "2026-10-12", 300.0, Some(true)),  // 判对 + 赚钱
+            trade(2, "2026-10-13", 150.0, Some(false)), // 判错 + 赚钱(运气),计划外
+            trade(3, "2026-10-13", 50.0, Some(true)),   // 同一天:累加成 200
+            trade(4, "2026-10-14", -80.0, None),        // 一半对一半错:不进四格
+            trade(5, "2026-10-15", -120.0, Some(true)), // 判对 + 亏钱(执行问题)
+            trade(6, "2026-10-16", -60.0, Some(false)), // 判错 + 亏钱
+            trade(7, "2026-10-17", 40.0, None),         // 那天前一晚没有读数
         ]);
         let v = compute_attribution(&rows, &reads);
         assert_eq!(v["available"], true);
         let q = &v["quadrants"];
-        assert_eq!((q["right_win"]["days"].clone(), q["right_win"]["pnl"].clone()), (json!(1), json!(300.0)));
-        assert_eq!((q["wrong_win"]["days"].clone(), q["wrong_win"]["pnl"].clone(), q["wrong_win"]["days_list"].clone()), (json!(1), json!(200.0), json!(["2026-10-13"])));
-        assert_eq!((q["right_lose"]["pnl"].clone(), q["wrong_lose"]["pnl"].clone()), (json!(-120.0), json!(-60.0)));
-        assert_eq!((v["skipped_undecided"].clone(), v["skipped_no_read"].clone(), v["skipped_no_amount"].clone()), (json!(1), json!(1), json!(0)));
+        assert_eq!(
+            (
+                q["right_win"]["days"].clone(),
+                q["right_win"]["pnl"].clone()
+            ),
+            (json!(1), json!(300.0))
+        );
+        assert_eq!(
+            (
+                q["wrong_win"]["days"].clone(),
+                q["wrong_win"]["pnl"].clone(),
+                q["wrong_win"]["days_list"].clone()
+            ),
+            (json!(1), json!(200.0), json!(["2026-10-13"]))
+        );
+        assert_eq!(
+            (
+                q["right_lose"]["pnl"].clone(),
+                q["wrong_lose"]["pnl"].clone()
+            ),
+            (json!(-120.0), json!(-60.0))
+        );
+        assert_eq!(
+            (
+                v["skipped_undecided"].clone(),
+                v["skipped_no_read"].clone(),
+                v["skipped_no_amount"].clone()
+            ),
+            (json!(1), json!(1), json!(0))
+        );
         assert_eq!(v["cells"]["wrong_win"][0]["trades"], 2);
         assert_eq!(v["cells"]["wrong_win"][0]["unplanned"], 1);
-        assert_eq!((v["days_counted"].clone(), v["enough_samples"].clone(), v["min_days"].clone()), (json!(4), json!(false), json!(8)));
+        assert_eq!(
+            (
+                v["days_counted"].clone(),
+                v["enough_samples"].clone(),
+                v["min_days"].clone()
+            ),
+            (json!(4), json!(false), json!(8))
+        );
         assert_eq!(v["quadrant_labels"]["wrong_win"], "判错 + 赚钱");
     }
 
     #[test]
     fn zero_pnl_days_and_trades_without_amounts_are_not_forced_into_a_cell() {
-        let reads = reads_of(&[day("2026-10-12", "2026-10-09", 3, 3), day("2026-10-13", "2026-10-12", 3, 3)]);
-        let manual = journal_risk::settle(Entry { id: 9, kind: "manual".into(), symbol: "600009".into(), date: "2026-10-12".into(), pnl_pct_manual: Some(5.0), ..Entry::default() }, &ZERO, 9);
-        let open = journal_risk::settle(Entry { id: 8, kind: "episode".into(), symbol: "600008".into(), date: "2026-10-12".into(), fills: vec![Fill { side: "buy".into(), date: "2026-10-12".into(), price: 10.0, shares: 100.0, fee: Some(0.0) }], ..Entry::default() }, &ZERO, 8);
+        let reads = reads_of(&[
+            day("2026-10-12", "2026-10-09", 3, 3),
+            day("2026-10-13", "2026-10-12", 3, 3),
+        ]);
+        let manual = journal_risk::settle(
+            Entry {
+                id: 9,
+                kind: "manual".into(),
+                symbol: "600009".into(),
+                date: "2026-10-12".into(),
+                pnl_pct_manual: Some(5.0),
+                ..Entry::default()
+            },
+            &ZERO,
+            9,
+        );
+        let open = journal_risk::settle(
+            Entry {
+                id: 8,
+                kind: "episode".into(),
+                symbol: "600008".into(),
+                date: "2026-10-12".into(),
+                fills: vec![Fill {
+                    side: "buy".into(),
+                    date: "2026-10-12".into(),
+                    price: 10.0,
+                    shares: 100.0,
+                    fee: Some(0.0),
+                }],
+                ..Entry::default()
+            },
+            &ZERO,
+            8,
+        );
         // 10-13 两笔一盈一亏正好抵消:当天 0,不进任何一格
-        let rows = ordered(vec![trade(1, "2026-10-13", 70.0, None), trade(2, "2026-10-13", -70.0, None), manual, open]);
+        let rows = ordered(vec![
+            trade(1, "2026-10-13", 70.0, None),
+            trade(2, "2026-10-13", -70.0, None),
+            manual,
+            open,
+        ]);
         let v = compute_attribution(&rows, &reads);
-        assert_eq!((v["available"].clone(), v["days_counted"].clone(), v["enough_samples"].clone()), (json!(true), json!(0), json!(false)), "只剩 0 盈亏的日子:四格全空,不硬塞");
-        let rows = ordered(vec![trade(1, "2026-10-13", 70.0, None), trade(2, "2026-10-13", -70.0, None), trade(3, "2026-10-12", 10.0, None)]);
+        assert_eq!(
+            (
+                v["available"].clone(),
+                v["days_counted"].clone(),
+                v["enough_samples"].clone()
+            ),
+            (json!(true), json!(0), json!(false)),
+            "只剩 0 盈亏的日子:四格全空,不硬塞"
+        );
+        let rows = ordered(vec![
+            trade(1, "2026-10-13", 70.0, None),
+            trade(2, "2026-10-13", -70.0, None),
+            trade(3, "2026-10-12", 10.0, None),
+        ]);
         let v = compute_attribution(&rows, &reads);
         assert_eq!(v["days_counted"], 1, "0 盈亏的那天不进格");
         // 没有成交明细的补记、还没卖完的:算不出金额
-        let both = ordered(vec![journal_risk::settle(Entry { id: 9, kind: "manual".into(), symbol: "600009".into(), date: "2026-10-12".into(), pnl_pct_manual: Some(5.0), ..Entry::default() }, &ZERO, 9), trade(3, "2026-10-12", 10.0, None)]);
+        let both = ordered(vec![
+            journal_risk::settle(
+                Entry {
+                    id: 9,
+                    kind: "manual".into(),
+                    symbol: "600009".into(),
+                    date: "2026-10-12".into(),
+                    pnl_pct_manual: Some(5.0),
+                    ..Entry::default()
+                },
+                &ZERO,
+                9,
+            ),
+            trade(3, "2026-10-12", 10.0, None),
+        ]);
         assert_eq!(compute_attribution(&both, &reads)["skipped_no_amount"], 1);
         let none = compute_attribution(&[], &reads);
         assert_eq!(none["available"], false);
@@ -277,19 +483,39 @@ mod tests {
     fn page_is_unavailable_until_some_condition_has_been_reconciled() {
         let rows = ordered(vec![trade(1, "2026-10-13", 70.0, None)]);
         let series: Vec<emotion_history::DayRecord> = Vec::new();
-        let v = build_view(&rows, "2026-10-16", &series, &[], None, (NaiveDate::from_ymd_opt(2026, 10, 17).unwrap(), 1200));
+        let v = build_view(
+            &rows,
+            "2026-10-16",
+            &series,
+            &[],
+            None,
+            (NaiveDate::from_ymd_opt(2026, 10, 17).unwrap(), 1200),
+        );
         assert_eq!(v["available"], false);
         assert!(v["reason"].as_str().unwrap().contains("没有「判对没判对」"));
     }
 
     #[test]
     fn latest_trading_day_and_date_parameter_rules() {
-        let cal: Vec<String> = ["2026-10-14", "2026-10-15", "2026-10-16"].iter().map(|s| s.to_string()).collect();
-        assert_eq!(latest_trading_day(&cal, "2026-10-17"), "2026-10-16", "周末取最近一个交易日");
+        let cal: Vec<String> = ["2026-10-14", "2026-10-15", "2026-10-16"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(
+            latest_trading_day(&cal, "2026-10-17"),
+            "2026-10-16",
+            "周末取最近一个交易日"
+        );
         assert_eq!(latest_trading_day(&cal, "2026-10-15"), "2026-10-15");
-        assert!(day_param("/x?date=2026-10-20", "2026-10-17").is_err(), "未来日期拒绝");
+        assert!(
+            day_param("/x?date=2026-10-20", "2026-10-17").is_err(),
+            "未来日期拒绝"
+        );
         assert!(day_param("/x?date=2026-02-30", "2026-10-17").is_err());
-        assert_eq!(day_param("/x?date=2026-10-16", "2026-10-17").unwrap(), Some("2026-10-16".into()));
+        assert_eq!(
+            day_param("/x?date=2026-10-16", "2026-10-17").unwrap(),
+            Some("2026-10-16".into())
+        );
         assert_eq!(day_param("/x", "2026-10-17").unwrap(), None);
     }
 
@@ -300,36 +526,78 @@ mod tests {
     fn dump_synthetic_fixture() {
         // (入场日, 前一晚, 判定条数, 成立条数, 当天各笔盈亏)
         let spec: [(&str, &str, i64, i64, &[f64]); 13] = [
-            ("2026-09-21", "2026-09-18", 3, 3, &[420.0, 180.0]), ("2026-09-22", "2026-09-21", 3, 1, &[-260.0]), ("2026-09-23", "2026-09-22", 4, 3, &[-150.0, 60.0]),
-            ("2026-09-24", "2026-09-23", 3, 0, &[310.0]), ("2026-09-25", "2026-09-24", 3, 2, &[240.0]), ("2026-09-28", "2026-09-25", 2, 1, &[-90.0]),
-            ("2026-09-29", "2026-09-28", 3, 3, &[130.0, 95.0]), ("2026-10-09", "2026-09-29", 4, 1, &[-340.0, -120.0]), ("2026-10-12", "2026-10-09", 3, 2, &[-75.0]),
-            ("2026-10-13", "2026-10-12", 3, 0, &[-210.0]), ("2026-10-14", "2026-10-13", 3, 2, &[350.0]), ("2026-10-15", "2026-10-14", 4, 1, &[180.0, -40.0]), ("2026-10-16", "2026-10-15", 3, 3, &[0.0]),
+            ("2026-09-21", "2026-09-18", 3, 3, &[420.0, 180.0]),
+            ("2026-09-22", "2026-09-21", 3, 1, &[-260.0]),
+            ("2026-09-23", "2026-09-22", 4, 3, &[-150.0, 60.0]),
+            ("2026-09-24", "2026-09-23", 3, 0, &[310.0]),
+            ("2026-09-25", "2026-09-24", 3, 2, &[240.0]),
+            ("2026-09-28", "2026-09-25", 2, 1, &[-90.0]),
+            ("2026-09-29", "2026-09-28", 3, 3, &[130.0, 95.0]),
+            ("2026-10-09", "2026-09-29", 4, 1, &[-340.0, -120.0]),
+            ("2026-10-12", "2026-10-09", 3, 2, &[-75.0]),
+            ("2026-10-13", "2026-10-12", 3, 0, &[-210.0]),
+            ("2026-10-14", "2026-10-13", 3, 2, &[350.0]),
+            ("2026-10-15", "2026-10-14", 4, 1, &[180.0, -40.0]),
+            ("2026-10-16", "2026-10-15", 3, 3, &[0.0]),
         ];
-        let days: Vec<Value> = spec.iter().map(|(d, set, decided, hit, _)| day(d, set, *decided, *hit)).collect();
+        let days: Vec<Value> = spec
+            .iter()
+            .map(|(d, set, decided, hit, _)| day(d, set, *decided, *hit))
+            .collect();
         let reads = reads_of(&days);
         let mut rows = Vec::new();
         let mut id = 0;
         for (d, _, _, _, pnls) in spec {
             for (k, pnl) in pnls.iter().enumerate() {
                 id += 1;
-                rows.push(trade(id, d, *pnl, if k == 1 || (id % 4 == 0) { Some(false) } else { Some(true) }));
+                rows.push(trade(
+                    id,
+                    d,
+                    *pnl,
+                    if k == 1 || (id % 4 == 0) {
+                        Some(false)
+                    } else {
+                        Some(true)
+                    },
+                ));
             }
         }
         // 一笔入场那天前一晚没写条件、一笔补记
         id += 1;
         rows.push(trade(id, "2026-10-17", 55.0, None));
-        let manual = journal_risk::settle(Entry { id: id + 1, kind: "manual".into(), symbol: "600099".into(), date: "2026-09-18".into(), pnl_pct_manual: Some(3.0), ..Entry::default() }, &ZERO, 99);
+        let manual = journal_risk::settle(
+            Entry {
+                id: id + 1,
+                kind: "manual".into(),
+                symbol: "600099".into(),
+                date: "2026-09-18".into(),
+                pnl_pct_manual: Some(3.0),
+                ..Entry::default()
+            },
+            &ZERO,
+            99,
+        );
         rows.push(manual);
         let rows = ordered(rows);
         let mut v = compute_attribution(&rows, &reads);
         v["window"] = json!({"from": "2026-09-18", "to": "2026-10-16"});
-        v["gaps"] = json!(["2 个交易日没取到读数(东财池子只留约一个月,更早又没缓存过的日子取不到),不进统计"]);
+        v["gaps"] = json!([
+            "2 个交易日没取到读数(东财池子只留约一个月,更早又没缓存过的日子取不到),不进统计"
+        ]);
         v["date"] = json!("2026-10-16");
-        v["source"] = json!("明日验证的对账结果(东财涨停 / 炸板 / 跌停 / 昨日涨停池,已收盘的日子存本机)");
+        v["source"] =
+            json!("明日验证的对账结果(东财涨停 / 炸板 / 跌停 / 昨日涨停池,已收盘的日子存本机)");
         v["generated_at"] = json!("2026-10-17T02:00:00Z");
         if let Ok(out) = std::env::var("VIBE_JOURNAL_ATTR_FIXTURE") {
             std::fs::write(out, serde_json::to_string_pretty(&v).unwrap()).unwrap();
         }
-        println!("days {} quadrants {} skipped {} {} {}", v["days_counted"], v["quadrants"], v["skipped_no_amount"], v["skipped_no_read"], v["skipped_undecided"]);
+        println!(
+            "days {} quadrants {} skipped {} {} {}",
+            v["days_counted"],
+            v["quadrants"],
+            v["skipped_no_amount"],
+            v["skipped_no_read"],
+            v["skipped_undecided"]
+        );
     }
 }

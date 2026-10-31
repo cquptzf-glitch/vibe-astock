@@ -86,6 +86,13 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
+          components: rustfmt, clippy
+
+      - name: Check Rust formatting and lints
+        run: |
+          cargo fmt --all --manifest-path core-rust/Cargo.toml -- --check
+          cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
+          cargo clippy --locked --manifest-path core-rust/Cargo.toml --lib --tests -- -D warnings
 
       - name: Test Rust core
         run: |

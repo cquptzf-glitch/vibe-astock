@@ -29,7 +29,14 @@ pub fn parse(body: &Value) -> Result<Value> {
             }
             // Preserve blank pages and neutralize embedded form feeds so source text
             // cannot change the original page numbering. The header survives trim().
-            format!("{PDF_PAGE_HEADER}{}", pages.iter().map(|p|p.replace('\u{c}',"\n")).collect::<Vec<_>>().join("\u{c}"))
+            format!(
+                "{PDF_PAGE_HEADER}{}",
+                pages
+                    .iter()
+                    .map(|p| p.replace('\u{c}', "\n"))
+                    .collect::<Vec<_>>()
+                    .join("\u{c}")
+            )
         }
         "docx" => {
             let mut zip = zip::ZipArchive::new(Cursor::new(bytes))?;
@@ -109,7 +116,9 @@ pub fn parse(body: &Value) -> Result<Value> {
     if text.chars().count() > 250000 {
         return Err(anyhow!("正文超过 250000 字,请拆分;没有截断原文"));
     }
-    Ok(json!({"body":text,"name":name,"method":ext,"source":if ext=="pdf" {PDF_PAGED_SOURCE}else{"file_import"},"local_only":true}))
+    Ok(
+        json!({"body":text,"name":name,"method":ext,"source":if ext=="pdf" {PDF_PAGED_SOURCE}else{"file_import"},"local_only":true}),
+    )
 }
 #[cfg(test)]
 mod tests {
@@ -117,38 +126,63 @@ mod tests {
     #[test]
     fn pdf_original_pages_survive_import_backup_and_citation_checks() {
         use pdf_extract::{dictionary, Document, Object, Stream};
-        let mut pdf=Document::with_version("1.5");
-        let pages=pdf.new_object_id();
-        let font=pdf.add_object(dictionary!{"Type"=>"Font","Subtype"=>"Type1","BaseFont"=>"Helvetica"});
-        let resources=pdf.add_object(dictionary!{"Font"=>dictionary!{"F1"=>font}});
-        let mut ids=Vec::<Object>::new();
-        for content in ["", "BT /F1 12 Tf 40 750 Td (Revenue verified on page two) Tj ET"] {
-            let stream=pdf.add_object(Stream::new(dictionary!{},content.as_bytes().to_vec()));
+        let mut pdf = Document::with_version("1.5");
+        let pages = pdf.new_object_id();
+        let font =
+            pdf.add_object(dictionary! {"Type"=>"Font","Subtype"=>"Type1","BaseFont"=>"Helvetica"});
+        let resources = pdf.add_object(dictionary! {"Font"=>dictionary!{"F1"=>font}});
+        let mut ids = Vec::<Object>::new();
+        for content in [
+            "",
+            "BT /F1 12 Tf 40 750 Td (Revenue verified on page two) Tj ET",
+        ] {
+            let stream = pdf.add_object(Stream::new(dictionary! {}, content.as_bytes().to_vec()));
             let page=pdf.add_object(dictionary!{"Type"=>"Page","Parent"=>pages,"MediaBox"=>vec![0.into(),0.into(),600.into(),800.into()],"Resources"=>resources,"Contents"=>stream});
             ids.push(page.into());
         }
-        pdf.objects.insert(pages,dictionary!{"Type"=>"Pages","Kids"=>ids,"Count"=>2}.into());
-        let catalog=pdf.add_object(dictionary!{"Type"=>"Catalog","Pages"=>pages});
-        pdf.trailer.set("Root",catalog);
-        let mut bytes=Vec::new();pdf.save_to(&mut bytes).unwrap();
-        let parsed=parse(&json!({"name":"two-pages.pdf","data":STANDARD.encode(bytes)})).unwrap();
-        assert_eq!(parsed["source"],PDF_PAGED_SOURCE);
-        let root=std::env::temp_dir().join(format!("pdf-pages-{}",chrono::Utc::now().timestamp_nanos_opt().unwrap()));
-        let app=crate::AppCore::new(root.clone()).unwrap();
+        pdf.objects.insert(
+            pages,
+            dictionary! {"Type"=>"Pages","Kids"=>ids,"Count"=>2}.into(),
+        );
+        let catalog = pdf.add_object(dictionary! {"Type"=>"Catalog","Pages"=>pages});
+        pdf.trailer.set("Root", catalog);
+        let mut bytes = Vec::new();
+        pdf.save_to(&mut bytes).unwrap();
+        let parsed = parse(&json!({"name":"two-pages.pdf","data":STANDARD.encode(bytes)})).unwrap();
+        assert_eq!(parsed["source"], PDF_PAGED_SOURCE);
+        let root = std::env::temp_dir().join(format!(
+            "pdf-pages-{}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        let app = crate::AppCore::new(root.clone()).unwrap();
         let saved=crate::documents::save(app.db_path(),&json!({"kind":"report","title":"Synthetic PDF","body":parsed["body"],"source":parsed["source"]})).unwrap();
-        let backup=crate::backup::export(app.db_path()).unwrap();
-        crate::backup::restore(app.db_path(),&json!({"mode":"replace","confirm":true,"backup":backup})).unwrap();
-        let result=crate::chat_documents::search(app.db_path(),&json!({"query":"Revenue"})).unwrap();
-        assert_eq!(result["hits"].as_array().unwrap().len(),1);
-        assert_eq!(result["hits"][0]["page"],2);
-        assert!(!result["hits"][0]["excerpt"].as_str().unwrap().contains('\u{c}'));
-        let records=vec![json!({"tool":"search_documents","ok":true,"result":result})];
-        let id=saved["id"].as_i64().unwrap();
-        assert!(crate::chat_documents::validate(&format!("[资料:{id} p.2]"),&records).is_ok());
-        for answer in [format!("[资料:{id}]"),format!("[资料:{id} p.1]"),format!("[资料:{id} p.9]"),"无引用".into()] {
-            assert!(crate::chat_documents::validate(&answer,&records).is_err());
+        let backup = crate::backup::export(app.db_path()).unwrap();
+        crate::backup::restore(
+            app.db_path(),
+            &json!({"mode":"replace","confirm":true,"backup":backup}),
+        )
+        .unwrap();
+        let result =
+            crate::chat_documents::search(app.db_path(), &json!({"query":"Revenue"})).unwrap();
+        assert_eq!(result["hits"].as_array().unwrap().len(), 1);
+        assert_eq!(result["hits"][0]["page"], 2);
+        assert!(!result["hits"][0]["excerpt"]
+            .as_str()
+            .unwrap()
+            .contains('\u{c}'));
+        let records = vec![json!({"tool":"search_documents","ok":true,"result":result})];
+        let id = saved["id"].as_i64().unwrap();
+        assert!(crate::chat_documents::validate(&format!("[资料:{id} p.2]"), &records).is_ok());
+        for answer in [
+            format!("[资料:{id}]"),
+            format!("[资料:{id} p.1]"),
+            format!("[资料:{id} p.9]"),
+            "无引用".into(),
+        ] {
+            assert!(crate::chat_documents::validate(&answer, &records).is_err());
         }
-        drop(app);let _=std::fs::remove_dir_all(root);
+        drop(app);
+        let _ = std::fs::remove_dir_all(root);
     }
     #[test]
     fn invalid_or_oversized_inputs_do_not_import() {

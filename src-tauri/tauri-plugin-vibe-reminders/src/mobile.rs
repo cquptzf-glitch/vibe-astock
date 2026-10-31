@@ -24,8 +24,15 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 }
 
 impl<R: Runtime> VibeReminders<R> {
-    pub fn monitor(&self, request:&Value)->Result<Value>{
-        self.0.run_mobile_plugin("monitor",SyncRulesRequest{snapshot_json:serde_json::to_string(request)?}).map_err(Into::into)
+    pub fn monitor(&self, request: &Value) -> Result<Value> {
+        self.0
+            .run_mobile_plugin(
+                "monitor",
+                SyncRulesRequest {
+                    snapshot_json: serde_json::to_string(request)?,
+                },
+            )
+            .map_err(Into::into)
     }
     pub fn sync_rules(&self, snapshot: &Value) -> Result<ReminderSyncStatus> {
         let rule_count = rule_count(snapshot);
@@ -40,12 +47,12 @@ impl<R: Runtime> VibeReminders<R> {
     }
 
     pub fn take_navigation(&self) -> Result<ReminderNavigation> {
-        self.0.run_mobile_plugin("takeNavigation", ())
+        self.0
+            .run_mobile_plugin("takeNavigation", ())
             .map_err(Into::into)
     }
 
     pub fn status(&self) -> Result<ReminderSyncStatus> {
-        self.0.run_mobile_plugin("status", ())
-            .map_err(Into::into)
+        self.0.run_mobile_plugin("status", ()).map_err(Into::into)
     }
 }

@@ -35,7 +35,8 @@ const CONCURRENCY: usize = 3;
 pub(crate) const EVENTS_MAX: usize = 1000;
 const TITLE_MAX: usize = 60;
 const NOTE_MAX: usize = 300;
-const SOURCE: &str = "东财涨停 / 炸板 / 跌停 / 昨日涨停池(每天一次,已收盘的日子存本机)+ 人工登记的制度事件";
+const SOURCE: &str =
+    "东财涨停 / 炸板 / 跌停 / 昨日涨停池(每天一次,已收盘的日子存本机)+ 人工登记的制度事件";
 const NOTE: &str = "结构移位不等于制度变化 —— 也可能是数据源改了字段(看字段清单),或就是市场真的变了。三类分开看,别把前两类读成第三类。";
 const REGIME_NOTE: &str = "制度变化只收人工登记的条目,系统不从数据反推「这天大概改了规则」—— 猜错会把市场波动当成制度事件,宁可留空。";
 const METRICS: [(&str, &str, &str); 4] = [
@@ -75,7 +76,12 @@ pub(crate) fn mix_of(row: &Row, day: &str) -> &'static str {
     }
 }
 
-pub(crate) fn day_structure(date: &str, zt: &[Row], fields: &BTreeMap<String, Option<Vec<String>>>, unknown: BTreeMap<String, String>) -> DayStructure {
+pub(crate) fn day_structure(
+    date: &str,
+    zt: &[Row],
+    fields: &BTreeMap<String, Option<Vec<String>>>,
+    unknown: BTreeMap<String, String>,
+) -> DayStructure {
     let n = zt.len() as f64;
     let count = |k: &str| zt.iter().filter(|r| mix_of(r, date) == k).count() as f64;
     let share = |k: &str| (n > 0.0).then(|| (count(k) / n * 10_000.0).round() / 10_000.0);
@@ -87,24 +93,38 @@ pub(crate) fn day_structure(date: &str, zt: &[Row], fields: &BTreeMap<String, Op
     DayStructure {
         date: date.into(),
         values,
-        fields: fields.iter().filter_map(|(k, v)| v.as_ref().map(|f| (k.clone(), f.join(",")))).collect(),
+        fields: fields
+            .iter()
+            .filter_map(|(k, v)| v.as_ref().map(|f| (k.clone(), f.join(","))))
+            .collect(),
         unknown,
     }
 }
 
 async fn fetch_day(client: &Client, date: &str) -> Result<DayStructure, String> {
     let compact = date.replace('-', "");
-    let roots = futures_util::future::join_all(POOLS.iter().map(|(_, _, kind)| emotion::fetch_pool_root(client, *kind, &compact))).await;
+    let roots = futures_util::future::join_all(
+        POOLS
+            .iter()
+            .map(|(_, _, kind)| emotion::fetch_pool_root(client, *kind, &compact)),
+    )
+    .await;
     let mut fields: BTreeMap<String, Option<Vec<String>>> = BTreeMap::new();
     let mut unknown: BTreeMap<String, String> = BTreeMap::new();
     let mut zt: Option<Vec<Row>> = None;
     for ((key, label, kind), root) in POOLS.iter().zip(roots) {
         match root {
             Err(e) => {
-                unknown.insert(key.to_string(), format!("没取到({})", emotion::error_message(label, &e)));
+                unknown.insert(
+                    key.to_string(),
+                    format!("没取到({})", emotion::error_message(label, &e)),
+                );
                 fields.insert(key.to_string(), None);
                 if *key == "zt" {
-                    return Err(format!("东财涨停池没取到({})", emotion::error_message(label, &e)));
+                    return Err(format!(
+                        "东财涨停池没取到({})",
+                        emotion::error_message(label, &e)
+                    ));
                 }
             }
             Ok(root) => {
@@ -133,8 +153,16 @@ async fn fetch_day(client: &Client, date: &str) -> Result<DayStructure, String> 
 
 fn cache_load(db: &Path, date: &str) -> Option<DayStructure> {
     let conn = Connection::open(db).ok()?;
-    let payload: String = conn.query_row("SELECT payload FROM mobile_structure_days WHERE date = ?1", [date], |r| r.get(0)).ok()?;
-    serde_json::from_str::<DayStructure>(&payload).ok().filter(|d| d.date == date)
+    let payload: String = conn
+        .query_row(
+            "SELECT payload FROM mobile_structure_days WHERE date = ?1",
+            [date],
+            |r| r.get(0),
+        )
+        .ok()?;
+    serde_json::from_str::<DayStructure>(&payload)
+        .ok()
+        .filter(|d| d.date == date)
 }
 
 fn cache_store(db: &Path, day: &DayStructure) -> Result<()> {
@@ -158,18 +186,33 @@ fn round(v: f64, digits: i32) -> f64 {
 }
 
 /// 两个窗口逐项比中位数;任一窗口不足 MIN_DAYS 天的那项不比(列进 skipped)。一律中位数:一两天涨停潮或大面就能把均值拉飞
-pub(crate) fn compare_windows(recent: &[&DayStructure], prior: &[&DayStructure]) -> (Vec<Value>, Vec<String>) {
+pub(crate) fn compare_windows(
+    recent: &[&DayStructure],
+    prior: &[&DayStructure],
+) -> (Vec<Value>, Vec<String>) {
     let (mut metrics, mut skipped) = (Vec::new(), Vec::new());
     for (key, label, kind) in METRICS {
-        let pick = |days: &[&DayStructure]| -> Vec<f64> { days.iter().filter_map(|d| d.values.get(key).copied().flatten()).collect() };
+        let pick = |days: &[&DayStructure]| -> Vec<f64> {
+            days.iter()
+                .filter_map(|d| d.values.get(key).copied().flatten())
+                .collect()
+        };
         let (r, p) = (pick(recent), pick(prior));
         if r.len() < MIN_DAYS || p.len() < MIN_DAYS {
-            skipped.push(format!("{label}(最近 {} 天 / 之前 {} 天)", r.len(), p.len()));
+            skipped.push(format!(
+                "{label}(最近 {} 天 / 之前 {} 天)",
+                r.len(),
+                p.len()
+            ));
             continue;
         }
         let (rv, pv) = (median(&r), median(&p));
         let rel = (kind == "count" && pv != 0.0).then(|| (rv - pv) / pv);
-        let shifted = if kind == "share" { (rv - pv).abs() >= SHIFT_ABS - 1e-9 } else { rel.is_some_and(|x| x.abs() >= SHIFT_RATIO - 1e-9) };
+        let shifted = if kind == "share" {
+            (rv - pv).abs() >= SHIFT_ABS - 1e-9
+        } else {
+            rel.is_some_and(|x| x.abs() >= SHIFT_RATIO - 1e-9)
+        };
         metrics.push(json!({
             "metric": key, "label": label, "kind": kind, "recent": round(rv, 4), "prior": round(pv, 4), "delta": round(rv - pv, 4),
             "rel_change": rel.map(|x| round(x, 3)), "shifted": shifted, "recent_days": r.len(), "prior_days": p.len(),
@@ -225,20 +268,43 @@ pub(crate) fn field_drift(days: &[&DayStructure]) -> Vec<Value> {
 pub(crate) fn summarize(field_changed: &[String], structure: &Value, events: &[Value]) -> String {
     let mut bits: Vec<String> = Vec::new();
     if !field_changed.is_empty() {
-        bits.push(format!("{} 张池子的上游字段变过({})—— 跨那些日期的统计里可能有一个跟市场无关的断点", field_changed.len(), field_changed.join("、")));
+        bits.push(format!(
+            "{} 张池子的上游字段变过({})—— 跨那些日期的统计里可能有一个跟市场无关的断点",
+            field_changed.len(),
+            field_changed.join("、")
+        ));
     }
     if structure["available"] == true {
-        let shifted: Vec<&str> = structure["shifted"].as_array().into_iter().flatten().filter_map(|s| s["label"].as_str()).collect();
-        bits.push(if shifted.is_empty() { "结构比较:没有明显移位".into() } else { format!("结构比较:{}明显移位", shifted.join("、")) });
+        let shifted: Vec<&str> = structure["shifted"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|s| s["label"].as_str())
+            .collect();
+        bits.push(if shifted.is_empty() {
+            "结构比较:没有明显移位".into()
+        } else {
+            format!("结构比较:{}明显移位", shifted.join("、"))
+        });
     } else {
-        bits.push(format!("结构比较暂不可用({})", structure["reason"].as_str().unwrap_or("")));
+        bits.push(format!(
+            "结构比较暂不可用({})",
+            structure["reason"].as_str().unwrap_or("")
+        ));
     }
     let upcoming = events.iter().filter(|e| e["upcoming"] == true).count();
     let past = events.len() - upcoming;
     bits.push(if events.is_empty() {
         "还没登记制度事件(要人工登记,系统不自动推断)".into()
     } else {
-        format!("已登记 {past} 条制度事件{}", if upcoming > 0 { format!(",另有 {upcoming} 条还没施行") } else { String::new() })
+        format!(
+            "已登记 {past} 条制度事件{}",
+            if upcoming > 0 {
+                format!(",另有 {upcoming} 条还没施行")
+            } else {
+                String::new()
+            }
+        )
     });
     format!("{}。", bits.join(";"))
 }
@@ -261,7 +327,16 @@ fn open(db: &Path) -> Result<Connection> {
 
 pub(crate) fn read_events(conn: &Connection) -> Result<Vec<Event>> {
     let mut stmt = conn.prepare("SELECT id, date, title, note, created_at, updated_at FROM mobile_regime_events ORDER BY date, title, id")?;
-    let rows = stmt.query_map([], |r| Ok(Event { id: r.get(0)?, date: r.get(1)?, title: r.get(2)?, note: r.get(3)?, created_at: r.get(4)?, updated_at: r.get(5)? }))?;
+    let rows = stmt.query_map([], |r| {
+        Ok(Event {
+            id: r.get(0)?,
+            date: r.get(1)?,
+            title: r.get(2)?,
+            note: r.get(3)?,
+            created_at: r.get(4)?,
+            updated_at: r.get(5)?,
+        })
+    })?;
     Ok(rows.collect::<std::result::Result<_, _>>()?)
 }
 
@@ -282,10 +357,16 @@ pub(crate) fn event_problem(e: &Event) -> Option<String> {
         return Some("制度事件要有标题".into());
     }
     if e.title.chars().count() > TITLE_MAX {
-        return Some(format!("制度事件标题最多 {TITLE_MAX} 字(现在 {} 字)", e.title.chars().count()));
+        return Some(format!(
+            "制度事件标题最多 {TITLE_MAX} 字(现在 {} 字)",
+            e.title.chars().count()
+        ));
     }
     if e.note.chars().count() > NOTE_MAX {
-        return Some(format!("制度事件说明最多 {NOTE_MAX} 字(现在 {} 字)", e.note.chars().count()));
+        return Some(format!(
+            "制度事件说明最多 {NOTE_MAX} 字(现在 {} 字)",
+            e.note.chars().count()
+        ));
     }
     None
 }
@@ -302,8 +383,21 @@ pub fn act(db: &Path, body: &Value) -> Result<Value, DiscoveryError> {
     let bad = |m: String| DiscoveryError::BadRequest(m);
     match body.get("action").and_then(Value::as_str) {
         Some("save") => {
-            let text = |k: &str| body.get(k).and_then(Value::as_str).unwrap_or("").trim().to_string();
-            let mut event = Event { id: 0, date: text("date"), title: text("title"), note: text("note"), created_at: now.clone(), updated_at: now };
+            let text = |k: &str| {
+                body.get(k)
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .trim()
+                    .to_string()
+            };
+            let mut event = Event {
+                id: 0,
+                date: text("date"),
+                title: text("title"),
+                note: text("note"),
+                created_at: now.clone(),
+                updated_at: now,
+            };
             if let Some(p) = event_problem(&event) {
                 return Err(bad(p));
             }
@@ -318,7 +412,11 @@ pub fn act(db: &Path, body: &Value) -> Result<Value, DiscoveryError> {
                     }
                 }
                 None => {
-                    let count: i64 = conn.query_row("SELECT COUNT(*) FROM mobile_regime_events", [], |r| r.get(0)).map_err(|e| DiscoveryError::Upstream(e.into()))?;
+                    let count: i64 = conn
+                        .query_row("SELECT COUNT(*) FROM mobile_regime_events", [], |r| {
+                            r.get(0)
+                        })
+                        .map_err(|e| DiscoveryError::Upstream(e.into()))?;
                     if count as usize >= EVENTS_MAX {
                         return Err(bad(format!("制度事件最多 {EVENTS_MAX} 条")));
                     }
@@ -332,8 +430,15 @@ pub fn act(db: &Path, body: &Value) -> Result<Value, DiscoveryError> {
             }
         }
         Some("delete") => {
-            let id = body.get("id").and_then(Value::as_i64).ok_or_else(|| bad("要给出制度事件的 id".into()))?;
-            if conn.execute("DELETE FROM mobile_regime_events WHERE id = ?1", [id]).map_err(|e| DiscoveryError::Upstream(e.into()))? == 0 {
+            let id = body
+                .get("id")
+                .and_then(Value::as_i64)
+                .ok_or_else(|| bad("要给出制度事件的 id".into()))?;
+            if conn
+                .execute("DELETE FROM mobile_regime_events WHERE id = ?1", [id])
+                .map_err(|e| DiscoveryError::Upstream(e.into()))?
+                == 0
+            {
                 return Err(bad("没有这条制度事件(可能已经删了)".into()));
             }
         }
@@ -356,10 +461,20 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
     let (date, _) = emotion::review_day(&calendar, requested.as_deref(), now)?;
     let today = now.0.format("%Y-%m-%d").to_string();
     let mut gaps: Vec<String> = Vec::new();
-    let upto: Vec<&String> = calendar.iter().filter(|d| d.as_str() <= date.as_str()).collect();
-    let window: Vec<String> = upto[upto.len().saturating_sub(RECENT + PRIOR)..].iter().map(|d| (*d).clone()).collect();
+    let upto: Vec<&String> = calendar
+        .iter()
+        .filter(|d| d.as_str() <= date.as_str())
+        .collect();
+    let window: Vec<String> = upto[upto.len().saturating_sub(RECENT + PRIOR)..]
+        .iter()
+        .map(|d| (*d).clone())
+        .collect();
     if window.len() < RECENT + PRIOR {
-        gaps.push(format!("交易日历只列得出 {} 个交易日(要 {})", window.len(), RECENT + PRIOR));
+        gaps.push(format!(
+            "交易日历只列得出 {} 个交易日(要 {})",
+            window.len(),
+            RECENT + PRIOR
+        ));
     }
     let floor = emotion_history::retention_floor(now);
     let fetched: Vec<(String, Option<DayStructure>, bool, String)> = stream::iter(window.clone())
@@ -373,7 +488,12 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
                     }
                 }
                 if d.as_str() < floor.as_str() {
-                    return (d, None, settled, "超过东财保留期(约一个月),当时也没缓存".into());
+                    return (
+                        d,
+                        None,
+                        settled,
+                        "超过东财保留期(约一个月),当时也没缓存".into(),
+                    );
                 }
                 match fetch_day(client, &d).await {
                     Ok(day) => {
@@ -401,8 +521,18 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
             }
         }
     }
-    if let Some((_, _, _, why)) = fetched.iter().find(|(d, day, _, _)| *d == date && day.is_none()) {
-        gaps.push(format!("{date} 的涨停结构没取到{}", if why.is_empty() { String::new() } else { format!("({why})") }));
+    if let Some((_, _, _, why)) = fetched
+        .iter()
+        .find(|(d, day, _, _)| *d == date && day.is_none())
+    {
+        gaps.push(format!(
+            "{date} 的涨停结构没取到{}",
+            if why.is_empty() {
+                String::new()
+            } else {
+                format!("({why})")
+            }
+        ));
     }
     let older = missing.iter().filter(|d| **d != date).count();
     if older > 0 {
@@ -413,7 +543,8 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
     }
     let split = window.len().saturating_sub(RECENT);
     let (prior_dates, recent_dates) = window.split_at(split);
-    let pick = |ds: &[String]| -> Vec<&DayStructure> { ds.iter().filter_map(|d| usable.get(d)).collect() };
+    let pick =
+        |ds: &[String]| -> Vec<&DayStructure> { ds.iter().filter_map(|d| usable.get(d)).collect() };
     let (recent, prior) = (pick(recent_dates), pick(prior_dates));
     let info = |dates: &[String], used: &[&DayStructure]| json!({"days": dates.len(), "used": used.len(), "from": used.first().map(|d| d.date.clone()), "to": used.last().map(|d| d.date.clone())});
     let structure = if recent.len() < MIN_DAYS || prior.len() < MIN_DAYS {
@@ -429,7 +560,11 @@ pub async fn fetch(client: &Client, db: &Path, path: &str) -> Result<Value, Disc
     };
     let all: Vec<&DayStructure> = usable.values().collect();
     let drift = field_drift(&all);
-    let changed: Vec<String> = drift.iter().filter(|d| d["changed"] == true).filter_map(|d| d["label"].as_str().map(String::from)).collect();
+    let changed: Vec<String> = drift
+        .iter()
+        .filter(|d| d["changed"] == true)
+        .filter_map(|d| d["label"].as_str().map(String::from))
+        .collect();
     let events = events_view(db, &today).map_err(DiscoveryError::Upstream)?;
     Ok(json!({
         "date": date, "available": structure["available"] == true || drift.iter().any(|d| d["days"].as_u64().unwrap_or(0) > 0) || !events.is_empty(),
@@ -446,7 +581,11 @@ mod tests {
     use super::*;
 
     fn row(code: &str, name: &str) -> Row {
-        Row { code: code.into(), name: name.into(), ..Row::default() }
+        Row {
+            code: code.into(),
+            name: name.into(),
+            ..Row::default()
+        }
     }
 
     fn day(date: &str, limit_up: f64, s20: f64, fields: &[(&str, &str)]) -> DayStructure {
@@ -455,7 +594,15 @@ mod tests {
         values.insert("share_20cm".into(), Some(s20));
         values.insert("share_10cm".into(), Some(1.0 - s20));
         values.insert("share_bj".into(), Some(0.0));
-        DayStructure { date: date.into(), values, fields: fields.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), unknown: BTreeMap::new() }
+        DayStructure {
+            date: date.into(),
+            values,
+            fields: fields
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            unknown: BTreeMap::new(),
+        }
     }
 
     #[test]
@@ -466,22 +613,55 @@ mod tests {
         assert_eq!(mix_of(&row("688001", "华兴源创"), "2026-10-16"), "20%");
         assert_eq!(mix_of(&row("600001", "ST某某"), "2026-10-16"), "10%");
         assert_eq!(mix_of(&row("920001", "北交样本"), "2026-10-16"), "北交所");
-        let zt = vec![row("300001", "A"), row("300002", "B"), row("600001", "C"), row("920001", "D")];
+        let zt = vec![
+            row("300001", "A"),
+            row("300002", "B"),
+            row("600001", "C"),
+            row("920001", "D"),
+        ];
         let d = day_structure("2026-10-16", &zt, &BTreeMap::new(), BTreeMap::new());
-        assert_eq!((d.values["limit_up"], d.values["share_20cm"], d.values["share_10cm"], d.values["share_bj"]), (Some(4.0), Some(0.5), Some(0.25), Some(0.25)));
+        assert_eq!(
+            (
+                d.values["limit_up"],
+                d.values["share_20cm"],
+                d.values["share_10cm"],
+                d.values["share_bj"]
+            ),
+            (Some(4.0), Some(0.5), Some(0.25), Some(0.25))
+        );
     }
 
     #[test]
     fn windows_compare_medians_and_skip_short_windows() {
-        let mk = |n: usize, lu: f64, s20: f64| -> Vec<DayStructure> { (0..n).map(|i| day(&format!("2026-09-{:02}", i + 1), lu + (i % 2) as f64, s20, &[])).collect() };
+        let mk = |n: usize, lu: f64, s20: f64| -> Vec<DayStructure> {
+            (0..n)
+                .map(|i| {
+                    day(
+                        &format!("2026-09-{:02}", i + 1),
+                        lu + (i % 2) as f64,
+                        s20,
+                        &[],
+                    )
+                })
+                .collect()
+        };
         let recent_days = mk(10, 60.0, 0.5);
         let prior_days = mk(20, 40.0, 0.35);
-        let (r, p): (Vec<&DayStructure>, Vec<&DayStructure>) = (recent_days.iter().collect(), prior_days.iter().collect());
+        let (r, p): (Vec<&DayStructure>, Vec<&DayStructure>) =
+            (recent_days.iter().collect(), prior_days.iter().collect());
         let (metrics, skipped) = compare_windows(&r, &p);
         assert!(skipped.is_empty());
         let by = |k: &str| metrics.iter().find(|m| m["metric"] == k).unwrap();
         // 涨停家数中位数 60.5 vs 40.5 → 相对 +49%,≥ 35% 算移位;20% 制度占比 +0.15 ≥ 0.1 算移位;10% 制度 -0.15 同理
-        assert_eq!((by("limit_up")["shifted"].clone(), by("share_20cm")["shifted"].clone(), by("share_10cm")["delta"].clone(), by("share_bj")["shifted"].clone()), (json!(true), json!(true), json!(-0.15), json!(false)));
+        assert_eq!(
+            (
+                by("limit_up")["shifted"].clone(),
+                by("share_20cm")["shifted"].clone(),
+                by("share_10cm")["delta"].clone(),
+                by("share_bj")["shifted"].clone()
+            ),
+            (json!(true), json!(true), json!(-0.15), json!(false))
+        );
         assert_eq!(by("limit_up")["rel_change"], round((60.5 - 40.5) / 40.5, 3));
         // 刚好等于门槛算移位(宁可含边界的一端:1e-9 容差);少于 MIN_DAYS 的窗口整项跳过并说明
         let short: Vec<&DayStructure> = recent_days.iter().take(4).collect();
@@ -491,67 +671,150 @@ mod tests {
         let mut spike = mk(10, 50.0, 0.4);
         spike[0].values.insert("limit_up".into(), Some(400.0));
         let calm = mk(20, 50.0, 0.4);
-        let (sp, ca): (Vec<&DayStructure>, Vec<&DayStructure>) = (spike.iter().collect(), calm.iter().collect());
-        assert_eq!(compare_windows(&sp, &ca).0.iter().find(|m| m["metric"] == "limit_up").unwrap()["shifted"], false);
+        let (sp, ca): (Vec<&DayStructure>, Vec<&DayStructure>) =
+            (spike.iter().collect(), calm.iter().collect());
+        assert_eq!(
+            compare_windows(&sp, &ca)
+                .0
+                .iter()
+                .find(|m| m["metric"] == "limit_up")
+                .unwrap()["shifted"],
+            false
+        );
     }
 
     #[test]
     fn field_drift_reports_when_upstream_fields_changed_and_what_changed() {
-        let days = vec![day("2026-10-12", 50.0, 0.3, &[("zt", "c,n,p"), ("zb", "c,n")]), day("2026-10-13", 50.0, 0.3, &[("zt", "c,n,p"), ("zb", "c,n")]),
-            day("2026-10-14", 50.0, 0.3, &[("zt", "c,n,p,zbc"), ("zb", "c,n")]), day("2026-10-15", 50.0, 0.3, &[("zt", "c,n,p,zbc")])];
+        let days = [
+            day("2026-10-12", 50.0, 0.3, &[("zt", "c,n,p"), ("zb", "c,n")]),
+            day("2026-10-13", 50.0, 0.3, &[("zt", "c,n,p"), ("zb", "c,n")]),
+            day(
+                "2026-10-14",
+                50.0,
+                0.3,
+                &[("zt", "c,n,p,zbc"), ("zb", "c,n")],
+            ),
+            day("2026-10-15", 50.0, 0.3, &[("zt", "c,n,p,zbc")]),
+        ];
         let refs: Vec<&DayStructure> = days.iter().collect();
         let drift = field_drift(&refs);
         let zt = drift.iter().find(|d| d["pool"] == "zt").unwrap();
-        assert_eq!((zt["changed"].clone(), zt["added"].clone(), zt["removed"].clone(), zt["versions"].as_array().unwrap().len()), (json!(true), json!(["zbc"]), json!([]), 2));
+        assert_eq!(
+            (
+                zt["changed"].clone(),
+                zt["added"].clone(),
+                zt["removed"].clone(),
+                zt["versions"].as_array().unwrap().len()
+            ),
+            (json!(true), json!(["zbc"]), json!([]), 2)
+        );
         assert!(zt["note"].as_str().unwrap().contains("2026-10-14 变过"));
         let zb = drift.iter().find(|d| d["pool"] == "zb").unwrap();
-        assert_eq!((zb["changed"].clone(), zb["days"].clone(), zb["detectable"].clone()), (json!(false), json!(3), json!(true)));
+        assert_eq!(
+            (
+                zb["changed"].clone(),
+                zb["days"].clone(),
+                zb["detectable"].clone()
+            ),
+            (json!(false), json!(3), json!(true))
+        );
         let dt = drift.iter().find(|d| d["pool"] == "dt").unwrap();
-        assert_eq!((dt["days"].clone(), dt["detectable"].clone()), (json!(0), json!(false)));
+        assert_eq!(
+            (dt["days"].clone(), dt["detectable"].clone()),
+            (json!(0), json!(false))
+        );
         assert!(dt["note"].as_str().unwrap().contains("还检不出"));
-        assert!(zb["note"].as_str().unwrap().contains("不能证明之外的日子字段没变"));
+        assert!(zb["note"]
+            .as_str()
+            .unwrap()
+            .contains("不能证明之外的日子字段没变"));
     }
 
     #[test]
     fn summary_keeps_the_three_kinds_apart() {
         let unavailable = json!({"available": false, "reason": "最近 3 天"});
         let s = summarize(&["涨停池".to_string()], &unavailable, &[]);
-        assert!(s.contains("1 张池子的上游字段变过(涨停池)") && s.contains("结构比较暂不可用(最近 3 天)") && s.contains("还没登记制度事件"));
+        assert!(
+            s.contains("1 张池子的上游字段变过(涨停池)")
+                && s.contains("结构比较暂不可用(最近 3 天)")
+                && s.contains("还没登记制度事件")
+        );
         let ok = json!({"available": true, "shifted": [{"label": "涨停家数"}]});
         let ev = vec![json!({"upcoming": false}), json!({"upcoming": true})];
         let s = summarize(&[], &ok, &ev);
-        assert!(s.contains("涨停家数明显移位") && s.contains("已登记 1 条制度事件,另有 1 条还没施行"));
+        assert!(
+            s.contains("涨停家数明显移位") && s.contains("已登记 1 条制度事件,另有 1 条还没施行")
+        );
     }
 
     #[test]
     fn raw_fields_flatten_nested_keys_and_empty_pools_are_unknown() {
         let root = json!({"data": {"pool": [{"c": "1", "n": "a", "zttj": {"days": 3, "ct": 2}}, {"c": "2", "extra": 1}]}});
-        assert_eq!(emotion::raw_fields(&root), Some(vec!["c".to_string(), "extra".into(), "n".into(), "zttj.ct".into(), "zttj.days".into()]));
+        assert_eq!(
+            emotion::raw_fields(&root),
+            Some(vec![
+                "c".to_string(),
+                "extra".into(),
+                "n".into(),
+                "zttj.ct".into(),
+                "zttj.days".into()
+            ])
+        );
         assert_eq!(emotion::raw_fields(&json!({"data": {"pool": []}})), None);
         assert_eq!(emotion::raw_fields(&json!({"data": null})), None);
     }
 
     #[test]
     fn regime_events_validate_and_round_trip_through_sqlite() {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let dir = std::env::temp_dir().join(format!("vibe-regime-{nonce}-{}", std::process::id()));
         let app = crate::AppCore::new(dir.clone()).unwrap();
         let db = app.db_path().to_path_buf();
         let save = |body: Value| act(&db, &body);
         assert!(save(json!({"action": "save", "date": "2026-13-40", "title": "x"})).is_err());
-        assert!(format!("{:?}", save(json!({"action": "save", "date": "2026-10-16", "title": "  "})).unwrap_err()).contains("标题"));
-        assert!(format!("{:?}", save(json!({"action": "save", "date": "2026-10-16", "title": "字".repeat(61)})).unwrap_err()).contains("最多 60 字"));
+        assert!(format!(
+            "{:?}",
+            save(json!({"action": "save", "date": "2026-10-16", "title": "  "})).unwrap_err()
+        )
+        .contains("标题"));
+        assert!(format!(
+            "{:?}",
+            save(json!({"action": "save", "date": "2026-10-16", "title": "字".repeat(61)}))
+                .unwrap_err()
+        )
+        .contains("最多 60 字"));
         assert!(format!("{:?}", save(json!({"action": "save", "date": "2026-10-16", "title": "t", "note": "字".repeat(301)})).unwrap_err()).contains("最多 300 字"));
         let v = save(json!({"action": "save", "date": "2026-07-06", "title": "主板 ST 涨跌幅放宽到 10%", "note": "交易所公告"})).unwrap();
         let id = v["events"][0]["id"].as_i64().unwrap();
         save(json!({"action": "save", "date": "2999-01-01", "title": "未来的规则"})).unwrap();
         let events = events_view(&db, "2026-10-17").unwrap();
-        assert_eq!((events[0]["upcoming"].clone(), events[1]["upcoming"].clone()), (json!(false), json!(true)), "未来日期标「还没施行」");
-        let v = save(json!({"action": "save", "id": id, "date": "2026-07-06", "title": "改后的标题"})).unwrap();
+        assert_eq!(
+            (events[0]["upcoming"].clone(), events[1]["upcoming"].clone()),
+            (json!(false), json!(true)),
+            "未来日期标「还没施行」"
+        );
+        let v =
+            save(json!({"action": "save", "id": id, "date": "2026-07-06", "title": "改后的标题"}))
+                .unwrap();
         assert_eq!(v["events"][0]["title"], "改后的标题");
-        assert!(save(json!({"action": "save", "id": 9999, "date": "2026-07-06", "title": "x"})).is_err());
-        assert_eq!(save(json!({"action": "delete", "id": id})).unwrap()["events"].as_array().unwrap().len(), 1);
-        assert!(save(json!({"action": "delete", "id": id})).is_err(), "删两次要说明没有这条");
+        assert!(
+            save(json!({"action": "save", "id": 9999, "date": "2026-07-06", "title": "x"}))
+                .is_err()
+        );
+        assert_eq!(
+            save(json!({"action": "delete", "id": id})).unwrap()["events"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            save(json!({"action": "delete", "id": id})).is_err(),
+            "删两次要说明没有这条"
+        );
         assert!(save(json!({"action": "nope"})).is_err());
         let day = day("2026-10-15", 50.0, 0.3, &[("zt", "c,n")]);
         cache_store(&db, &day).unwrap();
@@ -565,24 +828,46 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn live_structure_probe() {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let dir = std::env::temp_dir().join(format!("vibe-structure-live-{nonce}"));
         let app = crate::AppCore::new(dir.clone()).unwrap();
         let started = std::time::Instant::now();
-        let get = |path: &str| crate::MobileApiRequest { path: path.into(), method: "GET".into(), body: Value::Null };
+        let get = |path: &str| crate::MobileApiRequest {
+            path: path.into(),
+            method: "GET".into(),
+            body: Value::Null,
+        };
         let r = app.handle(get("/mobile/review/structure")).await;
-        println!("status {} in {:?}; recent {} prior {} structure {} drift-changed {}", r.status, started.elapsed(), r.body["recent_window"], r.body["prior_window"], r.body["structure"]["available"], r.body["field_changed"]);
+        println!(
+            "status {} in {:?}; recent {} prior {} structure {} drift-changed {}",
+            r.status,
+            started.elapsed(),
+            r.body["recent_window"],
+            r.body["prior_window"],
+            r.body["structure"]["available"],
+            r.body["field_changed"]
+        );
         println!("summary {}", r.body["summary"]);
         println!("gaps {}", r.body["gaps"]);
         for d in r.body["field_drift"].as_array().into_iter().flatten() {
-            println!("  {} days {} changed {}", d["label"], d["days"], d["changed"]);
+            println!(
+                "  {} days {} changed {}",
+                d["label"], d["days"], d["changed"]
+            );
         }
         if let Ok(out) = std::env::var("VIBE_STRUCTURE_FIXTURE") {
             std::fs::write(out, serde_json::to_string_pretty(&r.body).unwrap()).unwrap();
         }
         let again = std::time::Instant::now();
         let r2 = app.handle(get("/mobile/review/structure")).await;
-        println!("second call {:?}, same summary: {}", again.elapsed(), r2.body["summary"] == r.body["summary"]);
+        println!(
+            "second call {:?}, same summary: {}",
+            again.elapsed(),
+            r2.body["summary"] == r.body["summary"]
+        );
         assert_eq!(r.status, 200);
         drop(app);
         let _ = std::fs::remove_dir_all(dir);

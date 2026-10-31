@@ -23,20 +23,37 @@ pub fn search(db: &Path, args: &Value) -> Result<Value> {
             let body = doc["body"].as_str().unwrap_or("");
             let title = doc["title"].as_str().unwrap_or("");
             let paged = doc["source"] == crate::document_import::PDF_PAGED_SOURCE;
-            let pages:Vec<&str> = if paged {
-                let Some(text)=body.strip_prefix(crate::document_import::PDF_PAGE_HEADER) else {continue};
+            let pages: Vec<&str> = if paged {
+                let Some(text) = body.strip_prefix(crate::document_import::PDF_PAGE_HEADER) else {
+                    continue;
+                };
                 text.split('\u{c}').collect()
-            } else {vec![body]};
-            let any_match=pages.iter().any(|page|page.contains(query));
-            for (index,page) in pages.iter().enumerate() {
-                if page.trim().is_empty() {continue;}
-                let pos=page.find(query);
-                if pos.is_none() && (any_match || !title.contains(query)) {continue;}
-                let prefix=pos.map(|i|page[..i].chars().count()).unwrap_or(0).saturating_sub(120);
-                let excerpt:String=page.chars().skip(prefix).take(700).collect();
-                let citation=if paged {format!("[资料:{} p.{}]",doc["id"],index+1)}else{format!("[资料:{}]",doc["id"])};
+            } else {
+                vec![body]
+            };
+            let any_match = pages.iter().any(|page| page.contains(query));
+            for (index, page) in pages.iter().enumerate() {
+                if page.trim().is_empty() {
+                    continue;
+                }
+                let pos = page.find(query);
+                if pos.is_none() && (any_match || !title.contains(query)) {
+                    continue;
+                }
+                let prefix = pos
+                    .map(|i| page[..i].chars().count())
+                    .unwrap_or(0)
+                    .saturating_sub(120);
+                let excerpt: String = page.chars().skip(prefix).take(700).collect();
+                let citation = if paged {
+                    format!("[资料:{} p.{}]", doc["id"], index + 1)
+                } else {
+                    format!("[资料:{}]", doc["id"])
+                };
                 hits.push(json!({"id":doc["id"],"page":if paged{Some(index+1)}else{None},"title":title,"excerpt":excerpt,"citation":citation,"updated_at":doc["updated_at"],"truncated":page.chars().count()>700}));
-                if hits.len()==5 {break;}
+                if hits.len() == 5 {
+                    break;
+                }
             }
             if hits.len() == 5 {
                 break;
@@ -67,9 +84,11 @@ pub fn validate(answer: &str, records: &[Value]) -> Result<()> {
     while let Some(i) = rest.find("[资料:") {
         rest = &rest[i + "[资料:".len()..];
         let end = rest.find(']').ok_or_else(|| anyhow!("资料引用未闭合"))?;
-        let citation=format!("[资料:{}]",&rest[..end]);
+        let citation = format!("[资料:{}]", &rest[..end]);
         if !allowed.contains(&citation) {
-            return Err(anyhow!("模型引用了本轮未召回的资料或页码；请原样使用本轮 citation"));
+            return Err(anyhow!(
+                "模型引用了本轮未召回的资料或页码；请原样使用本轮 citation"
+            ));
         }
         cited.insert(citation);
         rest = &rest[end + 1..];

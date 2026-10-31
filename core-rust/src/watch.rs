@@ -159,11 +159,15 @@ pub(crate) fn poll_ms_of(phase: Phase, trading_day: Option<bool>) -> i64 {
 
 /// 今天开不开市:周末不开;交易日历(上证日线)里有今天、或上证指数行情时间是今天 = 开;
 /// 09:35 以后取到的上证指数行情还不是今天 = 节假日。其余说不准(None)。
-pub(crate) fn trading_day_of(clock: &Clock, calendar: Option<&[String]>, index: Option<&IndexSeen>) -> Option<bool> {
+pub(crate) fn trading_day_of(
+    clock: &Clock,
+    calendar: Option<&[String]>,
+    index: Option<&IndexSeen>,
+) -> Option<bool> {
     if clock.weekend {
         return Some(false);
     }
-    if calendar.is_some_and(|c| c.iter().any(|d| *d == clock.day)) {
+    if calendar.is_some_and(|c| c.contains(&clock.day)) {
         return Some(true);
     }
     let index = index.filter(|i| i.seen_day == clock.day)?;
@@ -174,10 +178,18 @@ pub(crate) fn trading_day_of(clock: &Clock, calendar: Option<&[String]>, index: 
 }
 
 /// 盯的是哪一场:今天开市 = 今天;今天休市 = 最近一场;开盘前说不准时按今天准备(交易日历要到开盘才有今天)。
-pub(crate) fn quote_day_of(clock: &Clock, trading: Option<bool>, calendar: Option<&[String]>) -> Option<String> {
+pub(crate) fn quote_day_of(
+    clock: &Clock,
+    trading: Option<bool>,
+    calendar: Option<&[String]>,
+) -> Option<String> {
     match trading {
         Some(true) => Some(clock.day.clone()),
-        Some(false) => calendar?.iter().rev().find(|d| d.as_str() < clock.day.as_str()).cloned(),
+        Some(false) => calendar?
+            .iter()
+            .rev()
+            .find(|d| d.as_str() < clock.day.as_str())
+            .cloned(),
         None => (calendar.is_some() && clock.hm < 930).then(|| clock.day.clone()),
     }
 }
@@ -234,13 +246,23 @@ fn r2(v: f64) -> f64 {
 }
 
 /// 这一只这一刻的报价进来,和之前几帧比,返回新异动(已过冷却)
-pub(crate) fn detect(st: &mut Detect, code: &str, q: &Tick, t: i64, ts: &str, sources: &[String]) -> Vec<Alert> {
+pub(crate) fn detect(
+    st: &mut Detect,
+    code: &str,
+    q: &Tick,
+    t: i64,
+    ts: &str,
+    sources: &[String],
+) -> Vec<Alert> {
     let frames = st.frames.entry(code.to_string()).or_default();
     frames.push_back((t, q.price));
     while frames.len() > FRAME_KEEP {
         frames.pop_front();
     }
-    let today = q.pct.map(|p| format!(",今日 {}", signed1(p))).unwrap_or_default();
+    let today = q
+        .pct
+        .map(|p| format!(",今日 {}", signed1(p)))
+        .unwrap_or_default();
     let mut events: Vec<(&str, String, Option<f64>)> = Vec::new();
     // 规则①:窗口里最早的一帧和现在比;至少攒够 1 分钟才判
     if let Some(&(t0, p0)) = frames.iter().find(|(ft, _)| t - ft <= SURGE_WINDOW_MS) {
@@ -270,7 +292,11 @@ pub(crate) fn detect(st: &mut Detect, code: &str, q: &Tick, t: i64, ts: &str, so
     let mut out = Vec::new();
     for (kind, msg, change) in events {
         let key = format!("{code}|{kind}");
-        if st.cooldown.get(&key).is_some_and(|last| t - last < COOLDOWN_MS) {
+        if st
+            .cooldown
+            .get(&key)
+            .is_some_and(|last| t - last < COOLDOWN_MS)
+        {
             continue;
         }
         st.cooldown.insert(key, t);
@@ -323,8 +349,12 @@ fn field_number(fields: &[&str], index: usize) -> Option<f64> {
 pub(crate) fn parse_tencent(text: &str) -> HashMap<String, WQuote> {
     let mut out = HashMap::new();
     for line in text.lines() {
-        let Some((lhs, rhs)) = line.trim().split_once('=') else { continue };
-        let Some(symbol) = lhs.trim().strip_prefix("v_") else { continue };
+        let Some((lhs, rhs)) = line.trim().split_once('=') else {
+            continue;
+        };
+        let Some(symbol) = lhs.trim().strip_prefix("v_") else {
+            continue;
+        };
         let payload = rhs.trim().trim_end_matches(';').trim_matches('"');
         let fields: Vec<&str> = payload.split('~').collect();
         if fields.len() < 49 {
@@ -342,7 +372,11 @@ pub(crate) fn parse_tencent(text: &str) -> HashMap<String, WQuote> {
                 limit_down: field_number(&fields, 48).filter(|p| *p > 0.0),
                 open: field_number(&fields, 5).filter(|p| *p > 0.0),
                 last_close: field_number(&fields, 4).filter(|p| *p > 0.0),
-                quote_time: if time.len() == 14 && time.bytes().all(|b| b.is_ascii_digit()) { time.to_string() } else { String::new() },
+                quote_time: if time.len() == 14 && time.bytes().all(|b| b.is_ascii_digit()) {
+                    time.to_string()
+                } else {
+                    String::new()
+                },
             },
         );
     }
@@ -369,7 +403,10 @@ async fn tencent_batch(client: &Client, symbols: &[String]) -> Result<HashMap<St
 }
 
 /// 分批(每批 50 只、同时 3 批)取行情;返回 6 位代码 → 读数,和没取到的批数
-pub(crate) async fn fetch_quotes(client: &Client, codes: &[String]) -> (HashMap<String, WQuote>, usize, usize) {
+pub(crate) async fn fetch_quotes(
+    client: &Client,
+    codes: &[String],
+) -> (HashMap<String, WQuote>, usize, usize) {
     let mut by_symbol: HashMap<String, String> = HashMap::new();
     for code in codes {
         if let Ok(key) = normalize_stock_symbol(code) {
@@ -377,7 +414,10 @@ pub(crate) async fn fetch_quotes(client: &Client, codes: &[String]) -> (HashMap<
         }
     }
     let symbols: Vec<String> = by_symbol.keys().cloned().collect();
-    let batches: Vec<Vec<String>> = symbols.chunks(QUOTE_BATCH).map(<[String]>::to_vec).collect();
+    let batches: Vec<Vec<String>> = symbols
+        .chunks(QUOTE_BATCH)
+        .map(<[String]>::to_vec)
+        .collect();
     let total = batches.len();
     let results: Vec<Result<HashMap<String, WQuote>>> = stream::iter(batches)
         .map(|batch| async move { tencent_batch(client, &batch).await })
@@ -407,7 +447,11 @@ pub(crate) fn in_session_quote(q: &WQuote, day: &str, phase: Phase) -> bool {
         return false;
     }
     let hm = &q.quote_time[8..12];
-    hm >= if phase == Phase::Afternoon { "1300" } else { "0930" }
+    hm >= if phase == Phase::Afternoon {
+        "1300"
+    } else {
+        "0930"
+    }
 }
 
 // ---------------------------------------------------------------- 新浪列表(成交额榜、市值榜)
@@ -485,7 +529,9 @@ pub(crate) fn turnover_from_sina(rows: &[Value], top: usize) -> Vec<TurnoverRow>
     let mut out: Vec<TurnoverRow> = Vec::new();
     for row in rows {
         let symbol = text_of(row.get("symbol"));
-        let Some(amount) = discovery::number(row.get("amount")).filter(|v| *v > 0.0) else { continue };
+        let Some(amount) = discovery::number(row.get("amount")).filter(|v| *v > 0.0) else {
+            continue;
+        };
         if !is_a_share(&symbol) {
             continue;
         }
@@ -494,9 +540,18 @@ pub(crate) fn turnover_from_sina(rows: &[Value], top: usize) -> Vec<TurnoverRow>
             continue;
         }
         let name = text_of(row.get("name"));
-        out.push(TurnoverRow { name: if name.is_empty() { code.clone() } else { name }, code, rank: 0, amount });
+        out.push(TurnoverRow {
+            name: if name.is_empty() { code.clone() } else { name },
+            code,
+            rank: 0,
+            amount,
+        });
     }
-    out.sort_by(|a, b| b.amount.partial_cmp(&a.amount).unwrap_or(std::cmp::Ordering::Equal));
+    out.sort_by(|a, b| {
+        b.amount
+            .partial_cmp(&a.amount)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     out.truncate(top);
     for (i, row) in out.iter_mut().enumerate() {
         row.rank = i + 1;
@@ -505,7 +560,11 @@ pub(crate) fn turnover_from_sina(rows: &[Value], top: usize) -> Vec<TurnoverRow>
 }
 
 /// 新浪行情此刻属于哪个交易日、收盘没有:交易日 09:15 竞价开始后算今天(15:05 后算收盘),否则是上一个交易日。
-pub(crate) fn sina_data_day(clock: &Clock, trading_today: Option<bool>, calendar: &[String]) -> Option<(String, bool)> {
+pub(crate) fn sina_data_day(
+    clock: &Clock,
+    trading_today: Option<bool>,
+    calendar: &[String],
+) -> Option<(String, bool)> {
     if clock.hm < 915 || trading_today == Some(false) {
         return previous_session(calendar, &clock.day).map(|d| (d, true));
     }
@@ -535,7 +594,9 @@ async fn load_bigcaps(client: &Client, clock: &Clock) -> Result<Bigcaps> {
         let mut below = false;
         for row in &rows {
             let symbol = text_of(row.get("symbol"));
-            let Some(cap_wan) = discovery::number(row.get("mktcap")) else { continue };
+            let Some(cap_wan) = discovery::number(row.get("mktcap")) else {
+                continue;
+            };
             if cap_wan * 1e4 < floor {
                 below = true;
                 break;
@@ -553,7 +614,11 @@ async fn load_bigcaps(client: &Client, clock: &Clock) -> Result<Bigcaps> {
             if stocks.is_empty() {
                 return Err(anyhow!("新浪市值榜一只都没取到"));
             }
-            return Ok(Bigcaps { at: clock.ms, as_of: format!("{} {}", clock.day, &clock.hms[..5]), stocks });
+            return Ok(Bigcaps {
+                at: clock.ms,
+                as_of: format!("{} {}", clock.day, &clock.hms[..5]),
+                stocks,
+            });
         }
     }
     Err(anyhow!("翻了 10 页还没到 500 亿"))
@@ -571,19 +636,35 @@ pub(crate) struct LadderRow {
 }
 
 /// 上一交易日涨停池 → 梯队(原样固定,今天没接上的、没取到行情的都留着)。空池 / 异常行整份不用,不当成 0 只。
-pub(crate) fn ladder_from_pool(rows: &[emotion::Row], sample_day: &str) -> Result<Vec<LadderRow>, String> {
+pub(crate) fn ladder_from_pool(
+    rows: &[emotion::Row],
+    sample_day: &str,
+) -> Result<Vec<LadderRow>, String> {
     if rows.is_empty() {
-        return Err(format!("{sample_day} 涨停池是空的(东财这几张池只留约一个月,可能超出了),不当成 0 只"));
+        return Err(format!(
+            "{sample_day} 涨停池是空的(东财这几张池只留约一个月,可能超出了),不当成 0 只"
+        ));
     }
     let mut seen = HashSet::new();
     let mut out = Vec::with_capacity(rows.len());
     for row in rows {
-        if row.code.len() != 6 || !row.code.bytes().all(|b| b.is_ascii_digit()) || row.boards < 1 || !seen.insert(row.code.clone()) {
-            return Err(format!("{sample_day} 涨停池有异常行({}),不交一份不完整的名单", row.code));
+        if row.code.len() != 6
+            || !row.code.bytes().all(|b| b.is_ascii_digit())
+            || row.boards < 1
+            || !seen.insert(row.code.clone())
+        {
+            return Err(format!(
+                "{sample_day} 涨停池有异常行({}),不交一份不完整的名单",
+                row.code
+            ));
         }
         out.push(LadderRow {
             code: row.code.clone(),
-            name: if row.name.is_empty() { row.code.clone() } else { row.name.clone() },
+            name: if row.name.is_empty() {
+                row.code.clone()
+            } else {
+                row.name.clone()
+            },
             boards: row.boards,
             label: emotion::board_label(row.boards, row.stat),
             sector: row.sector.clone(),
@@ -610,7 +691,13 @@ pub(crate) struct Holding {
 pub(crate) fn holdings_from(positions: &[Value]) -> Vec<Holding> {
     let mut out: Vec<Holding> = Vec::new();
     for p in positions {
-        let Some(key) = p.get("symbol").and_then(Value::as_str).and_then(|s| normalize_stock_symbol(s).ok()) else { continue };
+        let Some(key) = p
+            .get("symbol")
+            .and_then(Value::as_str)
+            .and_then(|s| normalize_stock_symbol(s).ok())
+        else {
+            continue;
+        };
         let shares = p.get("open_shares").and_then(Value::as_f64).unwrap_or(0.0);
         if shares <= 0.0 {
             continue;
@@ -623,7 +710,11 @@ pub(crate) fn holdings_from(positions: &[Value]) -> Vec<Holding> {
             None => {
                 out.push(Holding {
                     code: key.digits.clone(),
-                    name: p.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
+                    name: p
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
                     cost: Some(0.0),
                     ..Holding::default()
                 });
@@ -740,18 +831,32 @@ pub(crate) fn load_alerts(db: &Path, day: &str) -> Result<Vec<Alert>> {
     let mut out = Vec::new();
     for row in rows.flatten() {
         let (ts, code, name, kind, change_pct, price, pct, msg, sources) = row;
-        let Ok(sources) = serde_json::from_str::<Vec<String>>(&sources) else { continue };
+        let Ok(sources) = serde_json::from_str::<Vec<String>>(&sources) else {
+            continue;
+        };
         if code.len() != 6 || !KINDS.contains(&kind.as_str()) {
             continue;
         }
-        out.push(Alert { ts, code, name, kind, change_pct, price, pct, msg, sources });
+        out.push(Alert {
+            ts,
+            code,
+            name,
+            kind,
+            change_pct,
+            price,
+            pct,
+            msg,
+            sources,
+        });
     }
     Ok(out)
 }
 
 fn prune_alerts(db: &Path, clock: &Clock) -> Result<()> {
     let today = chrono::NaiveDate::parse_from_str(&clock.day, "%Y-%m-%d")?;
-    let floor = (today - chrono::Duration::days(ALERTS_RETENTION_DAYS)).format("%Y-%m-%d").to_string();
+    let floor = (today - chrono::Duration::days(ALERTS_RETENTION_DAYS))
+        .format("%Y-%m-%d")
+        .to_string();
     Connection::open(db)?.execute("DELETE FROM mobile_watch_alerts WHERE day < ?1", [floor])?;
     Ok(())
 }
@@ -759,9 +864,15 @@ fn prune_alerts(db: &Path, clock: &Clock) -> Result<()> {
 fn load_turnover(db: &Path, day: &str) -> Result<Option<Turnover>> {
     let conn = Connection::open(db)?;
     let payload: Option<String> = conn
-        .query_row("SELECT payload FROM mobile_watch_turnover WHERE date = ?1", [day], |r| r.get(0))
+        .query_row(
+            "SELECT payload FROM mobile_watch_turnover WHERE date = ?1",
+            [day],
+            |r| r.get(0),
+        )
         .ok();
-    let Some(payload) = payload else { return Ok(None) };
+    let Some(payload) = payload else {
+        return Ok(None);
+    };
     let value: Value = serde_json::from_str(&payload)?;
     let stocks = value
         .as_array()
@@ -778,11 +889,18 @@ fn load_turnover(db: &Path, day: &str) -> Result<Option<Turnover>> {
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    Ok((!stocks.is_empty()).then(|| Turnover { date: day.to_string(), stocks }))
+    Ok((!stocks.is_empty()).then(|| Turnover {
+        date: day.to_string(),
+        stocks,
+    }))
 }
 
 fn store_turnover(db: &Path, day: &str, rows: &[TurnoverRow]) -> Result<()> {
-    let payload = Value::Array(rows.iter().map(|r| json!({"code": r.code, "name": r.name, "rank": r.rank, "amount": r.amount})).collect());
+    let payload = Value::Array(
+        rows.iter()
+            .map(|r| json!({"code": r.code, "name": r.name, "rank": r.rank, "amount": r.amount}))
+            .collect(),
+    );
     Connection::open(db)?.execute(
         "INSERT INTO mobile_watch_turnover(date, payload, fetched_at) VALUES (?1, ?2, ?3)
          ON CONFLICT(date) DO UPDATE SET payload = excluded.payload, fetched_at = excluded.fetched_at",
@@ -825,7 +943,11 @@ pub struct WatchState {
 pub type SharedWatch = Mutex<WatchState>;
 
 /// 盯盘页每隔几秒调一次。同时开着几个页面时,2.5 秒内的请求共用上一次结果,在途请求不重复发(锁住排队)。
-pub async fn poll(client: &Client, db: &Path, state: &SharedWatch) -> Result<Value, DiscoveryError> {
+pub async fn poll(
+    client: &Client,
+    db: &Path,
+    state: &SharedWatch,
+) -> Result<Value, DiscoveryError> {
     let clock = Clock::now();
     let mut st = state.lock().await;
     if st.day != clock.day {
@@ -833,7 +955,14 @@ pub async fn poll(client: &Client, db: &Path, state: &SharedWatch) -> Result<Val
         let _ = prune_alerts(db, &clock);
         let calendar = st.calendar.take();
         let (calendar_at, calendar_ok) = (st.calendar_at, st.calendar_ok);
-        *st = WatchState { day: clock.day.clone(), alerts, calendar, calendar_at, calendar_ok, ..WatchState::default() };
+        *st = WatchState {
+            day: clock.day.clone(),
+            alerts,
+            calendar,
+            calendar_at,
+            calendar_ok,
+            ..WatchState::default()
+        };
     }
     if let Some((at, view)) = &st.last {
         if clock.ms - at < POLL_MS - 500 {
@@ -862,35 +991,84 @@ async fn refresh_calendar(client: &Client, st: &mut WatchState, clock: &Clock) {
 
 /// 交易日历里还没有今天的工作日,用上证指数行情时间补判(一分钟最多问一次)
 async fn refresh_index(client: &Client, st: &mut WatchState, clock: &Clock) {
-    if clock.weekend || clock.hm < 915 || st.calendar.as_ref().is_some_and(|c| c.iter().any(|d| *d == clock.day)) {
+    if clock.weekend
+        || clock.hm < 915
+        || st.calendar.as_ref().is_some_and(|c| c.contains(&clock.day))
+    {
         return;
     }
-    if st.index.as_ref().is_some_and(|i| i.seen_day == clock.day && clock.ms - i.at < 60_000) {
+    if st
+        .index
+        .as_ref()
+        .is_some_and(|i| i.seen_day == clock.day && clock.ms - i.at < 60_000)
+    {
         return;
     }
     if let Ok(rows) = tencent_batch(client, &[INDEX_SYMBOL.to_string()]).await {
-        let quote_day = rows.get(INDEX_SYMBOL).filter(|q| q.quote_time.len() == 14).map(|q| {
-            let t = &q.quote_time;
-            format!("{}-{}-{}", &t[0..4], &t[4..6], &t[6..8])
+        let quote_day = rows
+            .get(INDEX_SYMBOL)
+            .filter(|q| q.quote_time.len() == 14)
+            .map(|q| {
+                let t = &q.quote_time;
+                format!("{}-{}-{}", &t[0..4], &t[4..6], &t[6..8])
+            });
+        st.index = Some(IndexSeen {
+            seen_day: clock.day.clone(),
+            seen_hm: clock.hm,
+            at: clock.ms,
+            quote_day,
         });
-        st.index = Some(IndexSeen { seen_day: clock.day.clone(), seen_hm: clock.hm, at: clock.ms, quote_day });
     }
 }
 
-async fn load_lists(client: &Client, db: &Path, st: &mut WatchState, clock: &Clock, trading: Option<bool>) -> Lists {
+async fn load_lists(
+    client: &Client,
+    db: &Path,
+    st: &mut WatchState,
+    clock: &Clock,
+    trading: Option<bool>,
+) -> Lists {
     let mut notes = Vec::new();
     let mut holdings = Vec::new();
     let mut watch = Vec::new();
     match journal_review::view(db) {
-        Ok(review) => holdings = holdings_from(review.get("positions").and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default()),
+        Ok(review) => {
+            holdings = holdings_from(
+                review
+                    .get("positions")
+                    .and_then(Value::as_array)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default(),
+            )
+        }
         Err(_) => notes.push("持仓没读出来(交易日志有问题,去「交易日志」看看)".to_string()),
     }
     match storage::list(db) {
         Ok(list) => {
-            for item in list.get("items").and_then(Value::as_array).into_iter().flatten() {
-                let Some(key) = item.get("symbol").and_then(Value::as_str).and_then(|s| normalize_stock_symbol(s).ok()) else { continue };
-                if !watch.iter().any(|(c, _): &(String, String)| *c == key.digits) {
-                    watch.push((key.digits.clone(), item.get("name").and_then(Value::as_str).unwrap_or("").to_string()));
+            for item in list
+                .get("items")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let Some(key) = item
+                    .get("symbol")
+                    .and_then(Value::as_str)
+                    .and_then(|s| normalize_stock_symbol(s).ok())
+                else {
+                    continue;
+                };
+                if !watch
+                    .iter()
+                    .any(|(c, _): &(String, String)| *c == key.digits)
+                {
+                    watch.push((
+                        key.digits.clone(),
+                        item.get("name")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string(),
+                    ));
                 }
             }
         }
@@ -916,14 +1094,23 @@ async fn load_lists(client: &Client, db: &Path, st: &mut WatchState, clock: &Clo
     // 昨日梯队:历史名单,取到就整天复用;没取到一分钟后再试
     let mut ladder = None;
     if let Some(sample) = &sample_day {
-        let cached = st.ladder_cache.as_ref().filter(|(d, at, r)| d == sample && (r.is_ok() || clock.ms - at < 60_000));
+        let cached = st
+            .ladder_cache
+            .as_ref()
+            .filter(|(d, at, r)| d == sample && (r.is_ok() || clock.ms - at < 60_000));
         let result = match cached {
             Some((_, _, r)) => r.clone(),
             None => {
-                let r = match emotion::fetch_pool(client, PoolKind::LimitUp, &sample.replace('-', "")).await {
-                    Ok(rows) => ladder_from_pool(&rows, sample),
-                    Err(e) => Err(format!("{}(不改用其他日期的名单)", emotion::error_message(&format!("{sample} 涨停池"), &e))),
-                };
+                let r =
+                    match emotion::fetch_pool(client, PoolKind::LimitUp, &sample.replace('-', ""))
+                        .await
+                    {
+                        Ok(rows) => ladder_from_pool(&rows, sample),
+                        Err(e) => Err(format!(
+                            "{}(不改用其他日期的名单)",
+                            emotion::error_message(&format!("{sample} 涨停池"), &e)
+                        )),
+                    };
                 st.ladder_cache = Some((sample.clone(), clock.ms, r.clone()));
                 r
             }
@@ -940,11 +1127,20 @@ async fn load_lists(client: &Client, db: &Path, st: &mut WatchState, clock: &Clo
         let data_day = sina_data_day(clock, trading, cal);
         turnover = load_turnover(db, sample).ok().flatten();
         if turnover.is_none() {
-            if data_day.as_ref().is_some_and(|(d, settled)| d == sample && *settled) {
-                match sina_list(client, "amount", 1, 40).await.map(|rows| turnover_from_sina(&rows, 10)) {
+            if data_day
+                .as_ref()
+                .is_some_and(|(d, settled)| d == sample && *settled)
+            {
+                match sina_list(client, "amount", 1, 40)
+                    .await
+                    .map(|rows| turnover_from_sina(&rows, 10))
+                {
                     Ok(rows) if !rows.is_empty() => {
                         let _ = store_turnover(db, sample, &rows);
-                        turnover = Some(Turnover { date: sample.clone(), stocks: rows });
+                        turnover = Some(Turnover {
+                            date: sample.clone(),
+                            stocks: rows,
+                        });
                     }
                     _ => notes.push(format!("昨日成交额前十({sample})没取到,稍后再试")),
                 }
@@ -957,7 +1153,10 @@ async fn load_lists(client: &Client, db: &Path, st: &mut WatchState, clock: &Clo
         // 收盘后顺手把今天的存下,明天盯盘就有
         if let Some((day, true)) = data_day.filter(|(d, _)| d != sample) {
             if load_turnover(db, &day).ok().flatten().is_none() {
-                if let Ok(rows) = sina_list(client, "amount", 1, 40).await.map(|rows| turnover_from_sina(&rows, 10)) {
+                if let Ok(rows) = sina_list(client, "amount", 1, 40)
+                    .await
+                    .map(|rows| turnover_from_sina(&rows, 10))
+                {
                     if !rows.is_empty() {
                         let _ = store_turnover(db, &day, &rows);
                     }
@@ -967,7 +1166,10 @@ async fn load_lists(client: &Client, db: &Path, st: &mut WatchState, clock: &Clo
     }
 
     // 大票名单:一小时内复用;没取到两分钟后随名单一起再试
-    let stale = st.bigcaps.as_ref().map_or(true, |b| clock.ms - b.at >= BIGCAP_LIST_EVERY_MS);
+    let stale = st
+        .bigcaps
+        .as_ref()
+        .is_none_or(|b| clock.ms - b.at >= BIGCAP_LIST_EVERY_MS);
     if stale && clock.ms - st.bigcaps_tried >= LISTS_EVERY_MS - 1_000 {
         st.bigcaps_tried = clock.ms;
         match load_bigcaps(client, clock).await {
@@ -984,7 +1186,15 @@ async fn load_lists(client: &Client, db: &Path, st: &mut WatchState, clock: &Clo
         }
     }
 
-    Lists { at: clock.ms, quote_day, holdings, watch, ladder, turnover, notes }
+    Lists {
+        at: clock.ms,
+        quote_day,
+        holdings,
+        watch,
+        ladder,
+        turnover,
+        notes,
+    }
 }
 
 fn row_view(st: &WatchState, code: &str, name: &str, day: &str) -> Value {
@@ -1007,8 +1217,9 @@ async fn poll_once(client: &Client, db: &Path, st: &mut WatchState, clock: &Cloc
     let trading = trading_day_of(clock, st.calendar.as_deref(), st.index.as_ref());
     let live = phase.continuous() && trading != Some(false);
 
-    let reload = st.lists.as_ref().map_or(true, |l| {
-        clock.ms - l.at >= LISTS_EVERY_MS || l.quote_day != quote_day_of(clock, trading, st.calendar.as_deref())
+    let reload = st.lists.as_ref().is_none_or(|l| {
+        clock.ms - l.at >= LISTS_EVERY_MS
+            || l.quote_day != quote_day_of(clock, trading, st.calendar.as_deref())
     });
     if reload {
         let lists = load_lists(client, db, st, clock, trading).await;
@@ -1016,11 +1227,23 @@ async fn poll_once(client: &Client, db: &Path, st: &mut WatchState, clock: &Cloc
     }
     let lists = st.lists.clone().unwrap_or_default();
     let tags = sources_of(&lists, st.bigcaps.as_ref());
-    let big_set: HashSet<&str> = st.bigcaps.iter().flat_map(|b| b.stocks.iter().map(|(c, _)| c.as_str())).collect();
+    let big_set: HashSet<&str> = st
+        .bigcaps
+        .iter()
+        .flat_map(|b| b.stocks.iter().map(|(c, _)| c.as_str()))
+        .collect();
     // 大票只在名单里挂「大票」一个标签的 30 秒取一次;同时是持仓 / 自选 / 梯队的,跟着重点名单每次取
-    let focus: Vec<String> = tags.iter().filter(|(c, t)| !big_set.contains(c.as_str()) || t.len() > 1).map(|(c, _)| c.clone()).collect();
+    let focus: Vec<String> = tags
+        .iter()
+        .filter(|(c, t)| !big_set.contains(c.as_str()) || t.len() > 1)
+        .map(|(c, _)| c.clone())
+        .collect();
     let focus_set: HashSet<&str> = focus.iter().map(String::as_str).collect();
-    let big: Vec<String> = big_set.iter().filter(|c| !focus_set.contains(**c)).map(|c| c.to_string()).collect();
+    let big: Vec<String> = big_set
+        .iter()
+        .filter(|c| !focus_set.contains(**c))
+        .map(|c| c.to_string())
+        .collect();
     let mut notes = lists.notes.clone();
 
     // 连续竞价里现取;其余时段行情不怎么变,拉长间隔
@@ -1047,7 +1270,9 @@ async fn poll_once(client: &Client, db: &Path, st: &mut WatchState, clock: &Cloc
             st.big_refreshed = Some(Utc::now().to_rfc3339());
         }
         if failed > 0 {
-            notes.push(format!("行情这一轮分 {batches} 批取,{failed} 批没取到,稍后自动重试"));
+            notes.push(format!(
+                "行情这一轮分 {batches} 批取,{failed} 批没取到,稍后自动重试"
+            ));
         }
         if live {
             let mut fresh = Vec::new();
@@ -1057,9 +1282,29 @@ async fn poll_once(client: &Client, db: &Path, st: &mut WatchState, clock: &Cloc
                 if !in_session_quote(q, &clock.day, phase) {
                     continue;
                 }
-                let sources = tags.iter().find(|(c, _)| c == code).map(|(_, t)| t.as_slice()).unwrap_or_default();
-                let name = if q.name.is_empty() { code.as_str() } else { q.name.as_str() };
-                fresh.extend(detect(&mut st.detect, code, &Tick { name, price, pct: q.pct, limit_up: q.limit_up }, clock.ms, &clock.hms, sources));
+                let sources = tags
+                    .iter()
+                    .find(|(c, _)| c == code)
+                    .map(|(_, t)| t.as_slice())
+                    .unwrap_or_default();
+                let name = if q.name.is_empty() {
+                    code.as_str()
+                } else {
+                    q.name.as_str()
+                };
+                fresh.extend(detect(
+                    &mut st.detect,
+                    code,
+                    &Tick {
+                        name,
+                        price,
+                        pct: q.pct,
+                        limit_up: q.limit_up,
+                    },
+                    clock.ms,
+                    &clock.hms,
+                    sources,
+                ));
             }
             if !fresh.is_empty() {
                 if store_alerts(db, &clock.day, &fresh).is_err() {
@@ -1078,7 +1323,8 @@ async fn poll_once(client: &Client, db: &Path, st: &mut WatchState, clock: &Cloc
     }
 
     // 封没封只在连续竞价和收盘后、行情时间是今天时说;竞价 / 午休里的价位碰到涨停价不算
-    let limit_known = matches!(phase, Phase::Morning | Phase::Afternoon | Phase::Closed) && trading != Some(false);
+    let limit_known = matches!(phase, Phase::Morning | Phase::Afternoon | Phase::Closed)
+        && trading != Some(false);
     let ladder = lists.ladder.as_ref().map(|(sample, rows)| {
         let views: Vec<Value> = rows
             .iter()
@@ -1086,7 +1332,10 @@ async fn poll_once(client: &Client, db: &Path, st: &mut WatchState, clock: &Cloc
                 let mut row = row_view(st, &s.code, &s.name, &clock.day);
                 let q = st.quotes.get(&s.code);
                 let at = (limit_known && q.is_some_and(|q| q.is_day(&clock.day)))
-                    .then(|| q.and_then(|q| q.price.zip(q.limit_up)).map(|(p, l)| p >= l - 1e-6))
+                    .then(|| {
+                        q.and_then(|q| q.price.zip(q.limit_up))
+                            .map(|(p, l)| p >= l - 1e-6)
+                    })
                     .flatten();
                 row["boards"] = json!(s.boards);
                 row["label"] = json!(s.label);
@@ -1120,7 +1369,12 @@ async fn poll_once(client: &Client, db: &Path, st: &mut WatchState, clock: &Cloc
             let q = st.quotes.get(&h.code);
             let price = q.and_then(|q| q.price);
             row["pnl_pct"] = json!(pnl_pct(price, h));
-            row["risk_state"] = json!(monitor::risk_state(price, h.stop, h.target, q.is_some_and(|q| q.is_day(&clock.day))));
+            row["risk_state"] = json!(monitor::risk_state(
+                price,
+                h.stop,
+                h.target,
+                q.is_some_and(|q| q.is_day(&clock.day))
+            ));
             row["limit_up"] = json!(q.and_then(|q| q.limit_up));
             row["limit_down"] = json!(q.and_then(|q| q.limit_down));
             row
@@ -1137,7 +1391,11 @@ async fn poll_once(client: &Client, db: &Path, st: &mut WatchState, clock: &Cloc
             row
         })
         .collect();
-    let phase_label = if trading == Some(false) && phase != Phase::Weekend { "今天休市" } else { phase.label() };
+    let phase_label = if trading == Some(false) && phase != Phase::Weekend {
+        "今天休市"
+    } else {
+        phase.label()
+    };
 
     json!({
         "date": clock.day,
@@ -1184,12 +1442,25 @@ mod tests {
     use chrono::TimeZone;
 
     fn clock(day: &str, hms: &str) -> Clock {
-        let t = china().from_local_datetime(&chrono::NaiveDateTime::parse_from_str(&format!("{day} {hms}"), "%Y-%m-%d %H:%M:%S").unwrap()).unwrap();
+        let t = china()
+            .from_local_datetime(
+                &chrono::NaiveDateTime::parse_from_str(
+                    &format!("{day} {hms}"),
+                    "%Y-%m-%d %H:%M:%S",
+                )
+                .unwrap(),
+            )
+            .unwrap();
         Clock::at(t)
     }
 
     fn tick(price: f64, limit_up: Option<f64>) -> Tick<'static> {
-        Tick { name: "测试", price, pct: Some(1.0), limit_up }
+        Tick {
+            name: "测试",
+            price,
+            pct: Some(1.0),
+            limit_up,
+        }
     }
 
     #[test]
@@ -1200,7 +1471,10 @@ mod tests {
         assert_eq!(phase_of(&clock("2026-10-16", "09:30:00")), Phase::Morning);
         assert_eq!(phase_of(&clock("2026-10-16", "11:30:00")), Phase::Lunch);
         assert_eq!(phase_of(&clock("2026-10-16", "13:00:00")), Phase::Afternoon);
-        assert_eq!(phase_of(&clock("2026-10-16", "14:57:00")), Phase::ClosingAuction);
+        assert_eq!(
+            phase_of(&clock("2026-10-16", "14:57:00")),
+            Phase::ClosingAuction
+        );
         assert_eq!(phase_of(&clock("2026-10-16", "15:00:00")), Phase::Closed);
         assert_eq!(poll_ms_of(Phase::Morning, Some(true)), 3_000);
         assert_eq!(poll_ms_of(Phase::Morning, Some(false)), 60_000);
@@ -1214,17 +1488,47 @@ mod tests {
         let src = vec!["自选".to_string()];
         assert!(detect(&mut st, "600519", &tick(10.0, None), 0, "10:00:00", &src).is_empty());
         // 不到 1 分钟,涨再多也不判
-        assert!(detect(&mut st, "600519", &tick(10.5, None), 30_000, "10:00:30", &src).is_empty());
-        let a = detect(&mut st, "600519", &tick(10.15, None), 60_000, "10:01:00", &src);
+        assert!(detect(
+            &mut st,
+            "600519",
+            &tick(10.5, None),
+            30_000,
+            "10:00:30",
+            &src
+        )
+        .is_empty());
+        let a = detect(
+            &mut st,
+            "600519",
+            &tick(10.15, None),
+            60_000,
+            "10:01:00",
+            &src,
+        );
         assert_eq!(a.len(), 1);
         assert_eq!(a[0].kind, "急拉");
         assert_eq!(a[0].change_pct, Some(1.5));
         assert_eq!(a[0].msg, "1 分钟 +1.5%(现价 10.15,今日 +1.0%)");
         assert_eq!(a[0].sources, src);
         // 5 分钟内同一只同一类不再报
-        assert!(detect(&mut st, "600519", &tick(10.4, None), 120_000, "10:02:00", &src).is_empty());
+        assert!(detect(
+            &mut st,
+            "600519",
+            &tick(10.4, None),
+            120_000,
+            "10:02:00",
+            &src
+        )
+        .is_empty());
         // 窗口外的旧帧不比:4 分钟后和 3 分钟内最早一帧比
-        let b = detect(&mut st, "600519", &tick(9.9, None), 240_000, "10:04:00", &src);
+        let b = detect(
+            &mut st,
+            "600519",
+            &tick(9.9, None),
+            240_000,
+            "10:04:00",
+            &src,
+        );
         assert_eq!(b.len(), 1);
         assert_eq!(b[0].kind, "急跌");
         assert!(b[0].change_pct.unwrap() <= -1.5);
@@ -1233,18 +1537,59 @@ mod tests {
     #[test]
     fn limit_events_skip_the_first_sighting() {
         let mut st = Detect::default();
-        assert!(detect(&mut st, "300750", &tick(11.0, Some(11.0)), 0, "10:00:00", &[]).is_empty());
-        let open = detect(&mut st, "300750", &tick(10.9, Some(11.0)), 3_000, "10:00:03", &[]);
+        assert!(detect(
+            &mut st,
+            "300750",
+            &tick(11.0, Some(11.0)),
+            0,
+            "10:00:00",
+            &[]
+        )
+        .is_empty());
+        let open = detect(
+            &mut st,
+            "300750",
+            &tick(10.9, Some(11.0)),
+            3_000,
+            "10:00:03",
+            &[],
+        );
         assert_eq!(open.len(), 1);
         assert_eq!(open[0].kind, "开板");
-        let seal = detect(&mut st, "300750", &tick(11.0, Some(11.0)), 6_000, "10:00:06", &[]);
+        let seal = detect(
+            &mut st,
+            "300750",
+            &tick(11.0, Some(11.0)),
+            6_000,
+            "10:00:06",
+            &[],
+        );
         assert_eq!(seal[0].kind, "封板");
         assert_eq!(seal[0].msg, "触及涨停 11");
         assert_eq!(seal[0].change_pct, None);
         // 冷却 5 分钟:再开再封不重复报
-        assert!(detect(&mut st, "300750", &tick(10.9, Some(11.0)), 9_000, "10:00:09", &[]).is_empty());
+        assert!(detect(
+            &mut st,
+            "300750",
+            &tick(10.9, Some(11.0)),
+            9_000,
+            "10:00:09",
+            &[]
+        )
+        .is_empty());
         st.pause();
-        assert!(detect(&mut st, "300750", &tick(11.0, Some(11.0)), 400_000, "13:00:00", &[]).is_empty(), "午休后重新攒,第一次见到不报");
+        assert!(
+            detect(
+                &mut st,
+                "300750",
+                &tick(11.0, Some(11.0)),
+                400_000,
+                "13:00:00",
+                &[]
+            )
+            .is_empty(),
+            "午休后重新攒,第一次见到不报"
+        );
     }
 
     #[test]
@@ -1261,7 +1606,11 @@ mod tests {
         let mut halted = fields.clone();
         halted[2] = "000001";
         halted[3] = "0.00";
-        let text = format!("v_sh600519=\"{}\";\nv_sz000001=\"{}\";\n", fields.join("~"), halted.join("~"));
+        let text = format!(
+            "v_sh600519=\"{}\";\nv_sz000001=\"{}\";\n",
+            fields.join("~"),
+            halted.join("~")
+        );
         let rows = parse_tencent(&text);
         let q = &rows["sh600519"];
         assert_eq!(q.price, Some(1500.5));
@@ -1269,45 +1618,101 @@ mod tests {
         assert_eq!(q.quote_time, "20261016100003");
         assert!(q.is_day("2026-10-16"));
         assert!(in_session_quote(q, "2026-10-16", Phase::Morning));
-        assert!(!in_session_quote(q, "2026-10-16", Phase::Afternoon), "下午只认 13:00 以后的报价");
+        assert!(
+            !in_session_quote(q, "2026-10-16", Phase::Afternoon),
+            "下午只认 13:00 以后的报价"
+        );
         assert!(!in_session_quote(q, "2026-10-17", Phase::Morning));
         assert_eq!(rows["sz000001"].price, None);
     }
 
     #[test]
     fn trading_day_and_quote_day() {
-        let cal: Vec<String> = ["2026-10-14", "2026-10-15", "2026-10-16"].iter().map(|s| s.to_string()).collect();
+        let cal: Vec<String> = ["2026-10-14", "2026-10-15", "2026-10-16"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         let fri = clock("2026-10-16", "10:00:00");
         assert_eq!(trading_day_of(&fri, Some(&cal), None), Some(true));
-        assert_eq!(quote_day_of(&fri, Some(true), Some(&cal)).as_deref(), Some("2026-10-16"));
-        assert_eq!(previous_session(&cal, "2026-10-16").as_deref(), Some("2026-10-15"));
+        assert_eq!(
+            quote_day_of(&fri, Some(true), Some(&cal)).as_deref(),
+            Some("2026-10-16")
+        );
+        assert_eq!(
+            previous_session(&cal, "2026-10-16").as_deref(),
+            Some("2026-10-15")
+        );
         let sat = clock("2026-10-17", "10:00:00");
         assert_eq!(trading_day_of(&sat, Some(&cal), None), Some(false));
-        assert_eq!(quote_day_of(&sat, Some(false), Some(&cal)).as_deref(), Some("2026-10-16"));
+        assert_eq!(
+            quote_day_of(&sat, Some(false), Some(&cal)).as_deref(),
+            Some("2026-10-16")
+        );
         // 周一开盘前:日历还没有今天,按今天准备名单
         let mon_pre = clock("2026-10-19", "08:50:00");
         assert_eq!(trading_day_of(&mon_pre, Some(&cal), None), None);
-        assert_eq!(quote_day_of(&mon_pre, None, Some(&cal)).as_deref(), Some("2026-10-19"));
-        assert_eq!(previous_session(&cal, "2026-10-19").as_deref(), Some("2026-10-16"));
+        assert_eq!(
+            quote_day_of(&mon_pre, None, Some(&cal)).as_deref(),
+            Some("2026-10-19")
+        );
+        assert_eq!(
+            previous_session(&cal, "2026-10-19").as_deref(),
+            Some("2026-10-16")
+        );
         // 节假日:09:35 后上证指数行情还是旧日期
         let holiday = clock("2026-10-19", "10:00:00");
-        let stale = IndexSeen { seen_day: "2026-10-19".into(), seen_hm: 1000, at: 0, quote_day: Some("2026-10-16".into()) };
-        assert_eq!(trading_day_of(&holiday, Some(&cal), Some(&stale)), Some(false));
-        let early = IndexSeen { seen_hm: 920, ..stale.clone() };
+        let stale = IndexSeen {
+            seen_day: "2026-10-19".into(),
+            seen_hm: 1000,
+            at: 0,
+            quote_day: Some("2026-10-16".into()),
+        };
+        assert_eq!(
+            trading_day_of(&holiday, Some(&cal), Some(&stale)),
+            Some(false)
+        );
+        let early = IndexSeen {
+            seen_hm: 920,
+            ..stale.clone()
+        };
         assert_eq!(trading_day_of(&holiday, Some(&cal), Some(&early)), None);
-        let fresh = IndexSeen { quote_day: Some("2026-10-19".into()), ..stale };
-        assert_eq!(trading_day_of(&holiday, Some(&cal), Some(&fresh)), Some(true));
+        let fresh = IndexSeen {
+            quote_day: Some("2026-10-19".into()),
+            ..stale
+        };
+        assert_eq!(
+            trading_day_of(&holiday, Some(&cal), Some(&fresh)),
+            Some(true)
+        );
         assert_eq!(quote_day_of(&holiday, None, None), None);
     }
 
     #[test]
     fn sina_day_only_counts_settled_sessions() {
-        let cal: Vec<String> = ["2026-10-15", "2026-10-16"].iter().map(|s| s.to_string()).collect();
-        assert_eq!(sina_data_day(&clock("2026-10-16", "15:10:00"), Some(true), &cal), Some(("2026-10-16".into(), true)));
-        assert_eq!(sina_data_day(&clock("2026-10-16", "14:00:00"), Some(true), &cal), Some(("2026-10-16".into(), false)));
-        assert_eq!(sina_data_day(&clock("2026-10-16", "09:00:00"), None, &cal), Some(("2026-10-15".into(), true)));
-        assert_eq!(sina_data_day(&clock("2026-10-17", "11:00:00"), Some(false), &cal), Some(("2026-10-16".into(), true)));
-        assert_eq!(sina_data_day(&clock("2026-10-19", "10:00:00"), None, &cal), None);
+        let cal: Vec<String> = ["2026-10-15", "2026-10-16"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(
+            sina_data_day(&clock("2026-10-16", "15:10:00"), Some(true), &cal),
+            Some(("2026-10-16".into(), true))
+        );
+        assert_eq!(
+            sina_data_day(&clock("2026-10-16", "14:00:00"), Some(true), &cal),
+            Some(("2026-10-16".into(), false))
+        );
+        assert_eq!(
+            sina_data_day(&clock("2026-10-16", "09:00:00"), None, &cal),
+            Some(("2026-10-15".into(), true))
+        );
+        assert_eq!(
+            sina_data_day(&clock("2026-10-17", "11:00:00"), Some(false), &cal),
+            Some(("2026-10-16".into(), true))
+        );
+        assert_eq!(
+            sina_data_day(&clock("2026-10-19", "10:00:00"), None, &cal),
+            None
+        );
     }
 
     #[test]
@@ -1318,19 +1723,44 @@ mod tests {
             {"symbol":"bj920001","code":"920001","name":"BJ","amount":0}]"#.as_bytes();
         let rows = parse_sina_list(body).unwrap();
         let top = turnover_from_sina(&rows, 10);
-        assert_eq!(top.iter().map(|r| (r.code.as_str(), r.rank)).collect::<Vec<_>>(), vec![("300750", 1), ("600519", 2)]);
+        assert_eq!(
+            top.iter()
+                .map(|r| (r.code.as_str(), r.rank))
+                .collect::<Vec<_>>(),
+            vec![("300750", 1), ("600519", 2)]
+        );
         assert_eq!(top[1].name, "贵州茅台");
-        assert!(is_a_share("bj920001") && is_a_share("sz301001") && !is_a_share("sh000001") && !is_a_share("sz200011"));
+        assert!(
+            is_a_share("bj920001")
+                && is_a_share("sz301001")
+                && !is_a_share("sh000001")
+                && !is_a_share("sz200011")
+        );
         assert!(parse_sina_list(b"null").is_err());
     }
 
     #[test]
     fn ladder_rejects_empty_or_bad_pools() {
-        let row = |code: &str, boards: i64| emotion::Row { code: code.into(), name: format!("N{code}"), boards, sector: "汽车".into(), ..emotion::Row::default() };
-        assert!(ladder_from_pool(&[], "2026-10-15").unwrap_err().contains("不当成 0 只"));
+        let row = |code: &str, boards: i64| emotion::Row {
+            code: code.into(),
+            name: format!("N{code}"),
+            boards,
+            sector: "汽车".into(),
+            ..emotion::Row::default()
+        };
+        assert!(ladder_from_pool(&[], "2026-10-15")
+            .unwrap_err()
+            .contains("不当成 0 只"));
         assert!(ladder_from_pool(&[row("600001", 1), row("600001", 2)], "2026-10-15").is_err());
-        let rows = ladder_from_pool(&[row("600002", 1), row("000003", 3), row("600001", 1)], "2026-10-15").unwrap();
-        assert_eq!(rows.iter().map(|r| r.code.as_str()).collect::<Vec<_>>(), vec!["000003", "600001", "600002"]);
+        let rows = ladder_from_pool(
+            &[row("600002", 1), row("000003", 3), row("600001", 1)],
+            "2026-10-15",
+        )
+        .unwrap();
+        assert_eq!(
+            rows.iter().map(|r| r.code.as_str()).collect::<Vec<_>>(),
+            vec!["000003", "600001", "600002"]
+        );
         assert_eq!(rows[0].label, "3板");
     }
 
@@ -1343,41 +1773,108 @@ mod tests {
         ];
         let h = holdings_from(&positions);
         assert_eq!(h.len(), 1);
-        assert_eq!((h[0].shares, h[0].cost, h[0].stop, h[0].target), (200.0, Some(310000.0), Some(1450.0), Some(1800.0)));
+        assert_eq!(
+            (h[0].shares, h[0].cost, h[0].stop, h[0].target),
+            (200.0, Some(310000.0), Some(1450.0), Some(1800.0))
+        );
         assert_eq!(pnl_pct(Some(1705.0), &h[0]), Some(10.0));
         assert_eq!(pnl_pct(None, &h[0]), None);
-        assert_eq!(pnl_pct(Some(10.0), &Holding { shares: 1.0, cost: Some(0.0), ..Holding::default() }), None);
+        assert_eq!(
+            pnl_pct(
+                Some(10.0),
+                &Holding {
+                    shares: 1.0,
+                    cost: Some(0.0),
+                    ..Holding::default()
+                }
+            ),
+            None
+        );
     }
 
     #[test]
     fn sources_tag_every_list() {
         let lists = Lists {
-            holdings: vec![Holding { code: "600519".into(), ..Holding::default() }],
-            watch: vec![("600519".into(), String::new()), ("000001".into(), String::new())],
-            ladder: Some(("2026-10-15".into(), vec![LadderRow { code: "000001".into(), name: String::new(), boards: 2, label: "2板".into(), sector: String::new() }])),
+            holdings: vec![Holding {
+                code: "600519".into(),
+                ..Holding::default()
+            }],
+            watch: vec![
+                ("600519".into(), String::new()),
+                ("000001".into(), String::new()),
+            ],
+            ladder: Some((
+                "2026-10-15".into(),
+                vec![LadderRow {
+                    code: "000001".into(),
+                    name: String::new(),
+                    boards: 2,
+                    label: "2板".into(),
+                    sector: String::new(),
+                }],
+            )),
             ..Lists::default()
         };
-        let big = Bigcaps { at: 0, as_of: String::new(), stocks: vec![("600519".into(), String::new()), ("601318".into(), String::new())] };
+        let big = Bigcaps {
+            at: 0,
+            as_of: String::new(),
+            stocks: vec![
+                ("600519".into(), String::new()),
+                ("601318".into(), String::new()),
+            ],
+        };
         let tags = sources_of(&lists, Some(&big));
-        assert_eq!(tags[0], ("600519".to_string(), vec!["持仓".to_string(), "自选".into(), "大票".into()]));
+        assert_eq!(
+            tags[0],
+            (
+                "600519".to_string(),
+                vec!["持仓".to_string(), "自选".into(), "大票".into()]
+            )
+        );
         assert_eq!(tags[1].1, vec!["自选".to_string(), "昨日2板".into()]);
         assert_eq!(tags[2], ("601318".to_string(), vec!["大票".to_string()]));
     }
 
     #[test]
     fn alerts_round_trip_through_sqlite() {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let dir = std::env::temp_dir().join(format!("vibe-watch-{nonce}-{}", std::process::id()));
         let app = crate::AppCore::new(dir.clone()).unwrap();
         let db = app.db_path().to_path_buf();
-        let a = Alert { ts: "10:00:00".into(), code: "600519".into(), name: "贵州茅台".into(), kind: "急拉".into(), change_pct: Some(1.6), price: Some(10.0), pct: Some(2.0), msg: "m".into(), sources: vec!["自选".into()] };
-        let b = Alert { ts: "10:01:00".into(), kind: "封板".into(), change_pct: None, ..a.clone() };
+        let a = Alert {
+            ts: "10:00:00".into(),
+            code: "600519".into(),
+            name: "贵州茅台".into(),
+            kind: "急拉".into(),
+            change_pct: Some(1.6),
+            price: Some(10.0),
+            pct: Some(2.0),
+            msg: "m".into(),
+            sources: vec!["自选".into()],
+        };
+        let b = Alert {
+            ts: "10:01:00".into(),
+            kind: "封板".into(),
+            change_pct: None,
+            ..a.clone()
+        };
         store_alerts(&db, "2026-10-16", &[a.clone(), b.clone()]).unwrap();
         assert_eq!(load_alerts(&db, "2026-10-16").unwrap(), vec![b, a]);
         assert!(load_alerts(&db, "2026-10-15").unwrap().is_empty());
-        let rows = vec![TurnoverRow { code: "300750".into(), name: "宁德时代".into(), rank: 1, amount: 7e9 }];
+        let rows = vec![TurnoverRow {
+            code: "300750".into(),
+            name: "宁德时代".into(),
+            rank: 1,
+            amount: 7e9,
+        }];
         store_turnover(&db, "2026-10-15", &rows).unwrap();
-        assert_eq!(load_turnover(&db, "2026-10-15").unwrap().unwrap().stocks, rows);
+        assert_eq!(
+            load_turnover(&db, "2026-10-15").unwrap().unwrap().stocks,
+            rows
+        );
         assert!(load_turnover(&db, "2026-10-16").unwrap().is_none());
         drop(app);
         let _ = std::fs::remove_dir_all(dir);
@@ -1387,18 +1884,34 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn live_watch_probe() {
-        let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let dir = std::env::temp_dir().join(format!("vibe-watch-live-{nonce}"));
         let app = crate::AppCore::new(dir.clone()).unwrap();
         let started = std::time::Instant::now();
-        let response = app.handle(crate::MobileApiRequest { path: "/mobile/watch/poll".into(), method: "POST".into(), body: json!({}) }).await;
+        let response = app
+            .handle(crate::MobileApiRequest {
+                path: "/mobile/watch/poll".into(),
+                method: "POST".into(),
+                body: json!({}),
+            })
+            .await;
         let v = &response.body;
         println!("status {} in {:?}", response.status, started.elapsed());
-        println!("phase {} trading {} quote_day {} notes {}", v["phase_label"], v["trading_day"], v["quote_day"], v["notes"]);
+        println!(
+            "phase {} trading {} quote_day {} notes {}",
+            v["phase_label"], v["trading_day"], v["quote_day"], v["notes"]
+        );
         println!(
             "ladder {} rows {} highest {}; bigcap total {} top {}; turnover {}",
-            v["ladder"]["sample_date"], v["ladder"]["rows"].as_array().map_or(0, Vec::len), v["ladder"]["highest"],
-            v["bigcap"]["total"], v["bigcap"]["top"].as_array().map_or(0, Vec::len), v["turnover"]["date"]
+            v["ladder"]["sample_date"],
+            v["ladder"]["rows"].as_array().map_or(0, Vec::len),
+            v["ladder"]["highest"],
+            v["bigcap"]["total"],
+            v["bigcap"]["top"].as_array().map_or(0, Vec::len),
+            v["turnover"]["date"]
         );
         if let Some(r) = v["ladder"]["rows"].get(0) {
             println!("first ladder row {r}");
@@ -1408,10 +1921,22 @@ mod tests {
         }
         if let Some(day) = v["quote_day"].as_str() {
             let stored = load_turnover(app.db_path(), day).unwrap();
-            println!("turnover stored for {day}: {:?}", stored.map(|t| t.stocks.into_iter().map(|r| format!("{} {} {:.1}亿", r.rank, r.name, r.amount / 1e8)).collect::<Vec<_>>()));
+            println!(
+                "turnover stored for {day}: {:?}",
+                stored.map(|t| t
+                    .stocks
+                    .into_iter()
+                    .map(|r| format!("{} {} {:.1}亿", r.rank, r.name, r.amount / 1e8))
+                    .collect::<Vec<_>>())
+            );
         }
         assert_eq!(response.status, 200);
-        assert!(v["ladder"]["rows"].as_array().is_some_and(|r| !r.is_empty()), "ladder should load");
+        assert!(
+            v["ladder"]["rows"]
+                .as_array()
+                .is_some_and(|r| !r.is_empty()),
+            "ladder should load"
+        );
         drop(app);
         let _ = std::fs::remove_dir_all(dir);
     }
