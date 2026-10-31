@@ -41,7 +41,7 @@ export function GroupTabs({ page, onNavigate, onBack, children }: { page: Mobile
   return <nav className="group-tabs" aria-label="页面导航">
     <div className="mobile-page-heading">
       {!root && <button type="button" className="page-back" onClick={onBack ?? (() => onNavigate(section.home))} aria-label="返回">‹ 返回</button>}
-      <strong>{entry?.title ?? (page === "stock" ? "个股详情" : page === "board" ? "板块详情" : "研究资料")}</strong>
+      <strong>{entry?.title ?? (root ? section.title : page === "stock" ? "个股详情" : page === "board" ? "板块详情" : "研究资料")}</strong>
       <div className="page-heading-tools">{group === "research" && !["research", "stock", "functions"].includes(page) && <button type="button" aria-label="搜索股票" onClick={() => onNavigate("research")}><Search size={18}/></button>}{children}{page !== "functions" && <button type="button" aria-label="全部功能" onClick={() => onNavigate("functions")}><LayoutGrid size={18} /></button>}</div>
     </div>
     {["watch", "hold", "monitor"].includes(page) && <div className="watch-view-tabs" role="tablist" aria-label="盯盘视图">

@@ -57,6 +57,9 @@ test("页面导航只保留当前标题，盯盘使用三个相关视图，复�
     const tabs = r.html(GroupTabs, { page: "watch", onNavigate: () => undefined });
     assert.equal((tabs.match(/role="tab"/g) ?? []).length, 3);
     for (const label of ["自选", "持仓", "异动"]) assert.ok(textOf(tabs).includes(label));
+    const myHeader = textOf(r.html(GroupTabs, {page:"my",onNavigate:()=>undefined}));
+    assert.ok(myHeader.includes("我的"));
+    assert.ok(!myHeader.includes("研究资料"),"root headings describe the selected workspace");
     const detail = r.html(GroupTabs, { page: "ladder", onNavigate: () => undefined });
     assert.ok(textOf(detail).includes("连板天梯"));
     assert.equal((detail.match(/role="tab"/g) ?? []).length, 0);
