@@ -1,14 +1,22 @@
 # Android App 全面审查与后续开发交接
 
+### 0.1.48 发布与独立验收回执（2026-10-31）
+
+[并行预览 APK 已发布](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.48)，功能提交 `2b05867aa889657e7b28c781b6a614cf2ba7acb9`。[Android CI](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41187530693) 的构建、签名恢复、原生测试、一次性测试密钥的 release APK/AAB 检查和公开预览发布全部成功；[跨平台 CI](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41187530654) 的 Linux/macOS/Windows × Node 22/24 六组全部成功。前端 585 项、发行辅助脚本 12 项通过。
+
+重新下载公开 APK 后独立核对：`com.vibeastock.preview`、版本 `0.1.48 / 1048`、ARM64、调试签名、原生 Activity 和 FileProvider 均正确。文件 30,724,455 字节，SHA256 `a5737d45ea01a9cface1511b669cec3d1b973ac5c730ae2f56c99859b76a8e96`；应用证书 SHA256 `1B:13:C0:3A:76:15:DC:82:E7:56:E6:52:C4:D9:EA:5A:17:C3:AF:3C:3A:82:91:BD:78:C8:58:16:0B:9C:E4:93`，与仓库固定的新预览身份一致。公开校验文件与 GitHub 资产摘要一致。详细机器回执见 [0.1.48-verification.json](docs/android/releases/0.1.48-verification.json)。
+
+新包与旧 `com.vibeastock.mobile` 并行；需要迁移时从旧应用导出业务备份，再在新应用导入。没有设备，因此安装、两包并存、后台、通知、分享和导入的真机验收仍未完成。正式渠道身份、历史特殊制度覆盖及完整旧工作流等价仍见当前剩余清单。
+
 ## 当前入口：0.1.48 并行预览、签名恢复与月营收图表（2026-10-31）
 
 Actions 触发已恢复：仓库页面的 fork 工作流禁用开关是本次 422 的原因，重新启用后 GitHub 创建 [0.1.47 CI #41184117989](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41184117989)。Rust、前端与完整手机界面检查通过；后续因原预览签名缓存为空，按原有身份保护规则停在签名检查。维护者确认没有原私钥备份，并明确选择新包名并行安装。
 
 0.1.48 预览使用独立配置 `com.vibeastock.preview` / Vibe AStock Preview，新证书固定在 `docs/android/preview-signing-parallel.json`，私钥保存于 GitHub Actions 加密 Secret 和本机 ignored 的签名目录，不进入 Git、日志、截图或公开交付包。旧 `com.vibeastock.mobile` 及其公开签名记录保留；新包不覆盖旧数据，需从旧版导出业务备份后在新版导入。正式分发的默认包名不变。
 
-补齐月营收 SVG 走势图与 PNG 分享，支持 12/24/全部区间，缺月断开、不补零；完整表格保留，图片附带来源、期间、滞后和资料边界。旧预览会随区间或元数据改变失效。本地前端 585 通过，四尺寸明暗主题 8 组图表与分享检查、47 路由 166 组页面状态检查通过；发行辅助脚本 12 通过，真实新密钥恢复/证书核对和新包 Android 工程生成通过。Core 严格 Clippy、Core/Tauri fmt 与 388 个计算对照散列检查通过。本机 Gradle 遇到 loopback 连接错误，Android 构建与原生验收以本版 CI 回执为准。
+补齐月营收 SVG 走势图与 PNG 分享，支持 12/24/全部区间，缺月断开、不补零；完整表格保留，图片附带来源、期间、滞后和资料边界。旧预览会随区间或元数据改变失效。本地前端 585 通过，四尺寸明暗主题 8 组图表与分享检查、47 路由 166 组页面状态检查通过；发行辅助脚本 12 通过，真实新密钥恢复/证书核对和新包 Android 工程生成通过。Core 严格 Clippy、Core/Tauri fmt 与 388 个计算对照散列检查通过。本机 Gradle 遇到 loopback 连接错误；本版云端原生测试及 Android debug/release APK、AAB 检查已通过，仍没有真机验收。
 
-版本 0.1.48，配置预期 versionCode 1048，SQLite v13 / 业务备份 v11 不变。交易数据与模型处理保持原状。发布结果见 [0.1.48](docs/android/releases/0.1.48.md)，Actions 经过见 [故障记录](docs/android/actions-troubleshooting.md)。
+版本 0.1.48，已核对 APK versionCode 1048，SQLite v13 / 业务备份 v11 不变。交易数据与模型处理保持原状。发布结果见 [0.1.48](docs/android/releases/0.1.48.md)，Actions 经过见 [故障记录](docs/android/actions-troubleshooting.md)。
 
 
 ### 0.1.47 发布尝试（2026-10-31）
@@ -121,7 +129,7 @@ SQLite v13 / 业务备份 v11 / 固定预览签名、交易核算及交易数据
 图表分享补齐以上三类；其他公开页仍用文字摘要卡。特殊历史制度、行业自动事实源/完整旧研究工作流等价、现金分红核算边界、源站连通/工程整理以及真机/正式身份仍未全部验收。用户已明确暂时没有设备，继续完成 CI 和预览交付。
 
 
-当前交付：**0.1.38 已发布（2026-10-19）**，功能构建 `b629dc5`；Android #39150050100 和跨平台 #39150049996 全部成功。最终包内版本 0.1.38 / 1038，APK 与固定证书一致。最新限制以 [ANDROID_REMAINING.md](ANDROID_REMAINING.md) 为准；完整最终回执在本文末。
+历史交付：**0.1.38 已发布（2026-10-19）**，功能构建 `b629dc5`；Android #39150050100 和跨平台 #39150049996 全部成功。最终包内版本 0.1.38 / 1038，APK 与固定证书一致。最新限制以 [ANDROID_REMAINING.md](ANDROID_REMAINING.md) 为准；完整最终回执在本文末。
 
 > 最新未完成功能以 [ANDROID_REMAINING.md](ANDROID_REMAINING.md) 为准；本文早期章节保留历史基线，最新完成与验证记录在文末。每轮必须回复剩余清单、构建状态及实际发布版本。
 
