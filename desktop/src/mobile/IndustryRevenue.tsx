@@ -44,9 +44,9 @@ export function RevenueTrend({ company, source, note }: { company: RevenueCompan
   const chartRef = useRef<SVGSVGElement>(null);
   const identity = useMemo(() => ({ company, months, source, note }), [company, months, source, note]);
   const history = revenueHistory(company.series ?? []);
+  if (history.filter((r) => r.amount != null).length < 2) return <p className="revenue-chart-note">有效月营收不足两个月，暂不绘制走势。</p>;
   const rows = (months ? history.slice(0, months) : history).reverse();
   const present = rows.filter((r) => r.amount != null);
-  if (present.length < 2) return <p className="revenue-chart-note">有效月营收不足两个月，暂不绘制走势。</p>;
   const max = Math.max(...present.map((r) => r.amount! / 1e8));
   const x = (i: number) => 50 + i * 298 / Math.max(rows.length - 1, 1);
   const y = (amount: number) => 154 - amount / 1e8 / max * 126;
@@ -66,6 +66,7 @@ export function RevenueTrend({ company, source, note }: { company: RevenueCompan
       {[12, 24, 0].map((n) => <button type="button" key={n} aria-pressed={months === n} onClick={() => setMonths(n)}>{n ? `近 ${n} 月` : "全部"}</button>)}
     </div></div>
     <p className="revenue-chart-note">{first} 至 {last} · {present.length} 个月有值 · 缺失 {missing} 个月；缺月处断开，不按零补值。</p>
+    {present.length < 2 ? <p className="revenue-chart-note">当前区间有效月营收不足两个月，请切换至更长区间。</p> : <>
     <svg ref={chartRef} viewBox="0 0 360 184" role="img" aria-label={`${company.name}月营收走势图，单位亿新台币`}>
       <title>{`${company.name} ${first} 至 ${last} 月营收；缺月处断开`}</title>
       <text x="50" y="14" className="revenue-axis">亿新台币</text>
@@ -79,6 +80,7 @@ export function RevenueTrend({ company, source, note }: { company: RevenueCompan
       details: [`末月 ${lastValue.period}：${fmtNumber(lastValue.amount! / 1e8)} 亿新台币`, `${present.length} 个月有值；缺失 ${missing} 个月，缺月处断开，不按零补值。`],
       notes: [company.stale ? `数据已滞后 ${company.lag_months} 个月，不能视为最新月份。` : `最新披露月份为 ${company.period}。`, "走势图范围随区间切换；完整数值见历史月营收表。", note],
     }} />
+    </>}
   </section>;
 }
 

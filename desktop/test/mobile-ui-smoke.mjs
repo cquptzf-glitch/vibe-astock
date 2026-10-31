@@ -187,6 +187,14 @@ try {
         assert.equal(await svg.locator(".revenue-line").count(),2,"missing month splits the line");
         assert.equal(await svg.locator(".revenue-point").count(),23);
         await page.getByText("有效月营收不足两个月，暂不绘制走势。",{exact:true}).waitFor();
+        const sparse=page.getByRole("region",{name:"稀疏样本月营收趋势",exact:true});
+        await sparse.getByText("当前区间有效月营收不足两个月，请切换至更长区间。",{exact:true}).waitFor();
+        await sparse.getByRole("button",{name:"全部",exact:true}).click();
+        await sparse.getByRole("img",{name:"稀疏样本月营收走势图，单位亿新台币",exact:true}).waitFor();
+        await sparse.getByRole("button",{name:"近 12 月",exact:true}).click();
+        assert.equal(await sparse.getByRole("img").count(),0);
+        await sparse.getByRole("button",{name:"全部",exact:true}).click();
+        await sparse.getByRole("img",{name:"稀疏样本月营收走势图，单位亿新台币",exact:true}).waitFor();
         const card=trend.getByRole("region",{name:"当前图表图片分享",exact:true});
         const iconSizes=await card.locator("svg").evaluateAll(items=>items.map(el=>el.getBoundingClientRect().width));
         assert.ok(iconSizes.every(w=>w<=20),"share controls retain icon-sized SVGs");

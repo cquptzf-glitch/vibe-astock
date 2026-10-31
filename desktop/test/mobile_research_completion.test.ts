@@ -94,6 +94,10 @@ test("月营收走势图保留缺月断点、原始金额和公开图片分享�
     for(const value of ["2025-01 至 2026-03", "缺失 11 个月", "2026-03 1.8 亿新台币", "近 12 月", "近 24 月", "全部", "生成当前图表分享图"]) assert.ok(text.includes(value),value);
     const empty = r.html(RevenueTrend,{company:{...company,series:[["2026-03",180000000]]},source:"合成来源",note:""});
     assert.match(textOf(empty),/不足两个月/);assert.doesNotMatch(empty,/<svg|生成当前图表分享图/);
+    const sparse = r.html(RevenueTrend,{company:{...company,series:[["2024-01",100000000],["2026-03",180000000]]},source:"合成来源",note:""});
+    assert.match(textOf(sparse),/请切换至更长区间/);
+    assert.match(textOf(sparse),/近 12 月 近 24 月 全部/);
+    assert.doesNotMatch(sparse,/<svg/);
     assert.deepEqual(revenueHistory([["1900-01",1],["2200-01",2],["2026-03",180000000]]).map((x:{period:string})=>x.period),["2026-03"]);
   });
 });
