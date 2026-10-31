@@ -1,0 +1,332 @@
+{
+  "version": "0.1.49",
+  "version_code": 1049,
+  "package": "com.vibeastock.preview",
+  "source_commit": "5320315914920fcb83b97c309f241bcab9f27181",
+  "release": "https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.49",
+  "android_ci": "https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41213090740",
+  "cross_platform_ci": "https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41213090744",
+  "apk": {
+    "name": "vibe-astock-android-mvp-v0.1.49-arm64.apk",
+    "bytes": 30735603,
+    "sha256": "e35ec35c5079fbc360ad0aa19a315cc28fbca9a7e643ff17df394eac8c8771cb",
+    "download": "https://github.com/cquptzf-glitch/vibe-astock/releases/download/android-mvp-v0.1.49/vibe-astock-android-mvp-v0.1.49-arm64.apk"
+  },
+  "certificate_sha256": "1B:13:C0:3A:76:15:DC:82:E7:56:E6:52:C4:D9:EA:5A:17:C3:AF:3C:3A:82:91:BD:78:C8:58:16:0B:9C:E4:93",
+  "signature_verified": true,
+  "published_checksum_verified": true,
+  "new_activity_and_provider_verified": true,
+  "arm64": true,
+  "debuggable": true,
+  "device_verified": false,
+  "parallel_with": "com.vibeastock.mobile",
+  "android_jobs": [
+    {
+      "id": 124572050828,
+      "name": "build-apk",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 41213090740,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Resolve app version",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Setup Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Setup Java",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Install Android SDK and NDK",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Setup Rust Android target",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Check Rust formatting and lints",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Test Rust core",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Cache Tauri CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Install Tauri CLI",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 11
+        },
+        {
+          "name": "Install frontend dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Install shared test dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        },
+        {
+          "name": "Typecheck and build frontend",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14
+        },
+        {
+          "name": "Test frontend",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Build standalone mobile frontend",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Verify compact and light mobile UI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        },
+        {
+          "name": "Upload mobile UI screenshots",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18
+        },
+        {
+          "name": "Initialize Android project",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19
+        },
+        {
+          "name": "Guard preview upgrade identity",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20
+        },
+        {
+          "name": "Build installable size-optimized APK",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21
+        },
+        {
+          "name": "Test native reminder navigation",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22
+        },
+        {
+          "name": "Verify release APK and AAB with a disposable test key",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23
+        },
+        {
+          "name": "Upload distribution verification receipt",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 24
+        },
+        {
+          "name": "Prepare, inspect and verify APK",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 25
+        },
+        {
+          "name": "Upload public preview signing receipt",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 26
+        },
+        {
+          "name": "Upload APK artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27
+        },
+        {
+          "name": "Post Cache Tauri CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 51
+        },
+        {
+          "name": "Post Setup Java",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 52
+        },
+        {
+          "name": "Post Setup Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 53
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 54
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 55
+        }
+      ]
+    },
+    {
+      "id": 124578356921,
+      "name": "publish-preview",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 41213090740,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Checkout verified revision",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Download verified APK",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Publish Android preview",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Post Checkout verified revision",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        }
+      ]
+    }
+  ],
+  "cross_platform_jobs": [
+    {
+      "id": 124571988151,
+      "name": "test (windows-latest, 22)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124571988266,
+      "name": "test (windows-latest, 24)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124571988303,
+      "name": "test (macos-latest, 24)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124571988315,
+      "name": "test (macos-latest, 22)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124571988377,
+      "name": "test (ubuntu-latest, 22)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124571988400,
+      "name": "test (ubuntu-latest, 24)",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "test_results": {
+    "frontend": {
+      "passed": 589,
+      "failed": 0
+    },
+    "rust": {
+      "passed": 323,
+      "ignored": 30,
+      "failed": 0
+    },
+    "ui": {
+      "normal": 680,
+      "revenue": 8,
+      "navigation": 56,
+      "large_text": 170,
+      "routes": 48,
+      "page_errors": 0,
+      "missing_fixture_endpoints": 0,
+      "synthetic_or_frozen_data": true
+    }
+  }
+}

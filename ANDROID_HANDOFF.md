@@ -1,5 +1,13 @@
 # Android App 全面审查与后续开发交接
 
+### 0.1.49 发布与独立验收回执（2026-10-31）
+
+[并行预览 APK 已发布](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.49)，功能提交 `5320315914920fcb83b97c309f241bcab9f27181`。[Android CI](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41213090740) 的构建、签名恢复、原生测试、一次性测试密钥的 release APK/AAB 检查和公开预览发布全部成功；[跨平台 CI](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41213090744) 的 Linux/macOS/Windows × Node 22/24 六组全部成功。前端 589 项、发行辅助脚本 12 项通过。云端逐页、导航交互、大字号和月营收回归均通过；具体检查数量以 CI 日志为准。
+
+重新下载公开 APK 后独立核对：`com.vibeastock.preview`、版本 `0.1.49 / 1049`、ARM64、调试签名、原生 Activity 和 FileProvider 均正确。文件 30,735,603 字节，SHA256 `e35ec35c5079fbc360ad0aa19a315cc28fbca9a7e643ff17df394eac8c8771cb`；应用证书 SHA256 `1B:13:C0:3A:76:15:DC:82:E7:56:E6:52:C4:D9:EA:5A:17:C3:AF:3C:3A:82:91:BD:78:C8:58:16:0B:9C:E4:93`，与仓库固定的新预览身份一致。公开校验文件与 GitHub 资产摘要一致。详细机器回执见 [0.1.49-verification.json](docs/android/releases/0.1.49-verification.json)。
+
+新包与旧 `com.vibeastock.mobile` 并行；需要迁移时从旧应用导出业务备份，再在新应用导入。没有设备，因此安装、两包并存、后台、通知、分享和导入的真机验收仍未完成。正式渠道身份、历史特殊制度覆盖及完整旧工作流等价仍见当前剩余清单。
+
 ## 当前入口：0.1.49 手机导航与功能布局（2026-10-31）
 
 按维护者要求参考 Apple HIG 完成手机端入口重排：五个主栏目、会话内栏目/筛选/表单/滚动恢复、来源栏目与父级返回链、复盘三个分组、研究资料归入研究、我的四个直接设置入口、统一页头菜单、四个可编辑快捷入口和可清除的最近查看。原有 47 个路由保留，新增复盘工作台，共 48 个路由。

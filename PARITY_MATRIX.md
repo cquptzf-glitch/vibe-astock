@@ -1,5 +1,13 @@
 # Android / Rust migration parity matrix
 
+### 0.1.49 发布与独立验收回执（2026-10-31）
+
+[并行预览 APK 已发布](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.49)，功能提交 `5320315914920fcb83b97c309f241bcab9f27181`。[Android CI](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41213090740) 的构建、签名恢复、原生测试、一次性测试密钥的 release APK/AAB 检查和公开预览发布全部成功；[跨平台 CI](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41213090744) 的 Linux/macOS/Windows × Node 22/24 六组全部成功。前端 589 项、发行辅助脚本 12 项通过。云端逐页、导航交互、大字号和月营收回归均通过；具体检查数量以 CI 日志为准。
+
+重新下载公开 APK 后独立核对：`com.vibeastock.preview`、版本 `0.1.49 / 1049`、ARM64、调试签名、原生 Activity 和 FileProvider 均正确。文件 30,735,603 字节，SHA256 `e35ec35c5079fbc360ad0aa19a315cc28fbca9a7e643ff17df394eac8c8771cb`；应用证书 SHA256 `1B:13:C0:3A:76:15:DC:82:E7:56:E6:52:C4:D9:EA:5A:17:C3:AF:3C:3A:82:91:BD:78:C8:58:16:0B:9C:E4:93`，与仓库固定的新预览身份一致。公开校验文件与 GitHub 资产摘要一致。详细机器回执见 [0.1.49-verification.json](docs/android/releases/0.1.49-verification.json)。
+
+新包与旧 `com.vibeastock.mobile` 并行；需要迁移时从旧应用导出业务备份，再在新应用导入。没有设备，因此安装、两包并存、后台、通知、分享和导入的真机验收仍未完成。正式渠道身份、历史特殊制度覆盖及完整旧工作流等价仍见当前剩余清单。
+
 ## 当前入口：0.1.49 手机导航与功能布局（2026-10-31）
 
 按维护者要求参考 Apple HIG 完成手机端入口重排：五个主栏目、会话内栏目/筛选/表单/滚动恢复、来源栏目与父级返回链、复盘三个分组、研究资料归入研究、我的四个直接设置入口、统一页头菜单、四个可编辑快捷入口和可清除的最近查看。原有 47 个路由保留，新增复盘工作台，共 48 个路由。
@@ -142,11 +150,11 @@ Desktop CI PASS
 Android APK PASS
 ```
 
-## Current mobile matrix — 0.1.48 published parallel preview (2026-10-31)
+## Current mobile matrix — 0.1.49 published parallel preview (2026-10-31)
 
 | Area | Mobile implementation | Evidence | Status |
 | --- | --- | --- | --- |
-| Mobile navigation / layout | five primary tabs, scoped workspace sections, searchable directory, inline page tools, phone journal form | 585 frontend tests; full-route multi-width light/dark browser checks and targeted revenue chart exports passed in Android CI | Implemented and CI verified in the published 0.1.48 APK; device acceptance pending |
+| Mobile navigation / layout | five workspace tabs; scoped cached views and parent history; review hub, research library and direct settings links; 100%–200% text | 589 frontend tests; 48-route light/dark browser checks, workspace restore/back/focus/polling tests and 320px large-text checks passed in Android CI | Implemented and published in 0.1.49; session-only state preservation, six detail-view cache limit; device acceptance pending |
 | Deterministic calc / evidence DAG | deterministic_calc 0.5.0 (24 functions), graph, research_calculations, CalculationAudit | 388 frozen Python cases with oracle source hashes; reject fabricated inputs/cycles/wrong claims/corrupt restores; cancellation/backup tests; 180-screen browser smoke | Pure function numerical parity verified within fixture scope; bounded mobile JSON DAG implemented; legacy file/CLI identity and full provider workflows not equivalent |
 | AI staged research / debate / emotion / weekly / industry | research_workflow + research-methodology.json | resume/cancel/late-result/math rejection/retry/archive tests; browser workflow | Implemented mobile snapshot workflow with evidence-bound calculation plans and durable audits; full desktop source/workflow parity pending |
 | Statements / consensus / valuation | research_extended | parser tests; live Sina/THS/Baidu probes | Implemented; provider continuity and real-device UX pending |
@@ -163,7 +171,7 @@ Android APK PASS
 | Documents / controlled chat | document_import + chat_tools/chat_documents | file parsers, arithmetic round trip, budget, citation refusal tests | Implemented bounded retrieval and original PDF-page citations (blank pages preserved, wrong/unrecalled pages rejected); scanned PDFs/OCR unsupported |
 | Public-page assistant / share / offline | PublicPageActions / provider_cache / ChartShareCard | SSR/browser and offline API tests; actual PNG bytes, provenance and invalidation checks | Text-summary cards and labeled historical cache; K-line/intraday/backtest PNGs plus 0.1.48 monthly revenue SVG/PNG with range controls and missing-month gaps implemented; native device share pending |
 | Supply-chain / event probability | industry_revenue / probability / Kalshi GPU ladder; 12/24/all monthly revenue chart and full history table | parser tests and four-width/two-theme chart/export tests; quote types, missing months, stale dates and source gaps explicit | Bounded scans and four-company monthly revenue coverage implemented; Kalshi/Polymarket transport failed locally; broad industry facts still require reliable imported sources |
-| Independent mobile artifact | mobileMain + Vite mobile pre-transform + tauri.preview.conf.json | 0.1.48 Android build/publish and six cross-platform jobs passed; downloaded public ARM64 APK metadata, certificate and SHA256 independently verified | Published parallel preview com.vibeastock.preview, version 0.1.48 / 1048; old app preserved; physical coexistence and lifecycle acceptance pending |
+| Independent mobile artifact | mobileMain + Vite mobile pre-transform + tauri.preview.conf.json | 0.1.49 Android build/publish and six cross-platform jobs passed; downloaded public ARM64 APK metadata, certificate and SHA256 independently verified | Published parallel preview com.vibeastock.preview, version 0.1.49 / 1049; same pinned preview identity as 0.1.48; device acceptance pending |
 
 Previous 0.1.36 verification (historical): Rust 300 + symbol parity 1; frontend 569; frozen Python oracle 388 cases; Edge screenshots 180; desktop/mobile builds pass. Android CI #39123017859 passed and published the preview; cross-platform fixture follow-up is recorded below.
 
