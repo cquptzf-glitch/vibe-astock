@@ -167,9 +167,9 @@ export function createMobileNavigation(host: NavigationHost, restoredPath = "") 
     },
     navigate(route: MobileRoute, group?: WorkspaceGroup) {
       const path = mobilePath(route);
-      if (path === snapshot()) return;
       const nextGroup = group ?? (["stock", "board", "functions"].includes(route.page) ? owner() : workspaceGroup(route.page));
-      if (nextGroup === owner()) parents.set(nextGroup + ":" + path, snapshot());
+      if (path === snapshot() && nextGroup === owner()) return;
+      if (path !== snapshot() && nextGroup === owner()) parents.set(nextGroup + ":" + path, snapshot());
       host.history.pushState({ [STATE_KEY]: (depth(host.history.state) ?? 0) + 1, vibeWorkspace: nextGroup }, "", "#" + path);
       changed();
     },

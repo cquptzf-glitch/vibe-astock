@@ -221,6 +221,12 @@ try {
         await page.waitForTimeout(100);
         assert.equal(await page.locator('.mobile-main').getAttribute('data-page'),'watch','a late search result cannot navigate from a hidden page');
         await nav('首页').click();
+        await page.getByRole('button',{name:/贵州茅台/}).first().click();
+        await page.getByRole('tab',{name:'公司资料',exact:true}).waitFor();
+        await page.getByRole('button',{name:'全部功能',exact:true}).click();
+        assert.equal(await page.getByRole('group',{name:'功能分类',exact:true}).getByRole('button',{name:'全部',exact:true}).getAttribute('aria-pressed'),'true','Home detail directory covers all workspaces');
+        await page.getByRole('button',{name:'返回',exact:true}).click();
+        await page.getByRole('button',{name:'返回',exact:true}).click();
         await openWorkspaceTab('研究记录');
         await page.getByLabel('检索资料',{exact:true}).fill('合成');
         await page.evaluate(()=>{window.__savedLibrary=document.querySelector('.mobile-library');window.scrollTo(0,300);});
@@ -237,6 +243,10 @@ try {
         await page.evaluate(()=>{window.__savedStock=document.querySelector('.stock-workspace');});
         await nav('首页').click();
         assert.equal(await page.evaluate(()=>window.__savedStock.isConnected),false);
+        await page.getByRole('button',{name:/贵州茅台/}).first().click();
+        await page.getByRole('tab',{name:'公司资料',exact:true}).waitFor();
+        assert.equal(await page.getByRole('tab',{name:'行情图表',exact:true}).getAttribute('aria-selected'),'true','the same stock keeps an independent view in Home');
+        assert.equal(await page.evaluate(()=>window.__savedStock===document.querySelector('.stock-workspace')),false,'different workspaces do not share a detail component');
         await nav('盯盘').click();
         assert.equal(await page.locator('.mobile-main').getAttribute('data-page'),'stock');
         assert.equal(await page.getByRole('tab',{name:'公司资料',exact:true}).getAttribute('aria-selected'),'true');

@@ -143,3 +143,15 @@ test("全功能目录不替换栏目最近页面，同栏目按钮可以退出�
   nav.switchWorkspace("review");
   assert.equal(nav.snapshot(),"/mobile/review/ladder");
 });
+
+test("不同栏目恢复同一股票地址时仍切换栏目，返回沿用各自父页面", () => {
+  const b = browser("#/mobile/stock/600519"); const nav=createMobileNavigation(b.host);
+  nav.switchWorkspace("watch"); nav.navigate({page:"stock",symbol:"600519"});
+  assert.equal(nav.workspace(),"watch");
+  nav.switchWorkspace("research");
+  assert.equal(nav.snapshot(),"/mobile/stock/600519");
+  assert.equal(nav.workspace(),"research");
+  nav.switchWorkspace("watch");
+  assert.equal(nav.workspace(),"watch");
+  nav.back(); assert.equal(nav.snapshot(),"/mobile/my/watch");
+});

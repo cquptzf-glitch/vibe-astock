@@ -10,12 +10,13 @@ export function useMobileNavigation() {
     try { restored = window.localStorage.getItem(STORAGE_KEY) ?? ""; } catch { /* Storage is optional. */ }
     return createMobileNavigation(window, restored);
   });
-  const [path, setPath] = useState(navigation.snapshot);
+  const [view, setView] = useState(() => ({path:navigation.snapshot(),workspace:navigation.workspace()}));
 
   useEffect(() => {
     function update() {
       const next = navigation.snapshot();
-      setPath(next);
+      const workspace = navigation.workspace();
+      setView(previous => previous.path === next && previous.workspace === workspace ? previous : {path:next,workspace});
       try { window.localStorage.setItem(STORAGE_KEY, next); } catch { /* Navigation works without persistence. */ }
     }
     const unsubscribe = navigation.subscribe(update);
@@ -24,5 +25,5 @@ export function useMobileNavigation() {
     return () => { unsubscribe(); stopNative(); };
   }, [navigation]);
 
-  return { route: parseMobileRoute(path)!, navigate: navigation.navigate, workspace: navigation.workspace(), switchWorkspace: (group: Parameters<typeof navigation.switchWorkspace>[0]) => navigation.switchWorkspace(group), back: navigation.back };
+  return { route: parseMobileRoute(view.path)!, navigate: navigation.navigate, workspace: view.workspace, switchWorkspace: (group: Parameters<typeof navigation.switchWorkspace>[0]) => navigation.switchWorkspace(group), back: navigation.back };
 }

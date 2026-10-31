@@ -476,16 +476,19 @@ function MobileScreen({ route, navigate, back, active, unreadMessages, onUnread,
   </div>;
 }
 
+type CachedRoute = MobileRoute & {workspace:WorkspaceGroup};
+const screenKey = (route: CachedRoute) => route.workspace + ":" + mobilePath(route);
+
 export function MobileApp() {
   usePresentation();
   useMobileViewport();
   const navigation = useMobileNavigation();
   const { route } = navigation;
-  const path = mobilePath(route);
-  const [directoryGroup, setDirectoryGroup] = useState<WorkspaceGroup | undefined>();
-  const [directoryVisit, setDirectoryVisit] = useState(0);
+  const currentRoute: CachedRoute = {...route,workspace:navigation.workspace};
+  const path = screenKey(currentRoute);
+  const [directoryVisits, setDirectoryVisits] = useState<Partial<Record<WorkspaceGroup,number>>>({});
   const [settingsTarget, setSettingsTarget] = useState<{id:string;sequence:number}>();
-  const [visited, setVisited] = useState<MobileRoute[]>([route]);
+  const [visited, setVisited] = useState<CachedRoute[]>([currentRoute]);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const outlet = useRef<HTMLElement>(null);
   // Stable portal hosts retain React state. Only the active host is attached
@@ -502,16 +505,16 @@ export function MobileApp() {
   useEffect(() => { void refreshMessages().then(out => setUnreadMessages(out.list.unread)).catch(() => undefined); }, []);
   useEffect(() => {
     setVisited(items => {
-      if (items.some(item => mobilePath(item) === path)) return items;
-      const next = [...items, route];
+      if (items.some(item => screenKey(item) === path)) return items;
+      const next = [...items, currentRoute];
       // Stock detail views are the only unbounded route family. Keep six recent
       // details, while static work pages retain forms and filters for this session.
       const details = next.filter(item => item.page === "stock" || item.page === "board");
-      const removed = new Set(details.slice(0, -6).map(mobilePath));
+      const removed = new Set(details.slice(0, -6).map(screenKey));
       for (const key of removed) { hosts.current.delete(key); scrolls.current.delete(key); }
-      return next.filter(item => !removed.has(mobilePath(item)));
+      return next.filter(item => !removed.has(screenKey(item)));
     });
-  }, [path, route]);
+  }, [path]);
   useEffect(() => {
     const save = () => { if (!restoring.current) scrolls.current.set(currentPath.current, window.scrollY); };
     window.addEventListener("scroll", save, { passive: true });
@@ -529,13 +532,13 @@ export function MobileApp() {
     return () => cancelAnimationFrame(frame);
   }, [path]);
   const save = () => { scrolls.current.set(path, window.scrollY); (document.activeElement as HTMLElement | null)?.blur(); };
-  const navigate = (next: MobileRoute) => { save(); if (next.page === "functions") { setDirectoryGroup(route.page === "market" ? undefined : navigation.workspace); setDirectoryVisit(value => value + 1); } navigation.navigate(next); };
+  const navigate = (next: MobileRoute) => { save(); if (next.page === "functions") setDirectoryVisits(previous => ({...previous,[navigation.workspace]:(previous[navigation.workspace] ?? 0) + 1})); navigation.navigate(next); };
   const back = () => { save(); navigation.back(); };
-  const screens = visited.some(item => mobilePath(item) === path) ? visited : [...visited, route];
+  const screens = visited.some(item => screenKey(item) === path) ? visited : [...visited, currentRoute];
   return <div className="mobile-app">
     <main ref={outlet} className="mobile-main" data-page={route.page}>{screens.map(item => {
-      const key = mobilePath(item), active = key === path;
-      return <PageActivity.Provider value={active} key={key}>{createPortal(<MobileScreen route={item} navigate={navigate} back={back} active={active} unreadMessages={unreadMessages} onUnread={setUnreadMessages} directoryGroup={directoryGroup} directoryVisit={directoryVisit} settingsTarget={settingsTarget} onSettings={id => { setSettingsTarget(previous => ({id,sequence:(previous?.sequence ?? 0)+1})); navigate({page:"settings"}); }}/>, hostFor(key), key)}</PageActivity.Provider>;
+      const key = screenKey(item), active = key === path;
+      return <PageActivity.Provider value={active} key={key}>{createPortal(<MobileScreen route={item} navigate={navigate} back={back} active={active} unreadMessages={unreadMessages} onUnread={setUnreadMessages} directoryGroup={item.workspace === "overview" ? undefined : item.workspace} directoryVisit={directoryVisits[item.workspace] ?? 0} settingsTarget={settingsTarget} onSettings={id => { setSettingsTarget(previous => ({id,sequence:(previous?.sequence ?? 0)+1})); navigate({page:"settings"}); }}/>, hostFor(key), key)}</PageActivity.Provider>;
     })}</main>
     <WorkspaceNav page={route.page} onNavigate={page => navigate({page})} activeGroup={navigation.workspace} onSelectGroup={group => { save(); navigation.switchWorkspace(group); }} unreadMessages={unreadMessages}/>
     <DialogHost />
