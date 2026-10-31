@@ -22,12 +22,12 @@
   align-items: center;
   gap: 6px;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .stock-detail-head h2 {
   margin: 3px 0 0;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 .stock-trend-pill {
@@ -36,7 +36,7 @@
   gap: 4px;
   border-radius: 999px;
   padding: 6px 9px;
-  font-size: 11px;
+  font-size: 0.75rem;
   color: var(--mobile-text);
   background: rgba(148, 163, 184, 0.12);
   white-space: nowrap;
@@ -68,14 +68,14 @@
 .stock-detail-grid span {
   display: block;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .stock-detail-returns strong,
 .stock-detail-grid strong {
   display: block;
   margin-top: 4px;
-  font-size: 14px;
+  font-size: 0.875rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -87,7 +87,7 @@
   padding: 10px 12px;
 }
 
-.stock-range-label strong { font-size: 13px; }
+.stock-range-label strong { font-size: 0.8125rem; }
 .stock-range-track {
   height: 6px;
   margin: 9px 0 6px;
@@ -101,9 +101,9 @@
   border-radius: inherit;
   background: linear-gradient(90deg, #22c55e, #eab308, #f43f5e);
 }
-.stock-range-foot { color: var(--mobile-muted); font-size: 10px; }
-.stock-detail-note { margin: 10px 2px 0; color: var(--mobile-muted); font-size: 10px; line-height: 1.55; }
-.stock-detail-empty { padding: 32px 0; text-align: center; color: var(--mobile-muted); font-size: 12px; }
+.stock-range-foot { color: var(--mobile-muted); font-size: 0.75rem; }
+.stock-detail-note { margin: 10px 2px 0; color: var(--mobile-muted); font-size: 0.75rem; line-height: 1.55; }
+.stock-detail-empty { padding: 32px 0; text-align: center; color: var(--mobile-muted); font-size: 0.75rem; }
 
 @media (max-width: 520px) {
   .stock-detail-grid { grid-template-columns: repeat(2, 1fr); }

@@ -1,5 +1,8 @@
-import { lazy, Suspense, useEffect, useState, type ComponentType, type LazyExoticComponent, type ReactNode } from "react";
-import { ArrowLeft, BookmarkPlus, ChevronRight, RefreshCw, Search, Star } from "lucide-react";
+import { createPortal } from "react-dom";
+import { useMobileViewport } from "./useMobileViewport";
+import { usePresentation } from "./presentation";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type LazyExoticComponent, type ReactNode } from "react";
+import { BookmarkPlus, ChevronRight, RefreshCw, Search, Star } from "lucide-react";
 
 import { PublicPageActions } from "./PublicPageActions";
 import { clearAiPage, PERSONAL_PAGES, queueAiPrompt } from "./aiPageContext";
@@ -11,7 +14,7 @@ import { DialogHost } from "./controls";
 import { MonitorPanel } from "./MonitorPanel";
 import { WatchQuotesPanel } from "./WatchQuotesPanel";
 import { MessagesPanel, refreshMessages } from "./MessagesPanel";
-import { FunctionDirectory, GroupTabs, WorkspaceNav } from "./WorkspaceNavigation";
+import { FunctionDirectory, GroupTabs, WorkspaceNav, WorkspaceHub } from "./WorkspaceNavigation";
 import { ResearchPanel } from "./ResearchPanel";
 import { StockDetailPanel } from "./StockDetailPanel";
 import { StockChart } from "./KlineChart";
@@ -19,8 +22,10 @@ import { QuoteBoard } from "./QuoteBoard";
 import { StockInsightsPanel } from "./StockInsightsPanel";
 import { StockWorkspace } from "./StockWorkspace";
 import { useMobileNavigation } from "./useMobileNavigation";
-import type { MobilePage } from "./mobileRoutes";
-import { workspaceGroup, type WorkspaceGroup } from "./workspace";
+import { mobilePath, parseMobileRoute, type MobilePage, type MobileRoute } from "./mobileRoutes";
+import { PageActivity } from "./PageActivity.ts";
+import { RecentStocks, recordRecentStock } from "./RecentStocks";
+import { type WorkspaceGroup } from "./workspace";
 import "./mobile.css";
 import "./mobile-presentation.css";
 import "./compact.css";
@@ -30,6 +35,7 @@ import "./library.css";
 import "./shortline.css";
 import "./phone-layout.css";
 import "./page-layouts.css";
+import "./mobile-usability.css";
 
 // 路由分包:首页和个股页以外的页面第一次进入时才加载(本机文件,几毫秒)。名字对应各文件里的具名导出
 function lazyPanel<M, K extends keyof M>(load: () => Promise<M>, name: K): LazyExoticComponent<M[K] extends ComponentType<infer P> ? ComponentType<P> : never> {
@@ -137,20 +143,21 @@ function isDirectSymbol(value: string): boolean {
     || /^\d{6}\.(SH|SZ|BJ)$/.test(normalized);
 }
 
-export function MobileApp() {
-  const { route, navigate, back } = useMobileNavigation();
+function MobileScreen({ route, navigate, back, active, unreadMessages, onUnread, directoryGroup, directoryVisit, onSettings, settingsTarget }: {
+  route: MobileRoute; navigate: (route: MobileRoute) => void; back: () => void; active: boolean; unreadMessages: number; onUnread: (count: number) => void; directoryGroup?: WorkspaceGroup; directoryVisit: number; onSettings: (id:string) => void; settingsTarget?: {id:string; sequence:number};
+}) {
   const page = route.page;
-  const isStock = page === "stock";
-  const [directoryGroup, setDirectoryGroup] = useState<WorkspaceGroup | undefined>();
+
   const go = (next: MobilePage) => {
-    if (next === "functions") setDirectoryGroup(page === "market" ? undefined : workspaceGroup(page));
     navigate({ page: next });
   };
-  useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: "instant" }); }, [page, route.symbol, route.board]);
+
   const askAi = (question: string) => { queueAiPrompt(question); go("ai"); };
   // 个人页面(成交、持仓、盈亏)不给 AI:进入时清掉上一页留下的「附带当前页面」登记
-  useEffect(() => { if (PERSONAL_PAGES.has(route.page)) clearAiPage(); }, [route.page]);
+  useEffect(() => { if (active && PERSONAL_PAGES.has(route.page)) clearAiPage(); }, [route.page, active]);
   const [query, setQuery] = useState("");
+  const searchEpoch = useRef(0);
+  const queryRef = useRef(query); queryRef.current = query;
   const [activeSymbol, setActiveSymbol] = useState("");
   const [quote, setQuote] = useState<Envelope | null>(null);
   const [klineRows, setKlineRows] = useState<unknown[][]>([]);
@@ -162,11 +169,10 @@ export function MobileApp() {
   const [loadedSymbol, setLoadedSymbol] = useState("");
   const [error, setError] = useState("");
   const [, setHealth] = useState<{ ok: boolean; version: string } | null>(null);
-  const [unreadMessages, setUnreadMessages] = useState(0);
-  // 启动时生成一次当天该有的消息(盘前提醒 / 收盘摘要 / 自选异动),取不到就算了,不打扰
-  useEffect(() => { void refreshMessages().then((out) => setUnreadMessages(out.list.unread)).catch(() => undefined); }, []);
+
 
   const currentName = String(quote?.extra?.name ?? "");
+  useEffect(() => { if (active && quote && route.symbol) recordRecentStock(quote.symbol, currentName); }, [active, quote, route.symbol, currentName]);
   const isWatched = Boolean(activeSymbol && watchlist.some((item) => item.symbol === activeSymbol));
 
   async function loadWatchlist() {
@@ -183,13 +189,16 @@ export function MobileApp() {
   }
 
   useEffect(() => {
+    if (!active || !["market", "research", "stock", "watch"].includes(page)) return;
     void Promise.all([
       loadWatchlist(),
       api<{ ok: boolean; version: string }>("/health").then(setHealth),
     ]).catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [active, page]);
 
   useEffect(() => {
+    searchEpoch.current++;
+    if (!active) { setSearching(false); return; }
     const keyword = query.trim();
     if (!keyword || keyword === activeSymbol || isDirectSymbol(keyword)) {
       setSuggestions([]);
@@ -216,20 +225,19 @@ export function MobileApp() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query, activeSymbol]);
+  }, [query, activeSymbol, active]);
 
   useEffect(() => {
     const symbol = route.symbol;
+    if (!symbol || !active) return;
     let cancelled = false;
-    setQuote(null);
-    setKlineRows([]);
+    const hasSnapshot = loadedSymbol === symbol && quote !== null;
+    if (!hasSnapshot) {
+      setQuote(null); setKlineRows([]); setActiveSymbol(symbol);
+      setQuery(symbol); setSuggestions([]);
+    }
     setError("");
-    setLoading(false);
-    setActiveSymbol(symbol ?? "");
-    if (!symbol) return;
-    setQuery(symbol);
-    setSuggestions([]);
-    setLoading(true);
+    setLoading(!hasSnapshot);
     void (async () => {
       try {
         const quoteResult = await api<FetchResult>("/fetch", {
@@ -259,7 +267,7 @@ export function MobileApp() {
       }
     })();
     return () => { cancelled = true; };
-  }, [route.symbol, quoteRevision]);
+  }, [route.symbol, quoteRevision, active]);
 
   function openSymbol(raw: string) {
     navigate({ page: "stock", symbol: raw });
@@ -273,10 +281,12 @@ export function MobileApp() {
       return;
     }
 
+    const epoch = ++searchEpoch.current;
     setSearching(true);
     setError("");
     try {
       const items = await searchSymbols(keyword);
+      if (epoch !== searchEpoch.current || queryRef.current.trim() !== keyword || mobilePath(parseMobileRoute(window.location.hash) ?? {page:"market"}) !== mobilePath(route)) return;
       setSuggestions(items);
       const first = items[0];
       if (!first) {
@@ -285,9 +295,9 @@ export function MobileApp() {
       }
       await openSymbol(first.symbol);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (epoch === searchEpoch.current) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setSearching(false);
+      if (epoch === searchEpoch.current) setSearching(false);
     }
   }
 
@@ -395,17 +405,22 @@ export function MobileApp() {
       case "market": return <section className="mobile-section mobile-home">
         <div className="home-start"><div><h1>今日工作台</h1><p>查行情、盯盘与记录</p></div><button type="button" onClick={() => go("messages")}>消息{unreadMessages > 0 && <span>{unreadMessages > 99 ? "99+" : unreadMessages}</span>}</button></div>
         {searchBlock}
-        <HomeShortcuts onNavigate={go} />
-        <PublicPageActions page={page} onAsk={askAi} />
         <MarketOverview />
+        <div className="today-actions" aria-label="今日安排"><button type="button" onClick={() => go("daily")}>填写今日复盘 ›</button><button type="button" onClick={() => go("calendar")}>查看事件日历 ›</button></div>
+        <HomeShortcuts onNavigate={go} />
         <HomeEmotionBrief onOpen={() => go("emotion")} />
+        <RecentStocks onOpen={openFromList} />
         <WatchQuotesPanel watchlist={watchlist} limit={6} onOpenSymbol={openFromList} onOpenAll={() => go("watch")} />
       </section>;
-      case "functions": return <FunctionDirectory key={`functions-${directoryGroup ?? "all"}`} onNavigate={go} initialGroup={directoryGroup} />;
-      case "my": return <FunctionDirectory key="my" onNavigate={go} group="my" />;
+      case "reviewHome": return <section className="mobile-section"><div className="mobile-section-title"><h1>复盘工作台</h1></div><HomeEmotionBrief onOpen={() => go("emotion")} /><div className="today-actions"><button type="button" onClick={() => go("daily")}>填写每日复盘 ›</button><button type="button" onClick={() => go("records")}>记成交 ›</button></div><WorkspaceHub group="review" onNavigate={go}/></section>;
+      case "functions": return <FunctionDirectory key={`functions-${directoryGroup ?? "all"}-${directoryVisit}`} onNavigate={go} initialGroup={directoryGroup} />;
+      case "my": return <FunctionDirectory key="my" onNavigate={go} group="my" onSettings={onSettings} />;
       case "research": return <section className="mobile-section research-home">
         <div className="mobile-section-title"><div><h1>个股深挖</h1><p>行情、K 线结构、公司资料、财务、公告、研报、资金流、量价观察与所属板块。</p></div></div>
         {searchBlock}
+        <RecentStocks onOpen={openFromList} />
+        <div className="today-actions"><button type="button" onClick={() => go("ai")}>继续研究与对话 ›</button><button type="button" onClick={() => go("inbox")}>处理研究线索 ›</button></div>
+        <WorkspaceHub group="research" onNavigate={go}/>
         <WatchQuotesPanel watchlist={watchlist} limit={8} onOpenSymbol={openFromList} onOpenAll={() => go("watch")} />
       </section>;
       case "stock": return stockBlock;
@@ -443,34 +458,86 @@ export function MobileApp() {
       case "candidate": return <CandidatePanel onOpenSymbol={openFromList} />;
       case "backtest": return <BacktestPanel />;
       case "ai": return <AiWorkspace />;
-      case "messages": return <MessagesPanel onNavigate={go} onUnread={setUnreadMessages} />;
+      case "messages": return <MessagesPanel onNavigate={go} onUnread={onUnread} />;
       case "calendar": return <CalendarPanel />;
       case "reminders": return <ReminderPanel />;
       case "library":
       case "notes": return <LibraryPanel kind="note" />;
       case "reports": return <LibraryPanel kind="report" />;
       case "inbox": return <LibraryPanel kind="inbox" />;
-      case "settings": return <SettingsPanel onOpenAi={() => go("ai")} onOpenReminders={() => go("reminders")} />;
+      case "settings": return <SettingsPanel sectionRequest={settingsTarget} onOpenAi={() => go("ai")} onOpenReminders={() => go("reminders")} />;
     }
   }
 
-  const showBack = isStock || page === "board" || page === "functions" || page === "settings";
-  return (
-    <div className="mobile-app">
-      <main className="mobile-main" data-page={page}>
-        <GroupTabs page={page} onNavigate={go} />
-        {showBack && (
-          <button className="mobile-back" type="button" onClick={back}>
-            <ArrowLeft size={18} /> 返回
-          </button>
-        )}
-        {error && <div className="mobile-error">{error}</div>}
-        {page !== "market" && <PublicPageActions key={page} page={page} onAsk={askAi} />}
-        <div className="mobile-page-body" data-layout-page={page}><Suspense fallback={<div className="mobile-empty" role="status">加载中…</div>}>{renderPage()}</Suspense></div>
-      </main>
+  return <div className="mobile-screen" hidden={!active} data-route-active={active ? "true" : undefined}>
+    <GroupTabs page={page} onNavigate={go} onBack={back}><PublicPageActions key={page} page={page} onAsk={askAi}/></GroupTabs>
+    {error && <div className="mobile-error" role="status">{error}</div>}
+    <div className={active ? "mobile-page-body" : "mobile-cached-body"} data-layout-page={page}><Suspense fallback={<div className="mobile-empty" role="status">加载中…</div>}>{renderPage()}</Suspense></div>
+  </div>;
+}
 
-      <WorkspaceNav page={page} onNavigate={go} unreadMessages={unreadMessages} />
-      <DialogHost />
-    </div>
-  );
+export function MobileApp() {
+  usePresentation();
+  useMobileViewport();
+  const navigation = useMobileNavigation();
+  const { route } = navigation;
+  const path = mobilePath(route);
+  const [directoryGroup, setDirectoryGroup] = useState<WorkspaceGroup | undefined>();
+  const [directoryVisit, setDirectoryVisit] = useState(0);
+  const [settingsTarget, setSettingsTarget] = useState<{id:string;sequence:number}>();
+  const [visited, setVisited] = useState<MobileRoute[]>([route]);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const outlet = useRef<HTMLElement>(null);
+  // Stable portal hosts retain React state. Only the active host is attached
+  // to the document; inactive routes cannot intercept focus or page capture.
+  const hosts = useRef(new Map<string, HTMLDivElement>());
+  const hostFor = (key: string) => {
+    let host = hosts.current.get(key);
+    if (!host) { host = document.createElement("div"); host.className = "mobile-route-host"; hosts.current.set(key, host); }
+    return host;
+  };
+  const scrolls = useRef(new Map<string, number>());
+  const currentPath = useRef(path);
+  const restoring = useRef(false);
+  useEffect(() => { void refreshMessages().then(out => setUnreadMessages(out.list.unread)).catch(() => undefined); }, []);
+  useEffect(() => {
+    setVisited(items => {
+      if (items.some(item => mobilePath(item) === path)) return items;
+      const next = [...items, route];
+      // Stock detail views are the only unbounded route family. Keep six recent
+      // details, while static work pages retain forms and filters for this session.
+      const details = next.filter(item => item.page === "stock" || item.page === "board");
+      const removed = new Set(details.slice(0, -6).map(mobilePath));
+      for (const key of removed) { hosts.current.delete(key); scrolls.current.delete(key); }
+      return next.filter(item => !removed.has(mobilePath(item)));
+    });
+  }, [path, route]);
+  useEffect(() => {
+    const save = () => { if (!restoring.current) scrolls.current.set(currentPath.current, window.scrollY); };
+    window.addEventListener("scroll", save, { passive: true });
+    return () => window.removeEventListener("scroll", save);
+  }, []);
+  useLayoutEffect(() => {
+    currentPath.current = path;
+    restoring.current = true;
+    const target = hosts.current.get(path);
+    if (target && outlet.current?.firstChild !== target) outlet.current?.replaceChildren(target);
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo({ top: scrolls.current.get(path) ?? 0, left: 0, behavior: "instant" });
+      restoring.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [path]);
+  const save = () => { scrolls.current.set(path, window.scrollY); (document.activeElement as HTMLElement | null)?.blur(); };
+  const navigate = (next: MobileRoute) => { save(); if (next.page === "functions") { setDirectoryGroup(route.page === "market" ? undefined : navigation.workspace); setDirectoryVisit(value => value + 1); } navigation.navigate(next); };
+  const back = () => { save(); navigation.back(); };
+  const screens = visited.some(item => mobilePath(item) === path) ? visited : [...visited, route];
+  return <div className="mobile-app">
+    <main ref={outlet} className="mobile-main" data-page={route.page}>{screens.map(item => {
+      const key = mobilePath(item), active = key === path;
+      return <PageActivity.Provider value={active} key={key}>{createPortal(<MobileScreen route={item} navigate={navigate} back={back} active={active} unreadMessages={unreadMessages} onUnread={setUnreadMessages} directoryGroup={directoryGroup} directoryVisit={directoryVisit} settingsTarget={settingsTarget} onSettings={id => { setSettingsTarget(previous => ({id,sequence:(previous?.sequence ?? 0)+1})); navigate({page:"settings"}); }}/>, hostFor(key), key)}</PageActivity.Provider>;
+    })}</main>
+    <WorkspaceNav page={route.page} onNavigate={page => navigate({page})} activeGroup={navigation.workspace} onSelectGroup={group => { save(); navigation.switchWorkspace(group); }} unreadMessages={unreadMessages}/>
+    <DialogHost />
+  </div>;
 }

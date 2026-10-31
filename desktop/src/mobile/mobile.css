@@ -42,7 +42,7 @@ input {
 }
 
 .mobile-brand {
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 760;
   letter-spacing: -0.02em;
 }
@@ -50,7 +50,7 @@ input {
 .mobile-subtitle {
   margin-top: 2px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-status {
@@ -61,7 +61,7 @@ input {
   border: 1px solid var(--mobile-border);
   border-radius: 999px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-status.ok {
@@ -104,7 +104,7 @@ input {
   border-radius: 12px;
   color: var(--mobile-up);
   background: rgba(118, 29, 29, 0.18);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 
@@ -130,7 +130,7 @@ input {
   outline: 0;
   color: var(--mobile-text);
   background: transparent;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .mobile-search input::placeholder {
@@ -172,14 +172,14 @@ input {
 
 .mobile-hero-card h1 {
   margin: 13px 0 8px;
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 
 .mobile-hero-card p {
   margin: 0 auto;
   max-width: 420px;
   color: var(--mobile-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.7;
 }
 
@@ -197,7 +197,7 @@ input {
   border-radius: 999px;
   color: var(--mobile-text);
   background: var(--mobile-card);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-quote-card {
@@ -219,12 +219,12 @@ input {
 }
 
 .mobile-symbol-line strong {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 .mobile-symbol-line span {
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-price-row {
@@ -235,7 +235,7 @@ input {
 }
 
 .mobile-price {
-  font-size: 31px;
+  font-size: 1.9375rem;
   font-weight: 760;
   letter-spacing: -0.03em;
 }
@@ -276,7 +276,7 @@ input {
 .mobile-card-label {
   margin-bottom: 8px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-sparkline {
@@ -301,7 +301,7 @@ input {
   border-radius: 12px;
   color: var(--mobile-muted);
   background: var(--mobile-card);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .mobile-metrics {
@@ -330,12 +330,12 @@ input {
 
 .mobile-metrics span {
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-metrics strong {
   margin-top: 5px;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .mobile-source-line {
@@ -344,7 +344,7 @@ input {
   gap: 6px;
   padding: 12px 18px 14px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -358,13 +358,13 @@ input {
 
 .mobile-section-title h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 
 .mobile-section-title p {
   margin: 5px 0 0;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .mobile-section-title > span {
@@ -372,14 +372,14 @@ input {
   border-radius: 999px;
   color: var(--mobile-muted);
   background: var(--mobile-soft);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-empty {
   padding: 32px 22px;
   color: var(--mobile-muted);
   text-align: center;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .mobile-watch-list {
@@ -423,7 +423,7 @@ input {
 
 .mobile-watch-open strong {
   overflow: hidden;
-  font-size: 15px;
+  font-size: 0.9375rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -431,7 +431,7 @@ input {
 .mobile-watch-open span {
   margin-top: 3px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-watch-open > svg {
@@ -466,12 +466,12 @@ input {
 
 .mobile-info-card span {
   color: var(--mobile-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .mobile-info-card strong {
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 550;
 }
 
@@ -481,13 +481,13 @@ input {
 
 .mobile-roadmap-card h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .mobile-roadmap-card p {
   margin: 7px 0 0;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.65;
 }
 
@@ -513,7 +513,7 @@ input {
   border: 0;
   color: var(--mobile-muted);
   background: transparent;
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .mobile-nav button.active {

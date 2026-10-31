@@ -128,14 +128,16 @@ try {
       // 排查慢机器上的时序问题:VIBE_UI_THROTTLE=6 把 CPU 降速 6 倍
       if (process.env.VIBE_UI_THROTTLE) await (await context.newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.VIBE_UI_THROTTLE) });
       page.on("pageerror", (error) => errors.push(String(error)));
-      await page.addInitScript(({ responses, quote, klineRows, theme }) => {
+      await page.addInitScript(({ responses, quote, klineRows, theme, textScale }) => {
         if (!localStorage.getItem("vibe.ui.seeded")) {
           localStorage.setItem("vra-theme", theme);
           localStorage.setItem("vibe.mobile.density", "compact");
           localStorage.setItem("vibe.mobile.refresh", "0");
+          localStorage.setItem("vibe.mobile.text-scale", String(textScale));
           localStorage.setItem("vibe.ui.seeded", "1");
         }
         // 自绘控件的事件轨迹:面板关不掉时,失败信息里带上点击与面板出现/消失的先后
+        window.__requestCounts = {};
         window.__missingRequests = [];
         window.__trace = [];
         window.__sharedFiles = [];
@@ -151,6 +153,12 @@ try {
           if (command === "mobile_api") {
             const request = args.request;
             const route = request.path.split("?")[0];
+            window.__requestCounts[route] = (window.__requestCounts[route] || 0) + 1;
+            if (route === "/mobile/symbol-search") {
+              const result = {status:200,body:{query:request.body?.query ?? "",count:1,source:"synthetic",items:[{symbol:"600519",name:"贵州茅台",market:"SH",pinyin:"GZMT",category:"stock",source:"synthetic"}]}};
+              if (window.__deferSymbolSearch) return await new Promise(resolve => { (window.__releaseSymbolSearch ??= []).push(() => resolve(result)); });
+              return result;
+            }
             if(route==="/mobile/documents") {
               const kind=new URL(request.path,"https://mobile.invalid").searchParams.get("kind")||"note";
               return {status:200,body:{...responses[route],kind,items:responses[route].items.map(item=>({...item,kind,status:kind==="inbox"?"unread":"active"}))}};
@@ -176,7 +184,121 @@ try {
           }
           throw new Error("Unexpected command: " + command);
         } }, notification: { isPermissionGranted: async () => false, requestPermission: async () => "granted", sendNotification() {} } };
-      }, { responses, quote, klineRows, theme });
+      }, { responses, quote, klineRows, theme, textScale: Number(process.env.VIBE_UI_TEXT_SCALE || 100) });
+      const openWorkspaceTab = async (name) => {
+        if(await page.locator('.mobile-main').getAttribute('data-page') !== 'functions') await page.getByRole('button',{name:'全部功能',exact:true}).click();
+        await page.getByRole('group',{name:'功能分类',exact:true}).getByRole('button',{name:'全部',exact:true}).click();
+        await page.getByLabel('搜索功能',{exact:true}).fill(name);
+        await page.locator('.directory-grid button').filter({has:page.getByText(name,{exact:true})}).click();
+        const sizes=await page.locator('.group-tabs button').evaluateAll(items=>items.map(item=>item.getBoundingClientRect().height));
+        assert.ok(sizes.every(height=>height>=44),'navigation touch targets');
+      };
+      if (process.env.VIBE_UI_NAVIGATION_ONLY) {
+        const nav = name => page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:new RegExp('^'+name)});
+        const check = async name => {
+          assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' root overflow');
+          assert.equal(await page.locator('.mobile-main .mobile-page-body').count(),1,'inactive routes are detached from the document');
+          await page.screenshot({path:path.join(out,`${width}-${theme}-${name}.png`)});
+          routeCoverage.push({page:name,width,theme,state:'navigation-and-state',overflow:false});
+        };
+        await page.goto('http://127.0.0.1:4173/#'+MOBILE_PATHS.market,{waitUntil:'networkidle'});
+        await page.locator('.mo-wrap').waitFor();
+        assert.equal(await page.locator('.home-shortcuts button').count(),4);
+        await page.getByText('编辑常用功能',{exact:true}).click();
+        await page.getByLabel('交易日志',{exact:true}).uncheck();
+        await page.getByLabel('今日情绪',{exact:true}).check();
+        await page.reload({waitUntil:'networkidle'});
+        assert.equal(await page.locator('.home-shortcuts button').count(),4);
+        assert.equal(await page.locator('.home-shortcuts').getByRole('button',{name:/今日情绪/}).count(),1,'shortcut preference survives reload');
+        await check('home');
+        await page.getByLabel('股票搜索',{exact:true}).fill('贵州');
+        await page.waitForFunction(()=>window.__requestCounts['/mobile/symbol-search']>0 && document.querySelector('.mobile-search button')?.disabled===false);
+        await page.evaluate(()=>{window.__deferSymbolSearch=true;});
+        await page.getByRole('button',{name:'查询',exact:true}).click();
+        await page.waitForFunction(()=>window.__releaseSymbolSearch?.length>0);
+        await nav('盯盘').click();
+        await page.evaluate(()=>{window.__deferSymbolSearch=false;window.__releaseSymbolSearch.forEach(resolve=>resolve());});
+        await page.waitForTimeout(100);
+        assert.equal(await page.locator('.mobile-main').getAttribute('data-page'),'watch','a late search result cannot navigate from a hidden page');
+        await nav('首页').click();
+        await openWorkspaceTab('研究记录');
+        await page.getByLabel('检索资料',{exact:true}).fill('合成');
+        await page.evaluate(()=>{window.__savedLibrary=document.querySelector('.mobile-library');window.scrollTo(0,300);});
+        const oldY=await page.evaluate(()=>window.scrollY);
+        await nav('首页').click();
+        await nav('研究').click();
+        assert.equal(await page.getByLabel('检索资料',{exact:true}).inputValue(),'合成');
+        await page.waitForFunction(y=>Math.abs(window.scrollY-y)<3,oldY);
+        await check('research-restored');
+        await nav('盯盘').click();
+        await page.getByRole('button',{name:/贵州茅台/}).first().click();
+        await page.getByRole('tab',{name:'公司资料',exact:true}).click();
+        await page.getByRole('tab',{name:'财务',exact:true}).waitFor();
+        await page.evaluate(()=>{window.__savedStock=document.querySelector('.stock-workspace');});
+        await nav('首页').click();
+        assert.equal(await page.evaluate(()=>window.__savedStock.isConnected),false);
+        await nav('盯盘').click();
+        assert.equal(await page.locator('.mobile-main').getAttribute('data-page'),'stock');
+        assert.equal(await page.getByRole('tab',{name:'公司资料',exact:true}).getAttribute('aria-selected'),'true');
+        assert.equal(await page.evaluate(()=>window.__savedStock===document.querySelector('.stock-workspace')),true,'stock workspace retains component and chart state');
+        assert.equal(await page.locator('.mobile-nav [aria-current] span').innerText(),'盯盘');
+        await page.getByRole('button',{name:'返回',exact:true}).click();
+        await page.locator('.mobile-main[data-page=watch]').waitFor();
+        await check('watch-parent');
+        await page.evaluate(()=>{localStorage.setItem('vibe.mobile.refresh','30');window.dispatchEvent(new Event('storage'));});
+        await openWorkspaceTab('实时动态');
+        await page.getByRole('heading',{name:'实时动态',exact:true}).waitFor();
+        await nav('首页').click();
+        const polls=await page.evaluate(()=>window.__requestCounts['/mobile/watch/poll']||0);
+        await page.waitForTimeout(3500);
+        assert.equal(await page.evaluate(()=>window.__requestCounts['/mobile/watch/poll']||0),polls,'hidden monitor stops polling');
+        await nav('复盘').click();
+        assert.equal(await page.locator('.hub-section').count(),3);
+        assert.equal(await page.locator('.workspace-sections').count(),0);
+        await page.getByText('市场盘面',{exact:true}).click();
+        await page.locator('.hub-links').getByRole('button',{name:'今日情绪',exact:true}).click();
+        await page.getByRole('button',{name:'全部功能',exact:true}).click();
+        assert.equal(await page.getByRole('group',{name:'功能分类',exact:true}).getByRole('button',{name:'复盘',exact:true}).getAttribute('aria-pressed'),'true');
+        assert.equal(await page.getByLabel('搜索功能',{exact:true}).inputValue(),'');
+        await page.getByRole('button',{name:'返回',exact:true}).click();
+        await page.getByRole('button',{name:'页面更多操作',exact:true}).click();
+        const menu=page.getByRole('dialog',{name:'页面操作',exact:true});
+        await menu.waitFor();
+        await menu.getByRole('button',{name:'分享图',exact:true}).focus();
+        await page.keyboard.press('Tab');
+        assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'关闭面板','Tab stays in the panel');
+        await page.keyboard.press('Shift+Tab');
+        assert.equal(await page.evaluate(()=>document.activeElement.textContent.trim()),'分享图','reverse Tab stays in the panel');
+        await menu.getByRole('button',{name:'分享图',exact:true}).click();
+        const share=page.getByRole('dialog',{name:'文字摘要分享',exact:true});
+        await share.waitFor();
+        await check('share-sheet');
+        await page.keyboard.press('Escape');
+        await share.waitFor({state:'detached'});
+        assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'页面更多操作','Escape restores the menu trigger');
+        await check('review');
+        await nav('我的').click();
+        assert.equal(await page.locator('.directory-grid').getByText('我的研报',{exact:true}).count(),0);
+        await page.locator('.directory-grid').getByRole('button',{name:/^外观与显示/}).click();
+        await page.getByRole('combobox',{name:'文字大小',exact:true}).click();
+        await page.getByRole('option',{name:'特大 · 200%',exact:true}).click();
+        assert.equal(await page.locator('html').getAttribute('data-mobile-text-scale'),'200');
+        await check('large-text-settings');
+        await openWorkspaceTab('个股深挖');
+        await page.getByLabel('股票搜索',{exact:true}).focus();
+        await page.setViewportSize({width,height:450});
+        await page.waitForFunction(()=>document.documentElement.dataset.mobileKeyboard==='open');
+        assert.equal(await page.locator('.mobile-nav').isVisible(),false,'editing leaves room for the keyboard');
+        await page.evaluate(()=>document.activeElement.blur());
+        await page.setViewportSize({width,height:850});
+        await page.waitForFunction(()=>document.documentElement.dataset.mobileKeyboard==='closed');
+        assert.equal(await page.locator('.mobile-nav').isVisible(),true);
+        await check('large-text-research');
+        const missing=await page.evaluate(()=>window.__missingRequests||[]);
+        assert.deepEqual(missing,[]);
+        await context.close();continue;
+      }
+
       if (process.env.VIBE_UI_REVENUE_ONLY) {
         await page.goto("http://127.0.0.1:4173/#"+MOBILE_PATHS.signals,{waitUntil:"networkidle"});
         await page.getByText("更多温度计：台系供应链月营收",{exact:true}).click();
@@ -253,7 +375,9 @@ try {
         fs.mkdirSync(path.join(out,"page-previews"),{recursive:true});
         for (const [name,route] of Object.entries(MOBILE_PATHS)) {
           const target=route+(name==="stock"?"/600519":name==="board"?"/BK0475":"");
-          await page.goto("http://127.0.0.1:4173/?layout="+name+"#"+target,{waitUntil:"networkidle"});
+          const url = "http://127.0.0.1:4173/?layout="+name+"#"+target;
+          try { await page.goto(url,{waitUntil:"networkidle"}); }
+          catch (error) { if (!String(error).includes("ERR_ABORTED") || page.url() !== url) throw error; await page.waitForLoadState("networkidle"); }
           await page.locator(`.mobile-main[data-page="${name}"]`).waitFor();
           await page.locator(".mobile-page-body").waitFor();
           await page.waitForFunction(()=>{const el=document.querySelector(".mobile-page-body");return el&&el.textContent.trim()!=="加载中…"&&el.textContent.trim()!=="加载中...";});
@@ -268,8 +392,8 @@ try {
             layout.missing.forEach(r=>missingRequests.add(r));
             routeCoverage.push({page:name,route:target,width,theme,state,...layout});
             fs.writeFileSync(path.join(out,"route-audit.json"),JSON.stringify({routeCoverage,missingRequests:[...missingRequests],errors},null,2));
-            assert.ok(layout.scroll<=width+1,`${name}/${state} overflow ${layout.scroll}/${width}`);
-            assert.deepEqual(layout.small,[],`${name}/${state} small controls`);
+            if (!process.env.VIBE_UI_LAYOUT_DIAGNOSTIC) assert.ok(layout.scroll<=width+1,`${name}/${state} overflow ${layout.scroll}/${width}`);
+            if (!process.env.VIBE_UI_LAYOUT_DIAGNOSTIC) assert.deepEqual(layout.small,[],`${name}/${state} small controls`);
             assert.deepEqual(layout.missing,[],`${name} fixture coverage`);
             assert.ok(layout.text>5,`${name} contains content`);
             await page.screenshot({path:path.join(out,"page-previews",`${width}-${theme}-${name}${state==="default"?"":"-"+state}.png`),fullPage:true});
@@ -296,6 +420,7 @@ try {
           if(name==="news") {
             for(const label of ["A 股公告","事件概率","产业资讯"]){await page.locator('.mobile-page-body [role=tablist] button').filter({hasText:label}).first().click();await page.waitForTimeout(150);await inspect("news-"+label);}
           }
+          if(name==="market") { await page.getByText("查看封板读数与涨跌分布",{exact:true}).click(); await inspect("expanded"); }
           if(name==="settings") {
             await page.getByRole("navigation",{name:"设置分区"}).getByRole("button",{name:"模型",exact:true}).click();await page.waitForTimeout(150);await inspect("model");
           }
@@ -331,27 +456,7 @@ try {
         await page.screenshot({path:path.join(out,"layout-previews",`${width}-${theme}-${name}.png`)});
       };
       const openSettings = async () => {
-        await page.getByRole("navigation", {name:"主导航"}).getByRole("button",{name:/^我的/}).click();
-        await page.locator(".directory-grid").getByRole("button", {name:/^应用设置/}).click();
-      };
-      const openWorkspaceTab = async (name) => {
-        const tab = page.locator(".group-tabs").getByRole("tab", {name, exact:true});
-        if (await tab.count() === 0) {
-          const groups = {
-            "市场复盘": ["今日情绪","连板天梯","涨停全表","首板名单","盘面事实","行业题材","市场面板"],
-            "复盘记录": ["每日复盘","明日验证","近 5 天","情绪历史","涨停样本","结构变化"],
-            "交易日志": ["交易日志","交易统计","风险与纪律","模式卡"],
-            "交易分析": ["复查","入场环境","看错还是没执行好","问题记录"],
-            "个股研究": ["个股深挖","候选池","历史回测","AI 助手"],
-            "产业资讯": ["板块轮动","产业研究","资讯雷达","产业信号"],
-          };
-          const section=Object.keys(groups).find(key=>groups[key].includes(name));
-          assert.ok(section,"known workspace section for "+name);
-          await page.locator(".workspace-sections").getByRole("button",{name:section,exact:true}).click();
-        }
-        await tab.click();
-        const sizes=await page.locator(".group-tabs button").evaluateAll(items=>items.map(item=>item.getBoundingClientRect().height));
-        assert.ok(sizes.every(height=>height>=44),"navigation touch targets stay at least 44px in compact mode");
+        if (await page.locator(".mobile-main").getAttribute("data-page") !== "settings") await openWorkspaceTab("应用设置");
       };
       const assertChartShare = async (name, requiredText) => {
         const card=page.getByRole("region",{name:"当前图表图片分享",exact:true});
@@ -384,17 +489,17 @@ try {
       assert.ok(navTops.length === 5 && Math.max(...navTops) - Math.min(...navTops) < 2, "bottom navigation must keep five primary groups in one row");
       await page.getByRole("region", { name: "情绪速览" }).getByText("炸板率", { exact: true }).waitFor();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-home.png"), fullPage: true });
-      assert.equal(await page.locator(".public-page-buttons").evaluate(el=>getComputedStyle(el).position),"static","page tools do not float over market readings");
+      assert.equal(await page.getByRole("button",{name:"页面更多操作",exact:true}).count(),1,"public actions live in a single header menu");
       await captureLayout("home");
       const homePositions=await page.evaluate(()=>({search:document.querySelector(".mobile-search").getBoundingClientRect().top,shortcuts:document.querySelector(".home-shortcuts").getBoundingClientRect().top,market:document.querySelector(".mo-wrap").getBoundingClientRect().top}));
-      assert.ok(homePositions.search<homePositions.shortcuts&&homePositions.shortcuts<homePositions.market,"search and common actions precede market details");
+      assert.ok(homePositions.search<homePositions.market&&homePositions.market<homePositions.shortcuts,"search and market summary precede secondary shortcuts");
       assert.ok(await page.locator(".mobile-nav button").evaluateAll(items=>items.every(item=>item.getBoundingClientRect().height>=48)));
       await page.getByRole("button",{name:"全部功能",exact:true}).click();
       await page.getByRole("group",{name:"功能分类",exact:true}).getByRole("button",{name:"研究",exact:true}).click();
       await page.getByLabel("搜索功能",{exact:true}).fill("GPU");
       assert.equal(await page.locator(".directory-grid button").count(),1,"search respects the selected category");
       await page.getByRole("button",{name:"清除功能搜索",exact:true}).click();
-      assert.equal(await page.locator(".directory-grid button").count(),8);
+      assert.equal(await page.locator(".directory-grid button").count(),11);
       await assertWidth();
       await page.screenshot({path:path.join(out,`${width}-${theme}-function-directory.png`),fullPage:true});
       await captureLayout("functions");
@@ -404,7 +509,7 @@ try {
       assert.equal(await page.getByLabel("搜索功能",{exact:true}).inputValue(),"","entering My clears an unrelated directory search");
       await page.screenshot({path:path.join(out,`${width}-${theme}-my-workspace.png`),fullPage:true});
       await captureLayout("my");
-      await openSettings();
+      await page.locator(".directory-grid").getByRole("button",{name:/^外观与显示/}).click();
       await page.getByRole("button",{name:"白色模式",exact:true}).waitFor();
       assert.equal(await page.locator('.mobile-nav [aria-current="page"] > span').innerText(),"我的");
       await page.getByRole("button",{name:"返回",exact:true}).click();
@@ -472,7 +577,7 @@ try {
       await assertChartShare("backtest","历史制度存在缺口");
       // 研报文件导入:选文本文件 → 预览 → 取消
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^我的/ }).click();
-      await page.locator(".directory-grid button", { hasText: "保存、查阅与检索报告正文" }).click();
+      await openWorkspaceTab("我的研报");
       await page.getByRole("button", { name: "从文件导入研报", exact: false }).click();
       await page.locator('.report-import input[type=file]').setInputFiles({ name: "样本报告.md", mimeType: "text/markdown", buffer: Buffer.from("# 样本报告 这是合成的测试正文。", "utf8") });
       await page.getByLabel("研报导入预览").waitFor();
@@ -483,7 +588,7 @@ try {
       await page.locator(".mo-wrap").waitFor();
       await openSettings();
       await page.getByRole("button", { name: "白色模式", exact: true }).waitFor();
-      assert.equal((await page.locator(".appearance-refresh .wc-select").innerText()).trim(), "仅手动刷新");
+      assert.equal((await page.locator(".appearance-refresh [aria-label=前台行情刷新]").innerText()).trim(), "仅手动刷新");
       assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-settings.png"), fullPage: true });
@@ -494,11 +599,11 @@ try {
       assert.match(await page.getByRole("alertdialog").innerText(), /Android Keystore 里的 API Key/);
       await page.getByRole("button", { name: "取消", exact: true }).click();
       await page.getByRole("alertdialog").waitFor({ state: "detached" });
-      await page.locator(".appearance-refresh .wc-select").click();
+      await page.locator(".appearance-refresh [aria-label=前台行情刷新]").click();
       await page.getByRole("option", { name: "每 30 秒", exact: true }).click();
       await layerGone("选完下拉选项");
-      await page.waitForFunction(() => document.querySelector(".appearance-refresh .wc-select")?.textContent?.trim() === "每 30 秒");
-      await page.locator(".appearance-refresh .wc-select").click();
+      await page.waitForFunction(() => document.querySelector(".appearance-refresh [aria-label=前台行情刷新]")?.textContent?.trim() === "每 30 秒");
+      await page.locator(".appearance-refresh [aria-label=前台行情刷新]").click();
       await page.getByRole("option", { name: "仅手动刷新", exact: true }).click();
       await layerGone("选完下拉选项");
       await page.getByRole("button", { name: "模型 API 设置", exact: true }).click();
@@ -573,6 +678,7 @@ try {
       await page.getByRole("tab", { name: "日K", exact: true }).click();
       // 盯盘栏目:实时动态的异动流与名单页签,名单页签单行横向滚动
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "盯盘", exact: true }).click();
+      await openWorkspaceTab("实时动态");
       await page.getByRole("heading", { name: "实时动态", exact: true }).waitFor();
       await page.getByText("触及涨停 9.33", { exact: true }).waitFor();
       await page.getByRole("tab", { name: "昨日梯队", exact: false }).click();
@@ -641,11 +747,12 @@ try {
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-intraday.png"), fullPage: true });
       // 复盘栏目:底部一级导航 → 今日情绪,栏目内子页签单行横向滚动 → 连板天梯。
       await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: "复盘", exact: true }).click();
+      await openWorkspaceTab("今日情绪");
       await page.getByRole("heading", { name: "今日情绪", exact: true }).waitFor();
       await page.getByText("连续两日走强", { exact: true }).waitFor();
       await page.locator(".group-tabs").getByRole("button",{name:"全部功能",exact:true}).click();
       assert.equal(await page.getByRole("group",{name:"功能分类",exact:true}).getByRole("button",{name:"复盘",exact:true}).getAttribute("aria-pressed"),"true");
-      assert.equal(await page.locator(".directory-grid button").count(),21,"all market and journal tools remain reachable in the review directory");
+      assert.equal(await page.locator(".directory-grid button").count(),22,"all market and journal tools remain reachable in the review directory");
       await assertWidth();
       await page.screenshot({path:path.join(out,`${width}-${theme}-review-directory.png`),fullPage:true});
       await page.getByRole("button",{name:"返回",exact:true}).click();
@@ -656,7 +763,7 @@ try {
       await page.getByRole("img", { name: /情绪复盘分享图预览/ }).waitFor();
       assert.ok(await page.getByRole("img", { name: /情绪复盘分享图预览/ }).evaluate((img) => img.naturalWidth === 720), "分享图宽 720");
       const tabTops = await page.locator(".group-tabs [role=tab]").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top));
-      assert.ok(tabTops.length === 7 && Math.max(...tabTops) - Math.min(...tabTops) < 2, "market review only shows its seven related pages in one scrollable row");
+      assert.equal(tabTops.length,0,"market pages use hierarchical navigation rather than seven parallel tabs");
       await assertWidth();
       await page.screenshot({ path: path.join(out, width + "-" + theme + "-emotion.png"), fullPage: true });
       // 问 AI:点页面上的按钮 → 跳到 AI 对话,预填问题并勾选「附带当前页面」(只是勾选,不发送)
@@ -721,7 +828,7 @@ try {
       const fields=await page.locator(".journal-v2-editor :is(input,button)").evaluateAll(items=>items.map(item=>item.getBoundingClientRect().height));
       assert.ok(fields.every(height=>height>=44),"journal form keeps usable touch targets");
       await page.getByRole("button",{name:"记一笔",exact:true}).click();
-      assert.equal(await page.locator(".group-tabs [role=tab]").count(),4,"journal navigation excludes market-only pages");
+      assert.equal(await page.locator(".group-tabs [role=tab]").count(),0,"journal uses contextual navigation");
       await page.screenshot({path:path.join(out,`${width}-${theme}-journal-navigation.png`),fullPage:true});
       await page.getByRole("button", { name: "从表格导入成交与分红", exact: false }).click();
       await page.getByRole("button", { name: "填入示例", exact: true }).click();
@@ -784,6 +891,7 @@ try {
     }
   }
   assert.deepEqual(errors, []);
+  assert.deepEqual(routeCoverage.filter(item => item.scroll > item.width + 1 || item.small?.length).map(item => ({page:item.page,state:item.state,scroll:item.scroll,small:item.small})), [], "All recorded layouts must pass, including diagnostic runs");
   fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [...new Set(routeCoverage.map(x=>x.width))], themes: [...new Set(routeCoverage.map(x=>x.theme))], screenshots: fs.readdirSync(out).filter(x=>x.endsWith(".png")).length, chart_png_exports: fs.existsSync(path.join(out,"chart-exports"))?fs.readdirSync(path.join(out,"chart-exports")).length:0, route_coverage: routeCoverage, missing_requests: [...missingRequests], page_errors: errors }, null, 2));
   console.log(`Mobile UI smoke passed: ${routeCoverage.length} route/state/viewport checks; ${new Set(routeCoverage.map(x=>x.page)).size} routes; ${missingRequests.size} missing fixture endpoints; ${errors.length} page errors.`);
 } catch (error) {

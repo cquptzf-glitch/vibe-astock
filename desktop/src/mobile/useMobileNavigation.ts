@@ -24,5 +24,5 @@ export function useMobileNavigation() {
     return () => { unsubscribe(); stopNative(); };
   }, [navigation]);
 
-  return { route: parseMobileRoute(path)!, navigate: navigation.navigate, back: navigation.back };
+  return { route: parseMobileRoute(path)!, navigate: navigation.navigate, workspace: navigation.workspace(), switchWorkspace: (group: Parameters<typeof navigation.switchWorkspace>[0]) => navigation.switchWorkspace(group), back: navigation.back };
 }

@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 /**
  * 网页自绘控件:替换 Android WebView 自带的下拉、日期选择、确认/提示对话框。
  * 系统控件在不同机型上长相不一、不跟主题、会把页面顶出去;这里全部用页面里的元素画,跟着明暗主题和紧凑密度走。
@@ -43,12 +44,29 @@ export function useDismiss(open: boolean, close: () => void) {
  * (Chrome / Android WebView 都会这样,只是时机不同,慢机器上更容易撞上。)遮罩是 button,点遮罩同理不会被转发。
  */
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
-  useDismiss(open, onClose);
+  const active = usePageActive();
+  const panel = useRef<HTMLDivElement>(null);
+  useDismiss(open && active, onClose);
+  useEffect(() => { if (open && !active) onClose(); }, [open, active, onClose]);
+  useEffect(() => {
+    if (!open || !active) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = requestAnimationFrame(() => panel.current?.querySelector<HTMLElement>("button")?.focus());
+    return () => { cancelAnimationFrame(frame); document.body.style.overflow = oldOverflow; if (previous?.isConnected) previous.focus({preventScroll:true}); };
+  }, [open, active]);
   const host = typeof document === "undefined" ? null : document.querySelector(".mobile-app") ?? document.body;
-  if (!open || !host) return null;
+  if (!open || !active || !host) return null;
   return createPortal(<div className="wc-layer">
     <button type="button" className="wc-backdrop" aria-label="关闭" tabIndex={-1} onClick={onClose} />
-    <div className="wc-sheet" role="dialog" aria-label={title}><div className="wc-sheet-head"><strong>{title}</strong><button type="button" onClick={onClose} aria-label="关闭面板">关闭</button></div>{children}</div>
+    <div ref={panel} className="wc-sheet" role="dialog" aria-modal="true" aria-label={title} onKeyDown={event => {
+      if (event.key !== "Tab") return;
+      const targets = [...(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]') ?? [])].filter(item => item.getClientRects().length > 0);
+      const first = targets[0], last = targets.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }}><div className="wc-sheet-head"><strong>{title}</strong><button type="button" onClick={onClose} aria-label="关闭面板">关闭</button></div>{children}</div>
   </div>, host);
 }
 

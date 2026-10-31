@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import { useEffect, useMemo, useState } from "react";
 import { WebSelect, DateField } from "./controls";
 import { priv, usePrivacyMode } from "./privacy";
@@ -177,6 +178,7 @@ function FillEditor({ fills, onChange }: { fills: FillDraft[]; onChange: (fills:
 }
 
 export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
+  const active = usePageActive();
   const [data, setData] = useState<JournalView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -220,7 +222,7 @@ export function JournalPanelV2({ onOpenSymbol }: { onOpenSymbol: (symbol: string
     finally { setLoading(false); }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { if (active) void load(); }, [active]);
 
   function resetCreate() {
     const today = chinaToday();

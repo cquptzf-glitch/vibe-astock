@@ -14,19 +14,19 @@
   align-items: center;
   gap: 6px;
   color: var(--mobile-accent);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
 .settings-title-row h1 {
   margin: 5px 0 0;
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 
 .settings-title-row p {
   margin: 5px 0 0;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -55,7 +55,7 @@
   border-radius: 14px;
   color: var(--mobile-muted);
   background: var(--mobile-card);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -101,18 +101,18 @@
 .settings-cards span {
   margin-top: 9px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .settings-cards strong {
   margin-top: 4px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .settings-cards small {
   margin-top: 3px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .settings-block {
@@ -134,7 +134,7 @@
   padding: 13px 14px;
   border-bottom: 1px solid var(--mobile-border);
   color: var(--mobile-text);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .settings-heading svg {
@@ -144,7 +144,7 @@
 .settings-heading > span {
   margin-left: auto;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -155,7 +155,7 @@
 .settings-notification-body p {
   margin: 0;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
   line-height: 1.7;
 }
 
@@ -177,7 +177,7 @@
   border-radius: 10px;
   color: var(--mobile-text);
   background: var(--mobile-soft);
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -206,12 +206,12 @@
 
 .settings-list span {
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .settings-list b {
   color: var(--mobile-text);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -223,7 +223,7 @@
 .settings-tip {
   margin: 0;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
   line-height: 1.7;
 }
 
@@ -242,6 +242,6 @@
   }
 }
 
-.settings-passphrase { display: grid; gap: 4px; margin: 6px 0; font-size: 12px; color: var(--mobile-muted); }
-.mobile-app .settings-passphrase input { min-height: 34px; padding: 0 9px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 13px; min-width: 0; }
+.settings-passphrase { display: grid; gap: 4px; margin: 6px 0; font-size: 0.75rem; color: var(--mobile-muted); }
+.mobile-app .settings-passphrase input { min-height: 34px; padding: 0 9px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 0.8125rem; min-width: 0; }
 .mobile-app .settings-actions button.danger { border-color: color-mix(in srgb, var(--mobile-up) 45%, var(--mobile-border)); color: var(--mobile-up); }

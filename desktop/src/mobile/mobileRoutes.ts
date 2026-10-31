@@ -1,4 +1,6 @@
+import { workspaceGroup, WORKSPACE_GROUPS, type WorkspaceGroup } from "./workspace.ts";
 export const MOBILE_PATHS = {
+  reviewHome: "/mobile/review",
   functions: "/mobile/functions",
   my: "/mobile/my",
   messages: "/mobile/my/messages",
@@ -112,6 +114,14 @@ export function createMobileNavigation(host: NavigationHost, restoredPath = "") 
     host.history.replaceState({ [STATE_KEY]: 0 }, "", "#" + HOME);
     if (initialPath !== HOME) host.history.pushState({ [STATE_KEY]: 1 }, "", "#" + initialPath);
   }
+  const parents = new Map<string, string>();
+  const remembered = new Map<WorkspaceGroup, string>();
+  const owner = (): WorkspaceGroup => {
+    const saved = (host.history.state as Record<string, unknown> | null)?.vibeWorkspace;
+    return WORKSPACE_GROUPS.some(g => g.id === saved) ? saved as WorkspaceGroup : workspaceGroup(parseMobileRoute(snapshot())!.page);
+  };
+  const remember = () => { if (parseMobileRoute(snapshot())?.page !== "functions") remembered.set(owner(), snapshot()); };
+  remember();
   const subscribers = new Set<() => void>();
   function snapshot(): string {
     return mobilePath(parseMobileRoute(host.location.hash) ?? { page: "market" });
@@ -120,10 +130,27 @@ export function createMobileNavigation(host: NavigationHost, restoredPath = "") 
     if (!parseMobileRoute(host.location.hash)) {
       host.history.replaceState({ [STATE_KEY]: depth(host.history.state) ?? 0 }, "", "#" + HOME);
     }
+    remember();
     for (const listener of subscribers) listener();
   }
   return {
     snapshot,
+    workspace: owner,
+    switchWorkspace(group: WorkspaceGroup) {
+      if (group === owner() && parseMobileRoute(snapshot())?.page !== "functions") return;
+      const path = remembered.get(group);
+      if (path) {
+        const trail: string[] = [], seen = new Set([path]);
+        let parent = parents.get(group + ":" + path);
+        while (parent && !seen.has(parent) && trail.length < 20) {
+          seen.add(parent); trail.unshift(parent); parent = parents.get(group + ":" + parent);
+        }
+        // Rebuild this tab's parent chain in browser history so native Back and
+        // the visible back button both return to its own list after switching.
+        for (const entry of trail) host.history.pushState({ [STATE_KEY]: (depth(host.history.state) ?? 0) + 1, vibeWorkspace: group }, "", "#" + entry);
+      }
+      this.navigate(path ? parseMobileRoute(path)! : { page: WORKSPACE_GROUPS.find(g => g.id === group)!.home }, group);
+    },
     subscribe(listener: () => void) {
       if (subscribers.size === 0) {
         host.addEventListener("popstate", changed);
@@ -138,10 +165,12 @@ export function createMobileNavigation(host: NavigationHost, restoredPath = "") 
         }
       };
     },
-    navigate(route: MobileRoute) {
+    navigate(route: MobileRoute, group?: WorkspaceGroup) {
       const path = mobilePath(route);
       if (path === snapshot()) return;
-      host.history.pushState({ [STATE_KEY]: (depth(host.history.state) ?? 0) + 1 }, "", "#" + path);
+      const nextGroup = group ?? (["stock", "board", "functions"].includes(route.page) ? owner() : workspaceGroup(route.page));
+      if (nextGroup === owner()) parents.set(nextGroup + ":" + path, snapshot());
+      host.history.pushState({ [STATE_KEY]: (depth(host.history.state) ?? 0) + 1, vibeWorkspace: nextGroup }, "", "#" + path);
       changed();
     },
     back() {

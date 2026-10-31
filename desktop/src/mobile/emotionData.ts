@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { ProviderFailure } from "./discoveryData";
 
@@ -101,11 +102,13 @@ const cache = new Map<string, { at: number; body: unknown }>();
 export function clearEmotionCache() { cache.clear(); }
 
 export function useCachedResource<T>(path: string) {
+  const active = usePageActive();
   const cached = cache.get(path);
   const fresh = cached && Date.now() - cached.at < CACHE_MS ? cached.body as T : null;
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState<{ path: string; data: T | null; loading: boolean; error: string }>({ path, data: fresh, loading: !fresh, error: "" });
   useEffect(() => {
+    if (!active) return;
     const hit = cache.get(path);
     if (revision === 0 && hit && Date.now() - hit.at < CACHE_MS) {
       setState({ path, data: hit.body as T, loading: false, error: "" });
@@ -125,7 +128,7 @@ export function useCachedResource<T>(path: string) {
         if (current && !controller.signal.aborted) setState({ path, data: null, loading: false, error: error instanceof Error ? error.message : String(error) });
       });
     return () => { current = false; controller.abort(); };
-  }, [path, revision]);
+  }, [path, revision, active]);
   const refresh = useCallback(() => { cache.delete(path); setRevision((value) => value + 1); }, [path]);
   const view = state.path === path ? state : { path, data: fresh, loading: !fresh, error: "" };
   return { ...view, refresh };

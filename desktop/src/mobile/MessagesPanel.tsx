@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 /**
  * 消息(「我的」):盘前提醒、收盘摘要、自选异动。没有后台推送——打开 App 或点「刷新」时按当天行情生成;
  * 内容只列已经发生的读数,不含持仓、成本、盈亏,不给买卖建议。
@@ -54,6 +55,7 @@ export function MessagesView({ list, onOpen, onRead, onDelete }: { list: Message
 }
 
 export function MessagesPanel({ onNavigate, onUnread }: { onNavigate: (page: MobilePage) => void; onUnread?: (count: number) => void }) {
+  const active = usePageActive();
   const [list, setList] = useState<MessageList | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -69,7 +71,7 @@ export function MessagesPanel({ onNavigate, onUnread }: { onNavigate: (page: Mob
       setNote(out.created.length ? `刚生成:${out.created.map((k) => KIND_LABEL[k] ?? k).join("、")}` : out.skipped.length ? out.skipped.map((s) => `${KIND_LABEL[s.kind] ?? s.kind}:${s.why}`).join(";") : "已是最新");
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
   }, [apply]);
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { if (active) void refresh(); }, [refresh, active]);
 
   const act = async (body: unknown) => {
     try { apply(await call<MessageList>("POST", "/mobile/messages", body)); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }

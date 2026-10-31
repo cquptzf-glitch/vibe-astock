@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import { BrainCircuit, Eraser, MessageSquarePlus, Pencil, RefreshCw, Send, ShieldCheck, Square, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { takeQueuedAiPrompt, useAiPageContext } from "./aiPageContext";
@@ -105,6 +106,7 @@ export function ThreadBar({ threads, current, busy, onSelect, onCreate, onRename
 }
 
 export function AiChatPanel() {
+  const active = usePageActive();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [threads, setThreads] = useState<ThreadInfo[]>([]);
   const [thread, setThread] = useState(savedThread);
@@ -148,9 +150,9 @@ export function AiChatPanel() {
 
   useEffect(() => { void load(); }, []);
   useEffect(() => { try { window.localStorage.setItem(THREAD_KEY, String(thread)); } catch { /* 可选 */ } }, [thread]);
-  useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [messages, sending, streamText]);
+  useEffect(() => { if (active) endRef.current?.scrollIntoView({ block: "end" }); }, [messages, sending, streamText, active]);
   // 从页面上的「问 AI」按钮跳过来:预填问题并附带那一页(用户还可以取消勾选、改问题)
-  useEffect(() => { const q = takeQueuedAiPrompt(); if (q) { setDraft(q); setAttach(true); } }, []);
+  useEffect(() => { if (!active) return; const q = takeQueuedAiPrompt(); if (q) { setDraft(q); setAttach(true); } }, [active]);
 
   async function send() {
     const content = draft.trim();

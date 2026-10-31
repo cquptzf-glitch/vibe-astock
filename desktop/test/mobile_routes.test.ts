@@ -106,3 +106,40 @@ test("异常监控经个股进入所属板块，多级返回保留来源路由",
   assert.equal(nav.snapshot(), "/mobile/shortline/risk");
   stop();
 });
+
+
+test("栏目保留各自的最近页面，股票沿用来源栏目；重复点当前栏目不重置", () => {
+  const b = browser();
+  const nav = createMobileNavigation(b.host);
+  nav.switchWorkspace("watch");
+  assert.equal(nav.snapshot(), "/mobile/my/watch");
+  nav.navigate({ page: "stock", symbol: "600519" });
+  assert.equal(nav.workspace(), "watch");
+  nav.switchWorkspace("review");
+  assert.equal(nav.snapshot(), "/mobile/review");
+  nav.navigate({ page: "journalRisk" });
+  nav.switchWorkspace("watch");
+  assert.equal(nav.snapshot(), "/mobile/stock/600519");
+  const count = b.entries.length;
+  nav.switchWorkspace("watch");
+  assert.equal(b.entries.length, count);
+  nav.back();
+  assert.equal(nav.snapshot(), "/mobile/my/watch");
+  nav.switchWorkspace("review");
+  assert.equal(nav.snapshot(), "/mobile/journal/risk");
+  nav.navigate({page: "notes"});
+  assert.equal(nav.workspace(), "research");
+});
+
+test("全功能目录不替换栏目最近页面，同栏目按钮可以退出目录", () => {
+  const b = browser(); const nav = createMobileNavigation(b.host);
+  nav.navigate({page:"functions"});
+  nav.navigate({page:"reports"});
+  nav.switchWorkspace("overview");
+  assert.equal(nav.snapshot(),"/mobile/market");
+  nav.switchWorkspace("review");
+  nav.navigate({page:"ladder"});
+  nav.navigate({page:"functions"});
+  nav.switchWorkspace("review");
+  assert.equal(nav.snapshot(),"/mobile/review/ladder");
+});

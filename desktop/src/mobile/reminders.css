@@ -37,14 +37,14 @@
 
 .reminder-scheduler strong {
   color: var(--mobile-text);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .reminder-scheduler span {
   margin-top: 3px;
   overflow-wrap: anywhere;
   color: inherit;
-  font-size: 9px;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -81,7 +81,7 @@
 .reminder-footer-fields label,
 .reminder-review-grid label {
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .reminder-switch {
@@ -103,7 +103,7 @@
   border-radius: 9px;
   background: var(--mobile-soft);
   color: var(--mobile-text);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .reminder-kind-grid button.active,
@@ -147,7 +147,7 @@
 .reminder-hint {
   margin: 8px 0 0;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
   line-height: 1.55;
 }
 
@@ -192,7 +192,7 @@
 .reminder-summary {
   margin: 12px 2px 7px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .reminder-summary span + span {
@@ -250,7 +250,7 @@
 .reminder-open strong {
   overflow: hidden;
   color: var(--mobile-text);
-  font-size: 12px;
+  font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -258,13 +258,13 @@
 .reminder-open span {
   margin-top: 3px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .reminder-open small {
   margin-top: 2px;
   color: var(--mobile-muted);
-  font-size: 9px;
+  font-size: 0.75rem;
 }
 
 .reminder-actions {

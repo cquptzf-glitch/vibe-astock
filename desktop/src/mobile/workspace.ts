@@ -5,13 +5,14 @@ export type WorkspaceGroup = "overview" | "watch" | "review" | "research" | "my"
 export interface WorkspaceEntry { page: MobilePage; title: string; short: string; detail: string; group: WorkspaceGroup; keywords?: string }
 export const WORKSPACE_GROUPS: { id: WorkspaceGroup; title: string; detail: string; home: MobilePage }[] = [
   { id: "overview", title: "首页", detail: "市场全景、情绪速览与常用入口", home: "market" },
-  { id: "watch", title: "盯盘", detail: "自选、持仓实时动态与风险名单", home: "monitor" },
-  { id: "review", title: "复盘", detail: "情绪复盘、每日复盘与交易日志", home: "emotion" },
-  { id: "research", title: "研究", detail: "个股深挖、板块产业、资讯与研究工具", home: "research" },
-  { id: "my", title: "我的", detail: "事件日历、提醒、资料库与设置", home: "my" },
+  { id: "watch", title: "盯盘", detail: "自选、持仓实时动态与风险名单", home: "watch" },
+  { id: "review", title: "复盘", detail: "情绪复盘、每日复盘与交易日志", home: "reviewHome" },
+  { id: "research", title: "研究", detail: "个股深挖、产业资讯、研究工具与资料", home: "research" },
+  { id: "my", title: "我的", detail: "事件日历、提醒与应用设置", home: "my" },
 ];
 export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "market", title: "市场总览", short: "总览", detail: "六大指数、成交额、涨跌分布与自选报价", group: "overview" },
+  { page: "reviewHome", title: "复盘工作台", short: "复盘", detail: "市场盘面、复盘记录与交易复盘", group: "review" },
   { page: "functions", title: "全部功能", short: "全部", detail: "按工作流程浏览或搜索所有栏目", group: "overview" },
   { page: "monitor", title: "实时动态", short: "实时", detail: "盘中异动流、持仓自选、昨日梯队、大票与昨日成交额前十", group: "watch", keywords: "盯盘 异动 急拉 急跌 封板 开板 梯队" },
   { page: "intraday", title: "竞价与盘中", short: "竞价", detail: "09:25 竞价强弱、全天 6 个时点情绪路径、昨晚验证条件的盘中读数", group: "watch", keywords: "竞价 分时 快照 时点 梯队" },
@@ -50,24 +51,24 @@ export const WORKSPACE_ENTRIES: WorkspaceEntry[] = [
   { page: "messages", title: "消息", short: "消息", detail: "盘前提醒、收盘摘要、自选异动(打开 App 时按当天行情生成,不是推送)", group: "my", keywords: "提醒 摘要 异动 通知" },
   { page: "calendar", title: "事件日历", short: "日历", detail: "事件记录、关联股票与后续验证", group: "my" },
   { page: "reminders", title: "提醒规则", short: "提醒", detail: "复盘、价格条件与通知定位", group: "my" },
-  { page: "notes", title: "研究记录", short: "记录", detail: "正文检索、分类/股票筛选与本地笔记", group: "my" },
-  { page: "reports", title: "我的研报", short: "研报", detail: "保存、查阅与检索报告正文", group: "my" },
-  { page: "inbox", title: "收件箱", short: "收件", detail: "研究线索、未读过滤与处理状态", group: "my" },
+  { page: "notes", title: "研究记录", short: "记录", detail: "正文检索、分类/股票筛选与本地笔记", group: "research" },
+  { page: "reports", title: "我的研报", short: "研报", detail: "保存、查阅与检索报告正文", group: "research" },
+  { page: "inbox", title: "收件箱", short: "收件", detail: "研究线索、未读过滤与处理状态", group: "research" },
   { page: "settings", title: "应用设置", short: "设置", detail: "外观、刷新、模型接入、通知与备份恢复", group: "my", keywords: "主题 备份 恢复" },
 ];
 export interface WorkspaceSection { id: string; group: WorkspaceGroup; title: string; detail: string; pages: MobilePage[] }
 export const WORKSPACE_SECTIONS: WorkspaceSection[] = [
   { id: "overview", group: "overview", title: "市场总览", detail: "先看市场，再开始今天的工作", pages: ["market"] },
-  { id: "watch", group: "watch", title: "盘中跟踪", detail: "行情、名单和实时观察", pages: ["monitor", "watch", "hold", "intraday", "risk"] },
-  { id: "market-review", group: "review", title: "市场复盘", detail: "情绪、梯队和盘面事实", pages: ["emotion", "ladder", "limitUp", "firstBoard", "seal", "themes", "marketReview"] },
+  { id: "watch", group: "watch", title: "盘中跟踪", detail: "行情、名单和实时观察", pages: ["watch", "hold", "monitor", "intraday", "risk"] },
+  { id: "review-home", group: "review", title: "复盘工作台", detail: "今日摘要与复盘入口", pages: ["reviewHome"] },
+  { id: "market-review", group: "review", title: "市场盘面", detail: "情绪、梯队和盘面事实", pages: ["emotion", "ladder", "limitUp", "firstBoard", "seal", "themes", "marketReview"] },
   { id: "review-records", group: "review", title: "复盘记录", detail: "每日记录、历史比较与明日验证", pages: ["daily", "verify", "weekly", "history", "samples", "structure"] },
-  { id: "journal", group: "review", title: "交易日志", detail: "记成交、看统计、检查纪律", pages: ["records", "review", "journalRisk", "journalModes"] },
-  { id: "journal-analysis", group: "review", title: "交易分析", detail: "复查交易、入场环境与执行归因", pages: ["journalExcursion", "journalEnv", "journalAttribution", "journalProblems"] },
+  { id: "journal", group: "review", title: "交易复盘", detail: "记成交、看统计、复查纪律与执行", pages: ["records", "review", "journalRisk", "journalModes", "journalExcursion", "journalEnv", "journalAttribution", "journalProblems"] },
   { id: "stock-research", group: "research", title: "个股研究", detail: "查公司、筛候选、核对历史假设", pages: ["research", "candidate", "backtest", "ai"] },
   { id: "industry-research", group: "research", title: "产业资讯", detail: "板块、产业链、新闻与供需线索", pages: ["rotation", "sector", "news", "signals"] },
   { id: "app", group: "my", title: "应用与数据", detail: "外观、模型接入与备份恢复", pages: ["settings"] },
   { id: "agenda", group: "my", title: "日程与提醒", detail: "消息、日历与提醒规则", pages: ["messages", "calendar", "reminders"] },
-  { id: "library", group: "my", title: "研究资料", detail: "保存研究记录、研报与待处理线索", pages: ["notes", "reports", "inbox"] },
+  { id: "library", group: "research", title: "研究资料", detail: "保存研究记录、研报与待处理线索", pages: ["notes", "reports", "inbox"] },
 ];
 export function sectionEntries(section: WorkspaceSection): WorkspaceEntry[] {
   return section.pages.flatMap((page) => {
@@ -83,7 +84,8 @@ export function workspaceEntry(page: MobilePage): WorkspaceEntry | undefined {
 }
 export function workspaceGroup(page: MobilePage): WorkspaceGroup {
   if (page === "stock" || page === "board") return "research";
-  if (page === "library" || page === "my") return "my";
+  if (page === "library") return "research";
+  if (page === "my") return "my";
   return workspaceEntry(page)?.group ?? "overview";
 }
 export function groupEntries(group: WorkspaceGroup): WorkspaceEntry[] {

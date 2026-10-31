@@ -13,7 +13,7 @@ test("新增周报与产业温度计渲染实际数字、口径和缺失",async(
 
 test("公开页面助手与分享入口不出现在交易和持仓页",async()=>{
   await withRenderer(async r=>{const {PublicPageActions}=await r.load("/src/mobile/PublicPageActions.tsx");
-    assert.match(textOf(r.html(PublicPageActions,{page:"stock",onAsk:()=>{}})),/问 AI 分享图/);
+    assert.match(textOf(r.html(PublicPageActions,{page:"stock",onAsk:()=>{}})),/更多/);
     for(const page of ["hold","records","daily","monitor","settings"])assert.equal(textOf(r.html(PublicPageActions,{page,onAsk:()=>{}})),"");
   });
 });

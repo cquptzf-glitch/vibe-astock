@@ -26,8 +26,14 @@ test("#34 LAN 默认为关，仅同源请求可被归一化，跨站请求不得
   try {
     for (const setting of [undefined, "0", "1"]) {
       if (setting === undefined) delete process.env.VRA_LAN; else process.env.VRA_LAN = setting;
+      // Vite 6 treats port=0 as its default 5173. Reserve an OS-selected port
+      // first so this test never depends on the user's development server.
+      const probe = http.createServer();
+      probe.listen(0, "127.0.0.1"); await once(probe, "listening");
+      const proxyPort = (probe.address() as { port: number }).port;
+      await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
       const server = await createServer({ root, logLevel: "silent", optimizeDeps: { noDiscovery: true, include: [] }, server: {
-        port: 0, hmr: false, proxy: { "/api": { target: `http://127.0.0.1:${targetPort}` } },
+        port: proxyPort, hmr: false, proxy: { "/api": { target: `http://127.0.0.1:${targetPort}` } },
       } });
       try {
         assert.equal(server.config.server.host, setting === "1" ? "0.0.0.0" : "127.0.0.1");

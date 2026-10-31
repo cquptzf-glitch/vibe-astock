@@ -13,7 +13,7 @@
 .mobile-library-input {
   margin-top: 8px;
   padding: 10px 11px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .mobile-library-textarea {
@@ -21,7 +21,7 @@
   margin-top: 8px;
   padding: 11px;
   resize: vertical;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.55;
 }
 
@@ -54,7 +54,7 @@
   padding: 7px 10px;
   color: var(--mobile-text);
   background: var(--mobile-soft);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mobile-library-actions button:last-child {
@@ -96,7 +96,7 @@
 
 .mobile-library-main strong {
   overflow: hidden;
-  font-size: 14px;
+  font-size: 0.875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -104,14 +104,14 @@
 .mobile-library-main span {
   margin-top: 4px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .mobile-library-main p {
   margin: 8px 0 0;
   overflow: hidden;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 

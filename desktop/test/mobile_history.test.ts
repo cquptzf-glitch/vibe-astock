@@ -73,10 +73,10 @@ test("明日验证:对账标成立/不成立/判不了与事后,编辑器显示�
   });
 });
 
-test("复盘栏目子页签包含近 5 天、情绪历史、明日验证,且都有路由", async () => {
+test("复盘功能列表保留近 5 天、情绪历史、明日验证,且都有路由", async () => {
   await withRenderer(async (r) => {
-    const { GroupTabs } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
-    const tabs = flat(r.html(GroupTabs, { page: "verify", onNavigate: open }));
+    const { WorkspaceHub } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
+    const tabs = flat(r.html(WorkspaceHub, { group: "review", onNavigate: open }));
     for (const label of ["近5天", "情绪历史", "明日验证"]) assert.ok(tabs.includes(label), label);
     const { parseMobileRoute } = await r.load("/src/mobile/mobileRoutes.ts");
     assert.deepEqual(parseMobileRoute("#/mobile/review/verify"), { page: "verify" });

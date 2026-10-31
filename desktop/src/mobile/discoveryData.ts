@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import { useEffect, useState } from "react";
 
 export interface ProviderFailure { source: string; message: string }
@@ -10,11 +11,13 @@ export function discoveryRequestPath(path: string, refresh: boolean): string {
 }
 
 export function useDiscoveryData<T>(path: string) {
+  const active = usePageActive();
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState<{ path: string; data: T | null; loading: boolean; error: string }>({
     path, data: null, loading: true, error: "",
   });
   useEffect(() => {
+    if (!active) return;
     let current = true;
     const controller = new AbortController();
     // 同一路径刷新时保留旧数据,避免定时刷新时整块闪空
@@ -29,7 +32,7 @@ export function useDiscoveryData<T>(path: string) {
         if (current) setState({ path, data: null, loading: false, error: error instanceof Error ? error.message : String(error) });
       });
     return () => { current = false; controller.abort(); };
-  }, [path, revision]);
+  }, [path, revision, active]);
   return {
     ...(state.path === path ? state : { path, data: null, loading: true, error: "" }),
     refresh: () => setRevision((value) => value + 1),

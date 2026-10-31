@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 // 「附带当前页面」给 AI:公开行情页面把自己的读数登记在这里,AI 对话里用户明确打开开关才会随这一问发出去。
 //
 // 🔴 个人页面(交易日志各页、持仓、盯盘里的持仓)**不得登记**,并且进入这些页面时清掉上一页留下的登记:
@@ -46,13 +47,16 @@ export function useAiPageContext(): AiPageContext | null {
 
 /** 页面里调用:有内容就登记(离开页面后保留,直到被别的页面覆盖或进入个人页面时清掉) */
 export function useRegisterAiPage(title: string, text: string | null): void {
-  useEffect(() => { if (text) setAiPage(title, text); }, [title, text]);
+  const active = usePageActive();
+  useEffect(() => { if (active && text) setAiPage(title, text); }, [title, text, active]);
 }
 
 /** 「问 AI」按钮:把问题放进待发队列,AI 对话打开时取走(并默认附带当前页面) */
 export function queueAiPrompt(question: string): void {
   queuedPrompt = question.trim() || null;
 }
+
+export const hasQueuedAiPrompt = () => queuedPrompt !== null;
 
 export function takeQueuedAiPrompt(): string | null {
   const q = queuedPrompt;

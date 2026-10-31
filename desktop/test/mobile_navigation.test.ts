@@ -51,23 +51,24 @@ test("通知 IPC 跨 StrictMode 重挂载不丢冷启动入口，后台点击只
   }
 });
 
-test("栏目先分组再显示当前工作页签，五个主栏目保留全部功能入口", async () => {
+test("页面导航只保留当前标题，盯盘使用三个相关视图，复盘和研究通过列表进入", async () => {
   await withRenderer(async (r) => {
-    const { GroupTabs, WorkspaceNav, FunctionDirectory } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
-    const tabs = r.html(GroupTabs, { page: "backtest", onNavigate: () => undefined });
-    assert.match(tabs, /aria-selected="true"[^>]*>历史回测/);
-    for (const label of ["个股研究", "产业资讯", "个股深挖", "候选池", "AI 助手"]) assert.ok(textOf(tabs).includes(label), label);
-    assert.ok(!textOf(tabs).includes("板块轮动"), "产业工具通过分组进入，不塞进个股页签");
-    const review = textOf(r.html(GroupTabs, { page: "ladder", onNavigate: () => undefined }));
-    for (const label of ["市场复盘", "复盘记录", "交易日志", "交易分析", "今日情绪", "连板天梯", "涨停全表", "首板名单", "盘面事实", "行业题材"]) assert.ok(review.includes(label), label);
-    assert.ok(!review.includes("交易统计"), "交易统计位于交易日志分组");
-    assert.equal(r.html(GroupTabs, { page: "market", onNavigate: () => undefined }), "");
-    const nav = r.html(WorkspaceNav, { page: "firstBoard", onNavigate: () => undefined });
-    assert.deepEqual([...textOf(nav).matchAll(/首页|盯盘|复盘|研究|我的/g)].map((m) => m[0]), ["首页", "盯盘", "复盘", "研究", "我的"]);
-    assert.match(nav, /aria-current="page"[^>]*>(?:<svg[\s\S]*?<\/svg>)?<span>复盘/);
+    const { GroupTabs, WorkspaceNav, FunctionDirectory, WorkspaceHub } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
+    const tabs = r.html(GroupTabs, { page: "watch", onNavigate: () => undefined });
+    assert.equal((tabs.match(/role="tab"/g) ?? []).length, 3);
+    for (const label of ["自选", "持仓", "异动"]) assert.ok(textOf(tabs).includes(label));
+    const detail = r.html(GroupTabs, { page: "ladder", onNavigate: () => undefined });
+    assert.ok(textOf(detail).includes("连板天梯"));
+    assert.equal((detail.match(/role="tab"/g) ?? []).length, 0);
+    const review = textOf(r.html(WorkspaceHub, { group: "review", onNavigate: () => undefined }));
+    for (const label of ["市场盘面", "复盘记录", "交易复盘", "今日情绪", "复查", "风险与纪律"]) assert.ok(review.includes(label), label);
+    const nav = r.html(WorkspaceNav, { page: "stock", activeGroup: "watch", onNavigate: () => undefined });
+    assert.match(nav, /aria-current="page"[^>]*>(?:<svg[\s\S]*?<\/svg>)?<span>盯盘/);
     const my = textOf(r.html(FunctionDirectory, { onNavigate: () => undefined, group: "my" }));
-    for (const label of ["事件日历", "提醒规则", "研究记录", "我的研报", "收件箱", "应用设置"]) assert.ok(my.includes(label), label);
-    assert.ok(!my.includes("连板天梯"));
+    for (const label of ["事件日历", "提醒规则", "应用设置"]) assert.ok(my.includes(label));
+    for (const label of ["研究记录", "我的研报", "收件箱"]) assert.ok(!my.includes(label));
+    const research = textOf(r.html(WorkspaceHub, { group: "research", onNavigate: () => undefined }));
+    for (const label of ["研究记录", "我的研报", "收件箱"]) assert.ok(research.includes(label));
   });
 });
 
@@ -77,10 +78,10 @@ test("功能分组覆盖全部实际页面且不重复，目录可按栏目筛�
     const pages = WORKSPACE_SECTIONS.flatMap((section: { pages: string[] }) => section.pages);
     assert.equal(new Set(pages).size, pages.length);
     assert.deepEqual([...pages].sort(), WORKSPACE_ENTRIES.filter((entry: { page: string }) => entry.page !== "functions").map((entry: { page: string }) => entry.page).sort());
-    const { GroupTabs, FunctionDirectory } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
-    const journal = textOf(r.html(GroupTabs, { page: "records", onNavigate: () => undefined }));
+    const { WorkspaceHub, FunctionDirectory } = await r.load("/src/mobile/WorkspaceNavigation.tsx");
+    const journal = textOf(r.html(WorkspaceHub, { group: "review", onNavigate: () => undefined }));
     for (const title of ["交易统计", "风险与纪律", "模式卡"]) assert.ok(journal.includes(title), title);
-    assert.ok(!journal.includes("连板天梯"));
+
     const filtered = textOf(r.html(FunctionDirectory, { onNavigate: () => undefined, initialGroup: "research" }));
     for (const title of ["个股深挖", "历史回测", "板块轮动", "产业研究"]) assert.ok(filtered.includes(title), title);
     assert.ok(!filtered.includes("风险与纪律"));
@@ -97,7 +98,7 @@ test("新栏目路由可解析与反解析，工作台每个条目都有对应�
     }
     assert.deepEqual(parseMobileRoute("#/mobile/review/first-board"), { page: "firstBoard" });
     assert.equal(workspaceGroup("stock"), "research");
-    assert.equal(workspaceGroup("library"), "my");
+    assert.equal(workspaceGroup("library"), "research");
     assert.equal(workspaceGroup("records"), "review");
   });
 });

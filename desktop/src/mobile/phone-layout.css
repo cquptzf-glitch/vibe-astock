@@ -4,7 +4,7 @@ html:root body .mobile-app .mobile-nav {
   gap: 4px;
   padding: 5px max(8px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
 }
-html:root body .mobile-app .mobile-nav button { min-height: 52px; gap: 4px; font-size: 11px; }
+html:root body .mobile-app .mobile-nav button { min-height: 52px; gap: 4px; font-size: 0.75rem; }
 html:root body .mobile-app .mobile-nav button.active { background: var(--mobile-soft); border-radius: 12px; }
 html:root body .mobile-app .group-tabs {
   display: grid; gap: 6px; margin: 0; padding: 8px 12px;
@@ -13,38 +13,38 @@ html:root body .mobile-app .group-tabs {
 .workspace-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 12px; background: var(--mobile-soft); }
 html:root body .mobile-app .workspace-sections button {
   min-height: 44px; min-width: 0; padding: 6px 3px; border: 0; border-radius: 9px;
-  background: transparent; color: var(--mobile-muted); font-size: 12px; white-space: nowrap;
+  background: transparent; color: var(--mobile-muted); font-size: 0.75rem; white-space: nowrap;
 }
 .workspace-sections button[aria-pressed="true"] { color: var(--mobile-text) !important; background: var(--mobile-card) !important; font-weight: 650; box-shadow: 0 1px 4px #0001; }
 .group-tabs-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-html:root body .mobile-app .group-tabs [role="tab"] { min-height: 44px; padding: 0 12px; font-size: 13px; border-radius: 10px; }
+html:root body .mobile-app .group-tabs [role="tab"] { min-height: 44px; padding: 0 12px; font-size: 0.8125rem; border-radius: 10px; }
 html:root body .mobile-app .group-tabs [role="tab"].active { color: var(--mobile-accent); background: var(--mobile-soft); border-color: var(--mobile-accent); }
-html:root body .mobile-app .group-tabs-all { display: flex; justify-content: center; align-items: center; gap: 4px; flex: 0 0 64px; height: 44px; min-height: 44px; padding: 0 6px; border-radius: 10px; font-size: 12px; }
+html:root body .mobile-app .group-tabs-all { display: flex; justify-content: center; align-items: center; gap: 4px; flex: 0 0 64px; height: 44px; min-height: 44px; padding: 0 6px; border-radius: 10px; font-size: 0.75rem; }
 html:root body .mobile-app .function-directory { padding: 16px 12px 24px; }
-html:root body .mobile-app .workspace-title h1 { font-size: 22px; line-height: 1.35; }
+html:root body .mobile-app .workspace-title h1 { font-size: 1.375rem; line-height: 1.35; }
 html:root body .mobile-app .workspace-title p { display: block; margin: 5px 0 0; line-height: 1.5; }
 .directory-search-row { display: flex; align-items: center; gap: 8px; margin: 16px 0 10px; }
 .directory-search-row .workspace-search { flex: 1; margin: 0; min-width: 0; }
-html:root body .mobile-app .workspace-search input { min-height: 44px; font-size: 16px; }
+html:root body .mobile-app .workspace-search input { min-height: 44px; font-size: 1rem; }
 html:root body .mobile-app .directory-clear { min-height: 44px; width: 44px; display: grid; place-items: center; border: 1px solid var(--mobile-border); border-radius: 10px; background: var(--mobile-card); color: var(--mobile-text); }
 .directory-filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
-html:root body .mobile-app .directory-filters button { min-height: 44px; padding: 0 3px; border: 1px solid var(--mobile-border); border-radius: 10px; color: var(--mobile-muted); background: var(--mobile-card); font-size: 13px; }
+html:root body .mobile-app .directory-filters button { min-height: 44px; padding: 0 3px; border: 1px solid var(--mobile-border); border-radius: 10px; color: var(--mobile-muted); background: var(--mobile-card); font-size: 0.8125rem; }
 .directory-filters button[aria-pressed="true"] { background: var(--mobile-soft) !important; border-color: var(--mobile-accent) !important; color: var(--mobile-accent) !important; font-weight: 650; }
 html:root body .mobile-app .directory-group { margin-top: 22px; }
 html:root body .mobile-app .directory-heading { align-items: center; margin: 0 0 9px; }
-.directory-heading p { margin: 4px 0 0; color: var(--mobile-muted); font-size: 11px; }
+.directory-heading p { margin: 4px 0 0; color: var(--mobile-muted); font-size: 0.75rem; }
 html:root body .mobile-app .directory-grid { gap: 8px; }
 html:root body .mobile-app .directory-grid button { min-height: 92px; padding: 12px; border-radius: 12px; }
-html:root body .mobile-app .directory-grid strong { font-size: 14px; line-height: 1.4; }
-html:root body .mobile-app .directory-grid small { margin-top: 6px; font-size: 12px; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+html:root body .mobile-app .directory-grid strong { font-size: 0.875rem; line-height: 1.4; }
+html:root body .mobile-app .directory-grid small { margin-top: 6px; font-size: 0.75rem; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .directory-grid button:only-child { grid-column: 1 / -1; }
 html:root body .mobile-app .mobile-home { padding: 16px 12px 24px; }
 .home-start { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-html:root body .mobile-app .home-start h1 { margin: 0; font-size: 23px; line-height: 1.35; }
-html:root body .mobile-app .home-start p { display: block; margin: 4px 0 0; color: var(--mobile-muted); font-size: 12px; }
-html:root body .mobile-app .home-start button { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--mobile-border); border-radius: 12px; color: var(--mobile-text); background: var(--mobile-card); font-size: 13px; }
-.home-start button span { display: grid; place-items: center; min-width: 19px; height: 19px; padding: 0 4px; color: #fff; background: var(--mobile-primary-fill); border-radius: 10px; font-size: 11px; }
-html:root body .mobile-app .mobile-search input { min-height: 44px; font-size: 16px; }
+html:root body .mobile-app .home-start h1 { margin: 0; font-size: 1.4375rem; line-height: 1.35; }
+html:root body .mobile-app .home-start p { display: block; margin: 4px 0 0; color: var(--mobile-muted); font-size: 0.75rem; }
+html:root body .mobile-app .home-start button { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid var(--mobile-border); border-radius: 12px; color: var(--mobile-text); background: var(--mobile-card); font-size: 0.8125rem; }
+.home-start button span { display: grid; place-items: center; min-width: 19px; height: 19px; padding: 0 4px; color: #fff; background: var(--mobile-primary-fill); border-radius: 10px; font-size: 0.75rem; }
+html:root body .mobile-app .mobile-search input { min-height: 44px; font-size: 1rem; }
 html:root body .mobile-app .mobile-search button { min-height: 44px; }
 html:root body .mobile-app .mobile-home .home-watch-panel { margin-top: 16px; }
 html:root body .mobile-app .home-shortcuts { gap: 4px; margin: 0; padding: 4px 8px 12px; }
@@ -55,7 +55,7 @@ html:root body .mobile-app .home-shortcuts button svg { padding: 7px; width: 34p
 html:root body .mobile-app .public-page-actions { margin: 8px 12px; }
 html:root body .mobile-home .public-page-actions { margin: 10px 0; }
 html:root body .mobile-app .public-page-buttons { position: static; display: flex; justify-content: flex-end; gap: 8px; }
-html:root body .mobile-app .public-page-buttons button { min-height: 44px; padding: 0 14px; box-shadow: none; border-radius: 10px; border: 1px solid var(--mobile-border); background: var(--mobile-card); color: var(--mobile-muted); font-size: 13px; }
+html:root body .mobile-app .public-page-buttons button { min-height: 44px; padding: 0 14px; box-shadow: none; border-radius: 10px; border: 1px solid var(--mobile-border); background: var(--mobile-card); color: var(--mobile-muted); font-size: 0.8125rem; }
 html:root body .mobile-app .journal-v2 { padding: 14px 12px 24px; }
 .journal-v2-title > div { min-width: 0; }
 html:root body .mobile-app .journal-v2 :is(button, input, summary) { min-height: 44px; }
@@ -69,7 +69,7 @@ html:root body .mobile-app .journal-v2-create-toggle { min-height: 48px; border:
 }
 @media (max-width: 359px) {
   html:root body .mobile-app .group-tabs { padding: 6px 8px; }
-  html:root body .mobile-app .workspace-sections button { font-size: 11px; }
+  html:root body .mobile-app .workspace-sections button { font-size: 0.75rem; }
   html:root body .mobile-app .directory-grid { grid-template-columns: 1fr; }
   html:root body .mobile-app .directory-grid button { min-height: 76px; }
 }

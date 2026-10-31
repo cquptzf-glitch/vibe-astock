@@ -3,11 +3,11 @@ html:root body .mobile-app .mobile-page-body { min-width: 0; overflow-wrap: anyw
 html:root body .mobile-app .mobile-page-body > :is(.mobile-section,.discovery-section,.monitor-panel,.portfolio-panel,.risk-panel,.rotation-panel,.backtest-panel,.settings-panel,.daily-review-panel,.journal-review-panel,.ai-chat-panel) { padding: 16px 12px 28px; }
 html:root body .mobile-app .mobile-page-body :is(button,summary,select,input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden])) { min-height: 44px; }
 html:root body .mobile-app .mobile-page-body button { max-width: 100%; line-height: 1.4; }
-html:root body .mobile-app .mobile-page-body :is(input:not([type=checkbox]):not([type=radio]),textarea) { font-size: 16px; min-width: 0; max-width: 100%; box-sizing: border-box; }
+html:root body .mobile-app .mobile-page-body :is(input:not([type=checkbox]):not([type=radio]),textarea) { font-size: 1rem; min-width: 0; max-width: 100%; box-sizing: border-box; }
 html:root body .mobile-app .mobile-page-body textarea { min-height: 104px; line-height: 1.6; }
 html:root body .mobile-app .mobile-page-body :is(label:has(>input[type=checkbox]),label:has(>input[type=radio])) { min-height: 44px; align-items: center; }
 html:root body .mobile-app .mobile-page-body :is(h1,h2,h3,p,strong,small,label) { overflow-wrap: anywhere; }
-html:root body .mobile-app .mobile-page-body h1 { font-size: 22px; line-height: 1.4; }
+html:root body .mobile-app .mobile-page-body h1 { font-size: 1.375rem; line-height: 1.4; }
 html:root body .mobile-app .mobile-page-body :is(.mobile-section-title,.monitor-title-row,.portfolio-title-row,.rotation-title-row,.backtest-title,.settings-title-row,.daily-review-title,.journal-review-title,.smp-title,.wl-title,.emo-header,.ai-chat-title) { align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 html:root body .mobile-app .mobile-page-body :is(.mobile-section-title,.monitor-title-row,.portfolio-title-row,.settings-title-row,.daily-review-title,.ai-chat-title)>div:first-child { flex: 1; min-width: 160px; }
 html:root body .mobile-app .mobile-page-body :is(.jr-actions,.jx-actions,.wl-actions,.wl-toolbar,.settings-actions,.daily-review-title-actions,.portfolio-title-actions,.mobile-library-row-actions,.mobile-library-actions,.rw-actions,.backtest-nl-actions,.ai-chat-toolbar,.verify-actions) { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -18,7 +18,7 @@ html:root body .mobile-app .mobile-page-body :is(.mobile-stock-tabs,.discovery-t
 html:root body .mobile-app .mobile-page-body :is(.mobile-stock-tabs,.discovery-tabs,.watch-tabs,.rotation-type-tabs,.rotation-period-tabs,.ai-workspace-tabs)>button { flex: 1 1 auto; white-space: normal; padding: 8px 10px; }
 html:root body .mobile-app .mobile-page-body :is(.watch-filters,.mobile-filter-row,.candidate-sort,.candidate-presets,.reminder-footer-fields,.reminder-footer-fields>div) { display: flex; flex-wrap: wrap; gap: 8px; }
 html:root body .mobile-app .mobile-page-body :is(.watch-filters,.mobile-filter-row,.candidate-sort)>:is(input,.wc-select) { flex: 1 1 140px; min-width: 0; }
-html:root body .mobile-app .mobile-page-body summary { cursor: pointer; padding: 10px 4px; color: var(--mobile-text); font-size: 14px; font-weight: 600; }
+html:root body .mobile-app .mobile-page-body summary { cursor: pointer; padding: 10px 4px; color: var(--mobile-text); font-size: 0.875rem; font-weight: 600; }
 html:root body .mobile-app .mobile-page-body details[open]>summary { margin-bottom: 12px; border-bottom: 1px solid var(--mobile-border); }
 html:root body .mobile-app .mobile-page-body :is(table,[role=table]) { max-width: 100%; overflow-x: auto; }
 html:root body .mobile-app .mobile-page-body table { display: block; -webkit-overflow-scrolling: touch; }
@@ -76,17 +76,17 @@ html:root body .mobile-app .mobile-page-body .emo-bar-row small { white-space: n
 html:root body .mobile-app .mobile-page-body summary svg { display: inline-block; vertical-align: middle; margin-right: 5px; }
 html:root body .mobile-app .mobile-page-body .candidate-row { grid-template-columns: minmax(0,1fr); gap: 6px; }
 html:root body .mobile-app .mobile-page-body .candidate-row>div:last-child { text-align: left; }
-html:root body .mobile-app .mobile-page-body .candidate-row :is(strong,span) { white-space: normal; overflow: visible; text-overflow: clip; font-size: 12px; line-height: 1.6; }
+html:root body .mobile-app .mobile-page-body .candidate-row :is(strong,span) { white-space: normal; overflow: visible; text-overflow: clip; font-size: 0.75rem; line-height: 1.6; }
 html:root body .mobile-app .mobile-page-body .settings-card { padding: 14px; }
 html:root body .mobile-app .mobile-page-body .settings-card label { display: flex; align-items: center; gap: 8px; }
-html:root body .mobile-app .mobile-page-body .settings-card h2 { font-size: 15px; margin: 0 0 8px; }
+html:root body .mobile-app .mobile-page-body .settings-card h2 { font-size: 0.9375rem; margin: 0 0 8px; }
 html:root body .mobile-app .mobile-page-body .settings-card p { line-height: 1.7; }
 @media(max-width:599px) {
  html:root body .mobile-app .mobile-page-body .emo-grid { grid-template-columns: minmax(0,1fr); }
  html:root body .mobile-app .mobile-page-body .emo-stats { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
  html:root body .mobile-app .mobile-page-body .emo-stats-4 { grid-template-columns: repeat(3,minmax(0,1fr)); }
  html:root body .mobile-app .mobile-page-body .journal-v2-summary { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
- html:root body .mobile-app .mobile-page-body .emo-stat strong { font-size: 17px; }
+ html:root body .mobile-app .mobile-page-body .emo-stat strong { font-size: 1.0625rem; }
 }
 
 html:root body .mobile-app .mobile-back { min-height: 44px; padding: 8px 12px; }
@@ -97,7 +97,7 @@ html:root body .mobile-app .mobile-page-body .mobile-stock-tabs { display: grid;
 html:root body .mobile-app .mobile-page-body .mobile-stock-tabs>button { min-width: 0; border: 1px solid var(--mobile-border); border-radius: 10px; padding: 8px; color: var(--mobile-muted); background: var(--mobile-card); }
 html:root body .mobile-app .mobile-page-body .mobile-stock-tabs>button:is([aria-selected=true],.active) { border-color: var(--mobile-accent); color: var(--mobile-accent); background: var(--mobile-soft); }
 
-html:root body .mobile-app .mobile-page-body .mobile-library-row-actions button { flex: 1 0 76px; min-width: 76px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; font-size: 12px; }
+html:root body .mobile-app .mobile-page-body .mobile-library-row-actions button { flex: 1 0 76px; min-width: 76px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; font-size: 0.75rem; }
 html:root body .mobile-app .mobile-page-body .ai-chat-empty { min-height: 90px; padding: 12px; }
 @media(max-width:599px) {
  html:root body .mobile-app .mobile-page-body :is(.emo-stats-4,.pi-stats) { grid-template-columns: repeat(2,minmax(0,1fr)); }

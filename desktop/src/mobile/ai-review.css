@@ -27,7 +27,7 @@
 
 .ai-review-title h1 {
   margin: 5px 0 3px;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 
 .ai-review-title p,
@@ -38,7 +38,7 @@
 .ai-review-check small {
   margin: 0;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -70,7 +70,7 @@
 
 .ai-review-heading > span {
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .ai-review-heading > span.ready {
@@ -83,7 +83,7 @@
 }
 
 .ai-review-card label > span {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .ai-review-card input:not([type="checkbox"]),
@@ -163,7 +163,7 @@
 }
 
 .ai-review-scope strong {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .ai-review-check {
@@ -196,7 +196,7 @@
   border-radius: 10px;
   background: var(--mobile-card);
   color: var(--mobile-text);
-  font-size: 10px;
+  font-size: 0.75rem;
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -210,14 +210,14 @@
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.7;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .ai-review-error,
 .ai-review-message {
   padding: 10px 12px;
   border-radius: 11px;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.55;
 }
 

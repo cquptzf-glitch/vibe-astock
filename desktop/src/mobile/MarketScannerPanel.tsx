@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import { useEffect, useRef, useState } from "react";
 import { WebSelect } from "./controls";
 import { fmtNumber, fmtPercent } from "./discoveryData";
@@ -14,6 +15,7 @@ export function ScanResults({ data, onOpen }: { data: ScanResult; onOpen: (code:
   return <div><p>已扫描 {data.total} 只 · 满足 {data.matched} 只 · 缺字段 {data.missing} 只</p>{data.rows.map((r) => <button className="watch-row" type="button" key={r.code} onClick={() => onOpen(r.code)}><span>{r.name} {r.code}</span><span>{fmtNumber(r.price)} · 今日 {fmtPercent(r.pct)} · 采样变化 {fmtPercent(r.surge_pct)}</span></button>)}{data.gaps.map((g, i) => <p role="status" key={i}>{g.reason}</p>)}<p className="watch-hint">{data.note}</p></div>;
 }
 export function MarketScannerPanel({ onOpen }: { onOpen: (code: string) => void }) {
+  const active = usePageActive();
   const [scope, setScope] = useState("watch");
   const [min, setMin] = useState(""); const [max, setMax] = useState(""); const [amount, setAmount] = useState(""); const [surge, setSurge] = useState("");
   const [fall,setFall]=useState("");
@@ -30,10 +32,10 @@ export function MarketScannerPanel({ onOpen }: { onOpen: (code: string) => void 
     finally { running.current = false; setBusy(false); }
   }
   useEffect(() => {
-    if (!auto) return;
+    if (!auto || !active) return;
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") void scan(); }, interval * 1000);
     return () => window.clearInterval(timer);
-  }, [auto, interval, scope, min, max, amount, surge, fall]);
+  }, [active, auto, interval, scope, min, max, amount, surge, fall]);
   async function nativeAction(action: string) {
     setBusy(true); setError("");
     try { setNative(await api<NativeStatus>("/mobile/monitor/background", { action, scope, interval_seconds: interval, threshold_pct: Math.abs(Number(surge) || 1.5), max_bytes_mb: budget, stop_battery_pct: battery })); }

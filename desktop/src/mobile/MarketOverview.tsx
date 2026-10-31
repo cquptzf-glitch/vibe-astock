@@ -139,6 +139,7 @@ export function MarketOverviewView({ data, loading, error, onRefresh }: { data: 
             </div>
           </div>
 
+          <details className="mo-expanded"><summary>查看封板读数与涨跌分布</summary>
           <div className="mo-sentiment-grid">
             <div><span>涨停</span><strong className="up">{num(data.sentiment.limit_up, 0)}</strong></div>
             <div><span>炸板</span><strong>{num(data.sentiment.broken_board, 0)}</strong></div>
@@ -157,6 +158,8 @@ export function MarketOverviewView({ data, loading, error, onRefresh }: { data: 
               ))}
             </div>
           </div>
+
+          </details>
 
           {data.status === "partial" && (
             <div className="mo-partial">部分数据源未返回，本页只展示已成功取得的数据。</div>

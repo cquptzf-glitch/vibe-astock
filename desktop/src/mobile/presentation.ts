@@ -3,7 +3,8 @@ import { useSyncExternalStore } from "react";
 export type ThemeMode = "light" | "dark" | "system";
 export type Density = "compact" | "comfortable";
 export type RefreshSeconds = 0 | 30 | 60 | 120;
-export interface Presentation { theme: ThemeMode; resolvedTheme: "light" | "dark"; density: Density; refreshSeconds: RefreshSeconds }
+export type TextScale = 100 | 125 | 150 | 200;
+export interface Presentation { textScale?: TextScale; theme: ThemeMode; resolvedTheme: "light" | "dark"; density: Density; refreshSeconds: RefreshSeconds }
 export interface PresentationHost {
   storage: Pick<Storage, "getItem" | "setItem">;
   systemDark(): boolean;
@@ -11,8 +12,8 @@ export interface PresentationHost {
   listenSystem(listener: () => void): () => void;
   listenStorage(listener: () => void): () => void;
 }
-const DEFAULT: Presentation = { theme: "system", resolvedTheme: "dark", density: "compact", refreshSeconds: 60 };
-const KEYS = { theme: "vra-theme", density: "vibe.mobile.density", refreshSeconds: "vibe.mobile.refresh" };
+const DEFAULT: Presentation = { theme: "system", resolvedTheme: "dark", density: "compact", refreshSeconds: 60, textScale: 100 };
+const KEYS = { theme: "vra-theme", density: "vibe.mobile.density", textScale: "vibe.mobile.text-scale", refreshSeconds: "vibe.mobile.refresh" };
 export function createPresentationStore(host: PresentationHost | null) {
   let current = DEFAULT;
   const listeners = new Set<() => void>();
@@ -25,6 +26,8 @@ export function createPresentationStore(host: PresentationHost | null) {
         const theme = host.storage.getItem(KEYS.theme);
         value.theme = theme === "light" || theme === "dark" ? theme : "system";
         value.density = host.storage.getItem(KEYS.density) === "comfortable" ? "comfortable" : "compact";
+        const scale = Number(host.storage.getItem(KEYS.textScale) ?? 100);
+        value.textScale = ([100,125,150,200].includes(scale) ? scale : 100) as TextScale;
         const refresh = Number(host.storage.getItem(KEYS.refreshSeconds) ?? 60);
         value.refreshSeconds = ([0, 30, 60, 120].includes(refresh) ? refresh : 60) as RefreshSeconds;
       } catch { /* Local preferences remain usable when persistent storage is unavailable. */ }
@@ -53,7 +56,7 @@ export function createPresentationStore(host: PresentationHost | null) {
         if (!listeners.size) { stopSystem(); stopStorage(); }
       };
     },
-    update(patch: Partial<Pick<Presentation, "theme" | "density" | "refreshSeconds">>) {
+    update(patch: Partial<Pick<Presentation, "theme" | "density" | "refreshSeconds" | "textScale">>) {
       const next = { ...current, ...patch };
       if (host) {
         for (const key of Object.keys(patch) as (keyof typeof KEYS)[]) {
@@ -75,6 +78,7 @@ function browserHost(): PresentationHost | null {
       const root = document.documentElement;
       root.dataset.theme = value.resolvedTheme;
       root.dataset.mobileDensity = value.density;
+      root.dataset.mobileTextScale = String(value.textScale ?? 100);
       root.style.colorScheme = value.resolvedTheme;
       root.classList.toggle("light", value.resolvedTheme === "light");
     },

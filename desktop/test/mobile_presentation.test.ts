@@ -56,7 +56,7 @@ test("存储受限时仍能切换外观和手动刷新，损坏值回退到有�
   stop();
 });
 
-test("底部保留五个主栏目，设置归入我的，快捷功能覆盖八个真实栏目", async () => {
+test("底部保留五个主栏目，设置归入我的，默认四个快捷入口，可编辑八个候选项", async () => {
   await withRenderer(async (r) => {
     const { HomeShortcuts, ...header } = await r.load("/src/mobile/MobileHeader.tsx");
     assert.ok(!("MobileHeader" in header), "顶部软件信息栏已移除");
@@ -67,7 +67,7 @@ test("底部保留五个主栏目，设置归入我的，快捷功能覆盖八�
     assert.equal((nav.match(/aria-current="page"/g) ?? []).length, 1, "设置属于我的栏目");
     assert.match(nav, /class="active" aria-current="page">.*<span>我的<\/span><\/button><\/nav>/);
     const links = textOf(r.html(HomeShortcuts, { onNavigate: () => undefined }));
-    for (const label of ["实时动态", "今日情绪", "连板天梯", "涨停全表", "板块轮动", "个股深挖", "交易日志", "每日复盘", "全部功能"]) assert.ok(links.includes(label), label);
+    for (const label of ["实时动态", "今日情绪", "连板天梯", "涨停全表", "板块轮动", "个股深挖", "交易日志", "每日复盘", "编辑常用功能"]) assert.ok(links.includes(label), label);
   });
 });
 
@@ -123,4 +123,16 @@ test("个股卡片完整交易日窗口不足时保留缺值，不把缺失成�
     assert.match(text, /MA20 —/);
     assert.doesNotMatch(text, /当前行情成交额字段/);
   });
+});
+
+test("字号可恢复 200%，损坏的字号偏好回退标准，存储失败仍即时生效", () => {
+  const h = host({"vibe.mobile.text-scale":"200"});
+  const store = createPresentationStore(h.instance); const stop=store.subscribe(()=>undefined);
+  assert.equal(store.snapshot().textScale,200);
+  h.sync("vibe.mobile.text-scale","NaN");
+  assert.equal(store.snapshot().textScale,100);
+  h.instance.storage.setItem=()=>{throw new Error("blocked");};
+  store.update({textScale:150});
+  assert.equal(store.snapshot().textScale,150);
+  stop();
 });

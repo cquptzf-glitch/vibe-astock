@@ -163,6 +163,8 @@ jobs:
           done
           VIBE_UI_RUNTIME="$RUNNER_TEMP/mobile-ui" VIBE_UI_OUTPUT="dist/mobile-ui" node desktop/test/mobile-ui-smoke.mjs
           VIBE_UI_RUNTIME="$RUNNER_TEMP/mobile-ui" VIBE_UI_OUTPUT="dist/mobile-ui/revenue" VIBE_UI_REVENUE_ONLY=1 node desktop/test/mobile-ui-smoke.mjs
+          VIBE_UI_RUNTIME="$RUNNER_TEMP/mobile-ui" VIBE_UI_OUTPUT="dist/mobile-ui/navigation" VIBE_UI_NAVIGATION_ONLY=1 node desktop/test/mobile-ui-smoke.mjs
+          VIBE_UI_RUNTIME="$RUNNER_TEMP/mobile-ui" VIBE_UI_OUTPUT="dist/mobile-ui/large-text" VIBE_UI_WIDTH=320 VIBE_UI_TEXT_SCALE=200 VIBE_UI_ALL_PAGES_ONLY=1 node desktop/test/mobile-ui-smoke.mjs
 
       - name: Upload mobile UI screenshots
         if: always()

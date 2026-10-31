@@ -1,5 +1,7 @@
+import { usePageActive } from "./PageActivity.ts";
+import { hasQueuedAiPrompt } from "./aiPageContext";
 import { BrainCircuit, ChartNoAxesCombined } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AiChatPanel } from "./AiChatPanel";
 import { AiReviewPanel } from "./AiReviewPanel";
@@ -9,7 +11,10 @@ import "./ai-workspace.css";
 type AiView = "chat" | "review" | "research";
 
 export function AiWorkspace() {
+  const active = usePageActive();
   const [view, setView] = useState<AiView>("chat");
+
+  useEffect(() => { if (active && hasQueuedAiPrompt()) setView("chat"); }, [active]);
 
   return (
     <section className="ai-workspace">

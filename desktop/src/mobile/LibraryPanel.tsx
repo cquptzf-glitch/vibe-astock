@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import { useEffect, useState } from "react";
 import { WebSelect } from "./controls";
 import { ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Save, Share2, Trash2 } from "lucide-react";
@@ -71,6 +72,7 @@ export function filterDocuments(items: DocumentItem[], filter: LibraryFilter): D
 }
 
 export function LibraryPanel({ kind }: { kind: LibraryKind }) {
+  const active = usePageActive();
   const meta = META[kind];
   const [items, setItems] = useState<DocumentItem[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -106,8 +108,8 @@ export function LibraryPanel({ kind }: { kind: LibraryKind }) {
   useEffect(() => {
     resetEditor();
     setFilter({ keyword: "", category: "", unreadOnly: false });
-    void load(kind);
   }, [kind]);
+  useEffect(() => { if (active) void load(kind); }, [kind, active]);
 
   function resetEditor() {
     setEditingId(null);

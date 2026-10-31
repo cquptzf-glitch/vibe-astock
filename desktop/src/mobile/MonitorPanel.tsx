@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 /**
  * 盯盘 · 实时动态(移动版,对应桌面版 shortline/LiveTab.tsx):盘中异动流 + 持仓、自选、昨日梯队、大票、昨日成交额前十的当下读数。
  * 异动由 Rust Core 判断(3 分钟内 ±1.5% 记急拉 / 急跌,碰到 / 离开涨停价记封板 / 开板,同一只同一类 5 分钟不重复),
@@ -82,6 +83,7 @@ async function pollOnce(): Promise<WatchView> {
 
 /** 递归 setTimeout:上一次回来再等,请求不叠加;页面切到后台就停,切回来立刻问一次。manual = 只在打开和点刷新时取 */
 function useWatchPoll(manual: boolean) {
+  const active = usePageActive();
   const [data, setData] = useState<WatchView | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,6 +91,7 @@ function useWatchPoll(manual: boolean) {
   const kick = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    if (!active) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let failures = 0;
@@ -129,7 +132,7 @@ function useWatchPoll(manual: boolean) {
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => { cancelled = true; clear(); kick.current = null; document.removeEventListener("visibilitychange", onVisible); };
-  }, [manual]);
+  }, [manual, active]);
 
   const refresh = useCallback(() => kick.current?.(), []);
   return { data, error, loading, live, refresh };

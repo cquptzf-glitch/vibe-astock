@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import { PageSections } from "./PageSections";
 import {
   BellRing,
@@ -11,7 +12,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { checkPassphrase, decryptBackup, encryptBackup, isEncryptedBackup } from "./backupCrypto";
 import { askConfirm } from "./controls";
 
@@ -128,7 +129,8 @@ function permissionLabel(permission: NotificationPermission, supported: boolean)
   return "检测中";
 }
 
-export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => void; onOpenReminders?: () => void } = {}) {
+export function SettingsPanel({ onOpenAi, onOpenReminders, sectionRequest }: { sectionRequest?: {id:string;sequence:number}; onOpenAi?: () => void; onOpenReminders?: () => void } = {}) {
+  const active = usePageActive();
   const [data, setData] = useState<DataSummary | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [loading, setLoading] = useState(false);
@@ -140,6 +142,17 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
   const [passphrase, setPassphrase] = useState("");
   const [clearing, setClearing] = useState(false);
   const [showModelSettings, setShowModelSettings] = useState(false);
+
+  const handledSection = useRef(0);
+  useEffect(() => {
+    if (!active || !sectionRequest || handledSection.current === sectionRequest.sequence) return;
+    if (sectionRequest.id === "mobile-model-settings") setShowModelSettings(true);
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(sectionRequest.id);
+      if (target && !target.hidden) { target.scrollIntoView({block:"start",behavior:"instant"}); handledSection.current = sectionRequest.sequence; }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [active, sectionRequest, data, showModelSettings]);
 
   async function refreshNotification() {
     const plugin = notificationApi();
@@ -173,7 +186,7 @@ export function SettingsPanel({ onOpenAi, onOpenReminders }: { onOpenAi?: () => 
     }
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (active) void refresh(); }, [active]);
 
   async function requestNotification() {
     const plugin = notificationApi();

@@ -4,7 +4,7 @@
 .wl-toolbar .wc-select { flex: 1 1 auto; }
 .mobile-app .wl-dir, .mobile-app .wl-refresh, .mobile-app .wl-add button, .mobile-app .wl-actions button, .mobile-app .wl-chips button {
   display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 32px; padding: 0 10px; border: 1px solid var(--mobile-border);
-  border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); font-size: 12px; white-space: nowrap;
+  border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); font-size: 0.75rem; white-space: nowrap;
 }
 .mobile-app .wl-dir:disabled, .mobile-app .wl-refresh:disabled { opacity: .5; }
 .wl-chips { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
@@ -15,26 +15,26 @@
 .mobile-app .wl-main { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; border: 0; background: transparent; color: var(--mobile-text); text-align: left; padding: 0; min-height: 0; }
 .wl-name { display: grid; min-width: 0; }
 .wl-title { display: flex; align-items: center; min-width: 0; }
-.wl-name strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wl-name em { flex: 0 0 auto; margin-left: 5px; padding: 0 4px; border-radius: 4px; background: var(--mobile-soft); color: var(--mobile-accent); font-size: 10px; font-style: normal; }
-.wl-name small { color: var(--mobile-muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-name strong { font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-name em { flex: 0 0 auto; margin-left: 5px; padding: 0 4px; border-radius: 4px; background: var(--mobile-soft); color: var(--mobile-accent); font-size: 0.75rem; font-style: normal; }
+.wl-name small { color: var(--mobile-muted); font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wl-price { display: grid; justify-items: end; text-align: right; }
-.wl-price strong { font-size: 14px; font-variant-numeric: tabular-nums; }
-.wl-price b { font-size: 12px; font-weight: 650; }
-.wl-meta { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 2px 9px; color: var(--mobile-muted); font-size: 10.5px; }
+.wl-price strong { font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.wl-price b { font-size: 0.75rem; font-weight: 650; }
+.wl-meta { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 2px 9px; color: var(--mobile-muted); font-size: 0.75rem; }
 .wl-meta b { color: var(--mobile-text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.wl-meta i { padding: 0 5px; border-radius: 999px; background: var(--mobile-soft); color: var(--mobile-accent); font-size: 10px; font-style: normal; }
+.wl-meta i { padding: 0 5px; border-radius: 999px; background: var(--mobile-soft); color: var(--mobile-accent); font-size: 0.75rem; font-style: normal; }
 .wl-tools { grid-column: 2; grid-row: 2; display: flex; gap: 3px; justify-self: end; align-items: center; }
 .mobile-app .wl-tools button { display: inline-grid; place-items: center; min-width: 28px; min-height: 26px; padding: 0; border: 1px solid var(--mobile-border); border-radius: 7px; background: transparent; color: var(--mobile-muted); }
 .mobile-app .wl-tools button:disabled { opacity: .35; }
 .wl-board .up { color: var(--mobile-up); }
 .wl-board .down { color: var(--mobile-down); }
 .wl-editor { display: grid; gap: 6px; margin: 2px 0 0; padding: 8px; border: 1px dashed var(--mobile-border); border-radius: 9px; background: var(--mobile-soft); }
-.wl-editor label { display: grid; gap: 3px; font-size: 11px; color: var(--mobile-muted); }
-.mobile-app .wl-editor input, .mobile-app .wl-add input { min-height: 32px; padding: 0 8px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); font-size: 13px; min-width: 0; }
+.wl-editor label { display: grid; gap: 3px; font-size: 0.75rem; color: var(--mobile-muted); }
+.mobile-app .wl-editor input, .mobile-app .wl-add input { min-height: 32px; padding: 0 8px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text); font-size: 0.8125rem; min-width: 0; }
 .wl-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .mobile-app .wl-actions button.primary { border-color: transparent; background: var(--mobile-primary-fill); color: var(--mobile-on-accent); }
 .mobile-app .wl-actions button.danger { margin-left: auto; color: var(--mobile-up); }
 .wl-add { display: flex; gap: 6px; }
 .wl-add input { flex: 1 1 auto; }
-.wl-note { margin: 0; color: var(--mobile-muted); font-size: 10.5px; line-height: 1.4; }
+.wl-note { margin: 0; color: var(--mobile-muted); font-size: 0.75rem; line-height: 1.4; }

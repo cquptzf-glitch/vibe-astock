@@ -14,19 +14,19 @@
   align-items: center;
   gap: 6px;
   color: var(--mobile-accent);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
 .daily-review-title h1 {
   margin: 5px 0 0;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 
 .daily-review-title p {
   margin: 5px 0 0;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -50,7 +50,7 @@
   border-radius: 12px;
   color: var(--mobile-muted);
   background: var(--mobile-card);
-  font-size: 11px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -86,18 +86,18 @@
 .daily-review-cards span {
   margin-top: 8px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .daily-review-cards strong {
   margin-top: 4px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .daily-review-cards small {
   margin-top: 3px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .daily-review-block {
@@ -115,7 +115,7 @@
   padding: 12px 14px;
   border-bottom: 1px solid var(--mobile-border);
   color: var(--mobile-text);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .daily-review-heading svg {
@@ -125,13 +125,13 @@
 .daily-review-heading span {
   margin-left: auto;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .daily-review-empty {
   padding: 18px 14px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
   text-align: center;
 }
 
@@ -159,18 +159,18 @@
 }
 
 .daily-review-leaders strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .daily-review-leaders span {
   margin-top: 3px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .daily-review-leaders b {
   color: var(--mobile-accent);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .daily-review-rotation > div {
@@ -184,14 +184,14 @@
 
 .daily-review-rotation span {
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
 .daily-review-rotation p {
   margin: 5px 0 0;
   color: var(--mobile-text);
-  font-size: 11px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -208,7 +208,7 @@
   display: block;
   margin-bottom: 6px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .daily-review-block.editor textarea {
@@ -223,7 +223,7 @@
   color: var(--mobile-text);
   background: var(--mobile-card);
   font: inherit;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -244,7 +244,7 @@
   color: #fff;
   background: var(--mobile-primary-fill);
   font-weight: 650;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .daily-review-save:disabled {
@@ -254,7 +254,7 @@
 .daily-review-note {
   margin: 12px 2px 0;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 

@@ -1,5 +1,13 @@
 # Android App 全面审查与后续开发交接
 
+## 当前入口：0.1.49 手机导航与功能布局（2026-10-31）
+
+按维护者要求参考 Apple HIG 完成手机端入口重排：五个主栏目、会话内栏目/筛选/表单/滚动恢复、来源栏目与父级返回链、复盘三个分组、研究资料归入研究、我的四个直接设置入口、统一页头菜单、四个可编辑快捷入口和可清除的最近查看。原有 47 个路由保留，新增复盘工作台，共 48 个路由。
+
+页面采用稳定的 React portal 容器，只把当前页面接入文档；隐藏页面暂停行情轮询、扫描和页面上下文登记。静态工作页面保留会话状态，股票/板块详情上限六个；重新进入时刷新必要读数，系统结束进程后不承诺恢复未保存表单。字号支持 100%–200%，使用相对单位，并修正自选工具栏和异动标签的大字号换行。菜单支持焦点约束/Escape/焦点恢复，编辑时适配键盘视口，尊重减弱动态效果。
+
+本地前端、构建、浏览器与发行检查及云端结果以 [0.1.49 发布记录](docs/android/releases/0.1.49.md) 和 [布局验收表](docs/android/mobile-layout-audit-0.1.49.md) 为准。本版继续使用 `com.vibeastock.preview` 与 0.1.48 固定签名，不轮换升级身份；SQLite v13 / 业务备份 v11 不变。交易数据与模型处理沿用现状。没有设备，不把浏览器模拟计作真实键盘、系统返回、通知或后台验收；历史数据和旧工作流等价等剩余边界仍保留。
+
 ### 0.1.48 发布与独立验收回执（2026-10-31）
 
 [并行预览 APK 已发布](https://github.com/cquptzf-glitch/vibe-astock/releases/tag/android-mvp-v0.1.48)，功能提交 `2b05867aa889657e7b28c781b6a614cf2ba7acb9`。[Android CI](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41187530693) 的构建、签名恢复、原生测试、一次性测试密钥的 release APK/AAB 检查和公开预览发布全部成功；[跨平台 CI](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41187530654) 的 Linux/macOS/Windows × Node 22/24 六组全部成功。前端 585 项、发行辅助脚本 12 项通过。

@@ -15,7 +15,7 @@
   border-radius: 10px;
   color: var(--mobile-muted);
   background: transparent;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 650;
 }
 
@@ -41,19 +41,19 @@
   align-items: center;
   gap: 6px;
   color: var(--mobile-accent);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
 .portfolio-title-row h2 {
   margin: 5px 0 0;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 .portfolio-title-row p {
   margin: 5px 0 0;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -80,7 +80,7 @@
   border-radius: 14px;
   color: var(--mobile-muted);
   background: var(--mobile-card);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
@@ -127,18 +127,18 @@
 
 .portfolio-summary span {
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .portfolio-summary strong {
   margin-top: 5px;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 .portfolio-summary small {
   margin-top: 3px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .portfolio-risk {
@@ -151,7 +151,7 @@
   border-radius: 13px;
   color: var(--mobile-muted);
   background: var(--mobile-card);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .portfolio-risk svg {
@@ -201,14 +201,14 @@
 }
 
 .portfolio-name strong {
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .portfolio-name span,
 .portfolio-price span {
   margin-top: 3px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .portfolio-price {
@@ -216,7 +216,7 @@
 }
 
 .portfolio-price strong {
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .portfolio-metrics {
@@ -225,7 +225,7 @@
   gap: 6px 12px;
   margin-top: 11px;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .portfolio-metrics b {
@@ -243,12 +243,12 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .portfolio-pnl b {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .portfolio-pnl > svg {
@@ -258,6 +258,6 @@
 .portfolio-note {
   margin: 0;
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }

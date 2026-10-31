@@ -12,7 +12,7 @@
 
 .mo-eyebrow {
   color: var(--mobile-accent);
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -20,13 +20,13 @@
 
 .mo-heading h2 {
   margin: 3px 0 0;
-  font-size: 19px;
+  font-size: 1.1875rem;
 }
 
 .mo-heading p {
   margin: 3px 0 0;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mo-refresh {
@@ -51,7 +51,7 @@
   border-radius: 10px;
   color: var(--mobile-warning);
   background: rgba(180, 109, 47, .12);
-  font-size: 11px;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -85,21 +85,21 @@
 .mo-index-name {
   overflow: hidden;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .mo-index-price {
   margin-top: 5px;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 720;
   letter-spacing: -.02em;
 }
 
 .mo-index-change {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -136,12 +136,12 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mo-breadth-side strong {
   margin-left: 2px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .mo-breadth-bar {
@@ -161,7 +161,7 @@
 
 .mo-breadth-foot {
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .mo-sentiment-grid {
@@ -188,12 +188,12 @@
 
 .mo-sentiment-grid span {
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .mo-sentiment-grid strong {
   margin-top: 4px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .mo-distribution-card {
@@ -207,7 +207,7 @@
   align-items: center;
   gap: 6px;
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .mo-card-title svg {
@@ -237,7 +237,7 @@
 .mo-distribution-item span {
   overflow: hidden;
   color: var(--mobile-muted);
-  font-size: 9px;
+  font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -245,7 +245,7 @@
 .mo-distribution-item strong {
   margin-top: 3px;
   color: var(--mobile-text);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .mo-partial {

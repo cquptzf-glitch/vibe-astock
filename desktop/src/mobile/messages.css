@@ -5,10 +5,10 @@
 .msg { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--mobile-border); border-radius: 10px; background: var(--mobile-card); }
 .msg.unread { border-color: var(--mobile-accent); }
 .msg-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.msg-head em { flex: 0 0 auto; padding: 0 6px; border-radius: 999px; background: var(--mobile-soft); color: var(--mobile-accent); font-size: 10.5px; font-style: normal; }
-.msg-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.msg-head em { flex: 0 0 auto; padding: 0 6px; border-radius: 999px; background: var(--mobile-soft); color: var(--mobile-accent); font-size: 0.75rem; font-style: normal; }
+.msg-head strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; }
 .msg-head i { flex: 0 0 8px; height: 8px; border-radius: 50%; background: var(--mobile-up); }
-.msg-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; color: var(--mobile-text); }
+.msg-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.75rem; line-height: 1.5; color: var(--mobile-text); }
 .msg-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.mobile-app .msg-actions button { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 10px; border: 1px solid var(--mobile-border); border-radius: 8px; background: transparent; color: var(--mobile-text); font-size: 12px; }
-.msg-note { margin: 4px 0; color: var(--mobile-muted); font-size: 10.5px; line-height: 1.45; }
+.mobile-app .msg-actions button { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 10px; border: 1px solid var(--mobile-border); border-radius: 8px; background: transparent; color: var(--mobile-text); font-size: 0.75rem; }
+.msg-note { margin: 4px 0; color: var(--mobile-muted); font-size: 0.75rem; line-height: 1.45; }

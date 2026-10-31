@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import { BarChart3, RefreshCw, ShieldAlert, Target, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -96,6 +97,7 @@ function PerformanceLine({ stats }: { stats: Stats }) {
 }
 
 export function JournalReviewPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
+  const active = usePageActive();
   const [data, setData] = useState<ReviewView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -112,7 +114,7 @@ export function JournalReviewPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: st
     }
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (active) void refresh(); }, [active]);
 
   return (
     <section className="journal-review">

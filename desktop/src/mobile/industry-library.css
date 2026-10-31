@@ -1,10 +1,10 @@
 .industry-library { margin-block: 1.2rem; min-width: 0; }
-.industry-library h2 {font-size:14px;margin-bottom:.5rem;}.industry-library p {font-size:12px;line-height:1.7;overflow-wrap:anywhere;}
-.industry-library button {min-height:38px;padding:8px 10px;border:1px solid var(--mobile-border);border-radius:8px;background:var(--mobile-card);color:inherit;font-size:12px;}.industry-library button:disabled{opacity:.5;}
-.industry-library summary {padding:8px 0;font-size:12px;cursor:pointer;}.industry-library a{color:var(--mobile-primary);}
+.industry-library h2 {font-size:0.875rem;margin-bottom:.5rem;}.industry-library p {font-size:0.75rem;line-height:1.7;overflow-wrap:anywhere;}
+.industry-library button {min-height:38px;padding:8px 10px;border:1px solid var(--mobile-border);border-radius:8px;background:var(--mobile-card);color:inherit;font-size:0.75rem;}.industry-library button:disabled{opacity:.5;}
+.industry-library summary {padding:8px 0;font-size:0.75rem;cursor:pointer;}.industry-library a{color:var(--mobile-primary);}
 .il-actions { display:flex; flex-wrap:wrap; gap: .5rem; margin-block:.7rem; }
 .il-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem; margin-block:.7rem; }
 .il-form label { display:flex; flex-direction:column; gap:.25rem; min-width:0; }
 .il-form input,.il-form select,.il-form textarea { width:100%; min-width:0; box-sizing:border-box; }
-.il-form input,.il-form textarea{padding:9px;border:1px solid var(--mobile-border);border-radius:8px;background:var(--mobile-card);color:inherit;}.il-form textarea{min-height:80px;}.il-form label{font-size:12px;}
-.il-wide {grid-column:1/-1;}.il-facts {display:grid;gap:.6rem;}.il-facts article {min-width:0;overflow-wrap:anywhere;padding:12px;border:1px solid var(--mobile-border);border-radius:10px;background:var(--mobile-card);}.il-facts h3{margin:0;font-size:13px;}.il-facts blockquote{margin:.5rem 0;padding-inline-start:.7rem;border-inline-start:2px solid var(--mobile-border);white-space:pre-wrap;font-size:12px;line-height:1.7;}
+.il-form input,.il-form textarea{padding:9px;border:1px solid var(--mobile-border);border-radius:8px;background:var(--mobile-card);color:inherit;}.il-form textarea{min-height:80px;}.il-form label{font-size:0.75rem;}
+.il-wide {grid-column:1/-1;}.il-facts {display:grid;gap:.6rem;}.il-facts article {min-width:0;overflow-wrap:anywhere;padding:12px;border:1px solid var(--mobile-border);border-radius:10px;background:var(--mobile-card);}.il-facts h3{margin:0;font-size:0.8125rem;}.il-facts blockquote{margin:.5rem 0;padding-inline-start:.7rem;border-inline-start:2px solid var(--mobile-border);white-space:pre-wrap;font-size:0.75rem;line-height:1.7;}

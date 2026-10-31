@@ -1,3 +1,4 @@
+import { usePageActive } from "./PageActivity.ts";
 import {
   BriefcaseBusiness,
   ChevronRight,
@@ -95,6 +96,7 @@ function pct(value: number | null): string {
 }
 
 export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string) => void }) {
+  const active = usePageActive();
   const [review, setReview] = useState<ReviewView | null>(null);
   const [positions, setPositions] = useState<PositionView[]>([]);
   const [loading, setLoading] = useState(false);
@@ -150,7 +152,7 @@ export function PortfolioPanel({ onOpenSymbol }: { onOpenSymbol: (symbol: string
     }
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (active) void refresh(); }, [active]);
 
   const summary = useMemo(() => {
     const quoted = positions.filter((position) => position.market_value !== null);

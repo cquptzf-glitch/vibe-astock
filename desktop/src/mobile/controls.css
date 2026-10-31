@@ -2,7 +2,7 @@
 .mobile-app .wc-select {
   display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; max-width: 100%; min-height: 34px;
   padding: 0 8px; border: 1px solid var(--mobile-border); border-radius: 8px; background: var(--mobile-card); color: var(--mobile-text);
-  font-size: 13px; line-height: 1.2; text-align: left;
+  font-size: 0.8125rem; line-height: 1.2; text-align: left;
 }
 .mobile-app .wc-select .wc-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mobile-app .wc-select svg { flex: 0 0 auto; color: var(--mobile-muted); }
@@ -16,24 +16,24 @@
   padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); border: 1px solid var(--mobile-border); border-bottom: 0; border-radius: 14px 14px 0 0;
   background: var(--mobile-card); color: var(--mobile-text); box-shadow: 0 -8px 28px rgba(0, 0, 0, .3);
 }
-.mobile-app .wc-sheet-head { display: flex; justify-content: center; padding: 2px 0 8px; font-size: 13px; color: var(--mobile-muted); }
+.mobile-app .wc-sheet-head { display: flex; justify-content: center; padding: 2px 0 8px; font-size: 0.8125rem; color: var(--mobile-muted); }
 .mobile-app .wc-options { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .mobile-app .wc-options button {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 40px; padding: 0 10px;
-  border: 0; border-radius: 8px; background: transparent; color: var(--mobile-text); font-size: 14px; text-align: left;
+  border: 0; border-radius: 8px; background: transparent; color: var(--mobile-text); font-size: 0.875rem; text-align: left;
 }
 .mobile-app .wc-options button.on { background: var(--mobile-soft); color: var(--mobile-accent); font-weight: 650; }
 .mobile-app .wc-options button:disabled { opacity: .45; }
 
 .mobile-app .wc-cal { display: grid; gap: 6px; }
-.mobile-app .wc-cal-nav { display: grid; grid-template-columns: 34px 34px 1fr 34px 34px; align-items: center; gap: 2px; text-align: center; font-size: 14px; }
+.mobile-app .wc-cal-nav { display: grid; grid-template-columns: 34px 34px 1fr 34px 34px; align-items: center; gap: 2px; text-align: center; font-size: 0.875rem; }
 .mobile-app .wc-cal-nav button, .mobile-app .wc-cal-foot button {
   display: inline-flex; align-items: center; justify-content: center; min-height: 34px; border: 1px solid var(--mobile-border); border-radius: 8px;
-  background: var(--mobile-soft); color: var(--mobile-text); font-size: 13px;
+  background: var(--mobile-soft); color: var(--mobile-text); font-size: 0.8125rem;
 }
 .mobile-app .wc-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.mobile-app .wc-cal-week { padding: 2px 0; text-align: center; font-size: 11px; color: var(--mobile-muted); }
-.mobile-app .wc-cal-grid button { min-height: 36px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--mobile-text); font-size: 13px; }
+.mobile-app .wc-cal-week { padding: 2px 0; text-align: center; font-size: 0.75rem; color: var(--mobile-muted); }
+.mobile-app .wc-cal-grid button { min-height: 36px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--mobile-text); font-size: 0.8125rem; }
 .mobile-app .wc-cal-grid button.today { border-color: var(--mobile-accent); }
 .mobile-app .wc-cal-grid button.on { background: var(--mobile-primary-fill); color: var(--mobile-on-accent); font-weight: 650; }
 .mobile-app .wc-cal-grid button:disabled { color: var(--mobile-muted); opacity: .35; }
@@ -44,9 +44,9 @@
   position: relative; z-index: 1; width: min(100%, 360px); padding: 16px 16px 12px; border: 1px solid var(--mobile-border); border-radius: 14px;
   background: var(--mobile-card); color: var(--mobile-text); box-shadow: 0 12px 36px rgba(0, 0, 0, .4);
 }
-.mobile-app .wc-dialog p { margin: 0 0 14px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mobile-app .wc-dialog p { margin: 0 0 14px; font-size: 0.875rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mobile-app .wc-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.mobile-app .wc-dialog-actions button { min-height: 38px; padding: 0 16px; border: 1px solid var(--mobile-border); border-radius: 9px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 14px; }
+.mobile-app .wc-dialog-actions button { min-height: 38px; padding: 0 16px; border: 1px solid var(--mobile-border); border-radius: 9px; background: var(--mobile-soft); color: var(--mobile-text); font-size: 0.875rem; }
 .mobile-app .wc-dialog-actions button.primary { border-color: transparent; background: var(--mobile-primary-fill); color: var(--mobile-on-accent); }
 
 /* 复选框:用 CSS 画,不用系统样式 */

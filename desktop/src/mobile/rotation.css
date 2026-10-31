@@ -14,7 +14,7 @@
   align-items: center;
   gap: 6px;
   color: #8da6ff;
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -22,14 +22,14 @@
 
 .rotation-title-row h1 {
   margin: 6px 0 0;
-  font-size: 23px;
+  font-size: 1.4375rem;
   letter-spacing: -0.02em;
 }
 
 .rotation-title-row p {
   margin: 6px 0 0;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.55;
 }
 
@@ -75,7 +75,7 @@
   border-radius: 9px;
   color: var(--mobile-muted);
   background: transparent;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -109,18 +109,18 @@
 
 .rotation-summary span {
   color: var(--mobile-muted);
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .rotation-summary strong {
   margin-top: 3px;
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 
 .rotation-summary small {
   margin-top: 3px;
   color: var(--mobile-muted);
-  font-size: 9px;
+  font-size: 0.75rem;
   line-height: 1.35;
 }
 
@@ -139,7 +139,7 @@
 .rotation-focus > span {
   display: block;
   color: var(--mobile-up);
-  font-size: 9px;
+  font-size: 0.75rem;
 }
 
 .rotation-focus > div {
@@ -154,7 +154,7 @@
   border-radius: 8px;
   color: var(--mobile-text);
   background: var(--mobile-soft);
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -181,7 +181,7 @@
 
 .rotation-rank {
   color: var(--mobile-muted);
-  font-size: 11px;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
@@ -204,7 +204,7 @@
 
 .rotation-name-line strong {
   overflow: hidden;
-  font-size: 14px;
+  font-size: 0.875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -213,7 +213,7 @@
   flex: 0 0 auto;
   padding: 2px 5px;
   border-radius: 999px;
-  font-size: 8px;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -238,7 +238,7 @@
   gap: 5px 9px;
   margin-top: 5px;
   color: var(--mobile-muted);
-  font-size: 9px;
+  font-size: 0.75rem;
 }
 
 .rotation-values {
@@ -250,14 +250,14 @@
 }
 
 .rotation-values > strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .rotation-values > span {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -271,7 +271,7 @@
 
 .rotation-values > small {
   color: var(--mobile-muted);
-  font-size: 8px;
+  font-size: 0.75rem;
 }
 
 .rotation-loading,
@@ -290,7 +290,7 @@
   min-height: 150px;
   padding: 18px;
   color: var(--mobile-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .rotation-error {
@@ -303,12 +303,12 @@
 
 .rotation-error strong {
   color: var(--mobile-up);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .rotation-error span {
   color: var(--mobile-up);
-  font-size: 11px;
+  font-size: 0.75rem;
   line-height: 1.55;
 }
 
@@ -320,7 +320,7 @@
   border-radius: 9px;
   color: var(--mobile-up);
   background: transparent;
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .rotation-source {
@@ -329,7 +329,7 @@
   gap: 5px;
   margin-top: 10px;
   color: var(--mobile-muted);
-  font-size: 9px;
+  font-size: 0.75rem;
 }
 
 @media (min-width: 680px) {
