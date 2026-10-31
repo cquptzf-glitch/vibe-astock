@@ -1,5 +1,10 @@
 # Android 当前状态与未完成清单
 
+### 0.1.47 发布尝试（2026-10-31）
+
+功能提交 `d01da745652debe4a3241ce8bb85512e2d7a5cd3` 已推送并经 GitHub 分支接口核对。Android 工作流以 publish_preview=true 触发后再次返回 HTTP 422 `Actions has been disabled for this repository.`，没有本版 APK，也不能将新增 CI 检查写成已经在云端运行通过。本地交付目录 `.local/delivery/0.1.47/` 保存严格 lint、全量 Rust 测试、五组实际输出对照及版本回执；界面预览沿用 0.1.46。
+
+
 ## 当前入口：0.1.47 Rust 工程收尾（2026-10-31，本地候选）
 
 Rust Core 严格 Clippy 的 69 项独立诊断已清理，未通过新增 lint 屏蔽放行。回测共享具名配置、报价证据点与研究阶段输入整理为明确结构，复杂类型增加别名，大枚举使用间接存储；交易复查拒绝非有限成本。Core、Tauri 和本地插件完成 rustfmt 统一。Android 预览与正式分发 CI 新增格式/严格 lint 检查并安装对应组件，YAML 本地解析通过；平台执行尚未通过。
