@@ -4,9 +4,9 @@
 //!
 //! 🔴 现金流口径:买入在当天开头投入(成交价 × 数量 + 费用),卖出与现金分红在当天收盘取出(卖出扣费用);
 //!    没填费用的成交按「设置」里的费率估(估算对 ETF 等不收印花税的品种会偏高,页面写明)。
-//! 🔴 价格:腾讯**不复权**日线。手机端没有「送转拆股」流水,价格出现单日断崖(收盘 < 前一天 72% 或 > 145%)而当天前后
-//!    又没法确认时,列进提醒 —— 那一段的市值可能算错,TWR 不可信;不去猜、不自动修正。
-//! 🔴 取不到价格的整只不算,列进缺口(北交所腾讯日线取不到、持有超过约三年一次取不全、第一根价格晚于第一笔成交太多)。
+//! 🔴 价格:沪深腾讯、北交所东财**不复权**日线。已记录送转按股数换算;未知价格断崖列进提醒,
+//!    那一段的市值和 TWR 可能算错;不去猜、不自动修正。
+//! 🔴 取不到价格的整只不算,列进缺口(行情异常、持有超过约三年一次取不全、首笔买入日缺行情)。
 //!    不拿成本价或 0 去凑市值。停牌的天按最近一个收盘价结转。
 //! 🔴 只给数字,不评好坏、不和指数比输赢、不给操作提示。个人成交与收益只在本机,不进任何 AI。
 
@@ -27,8 +27,6 @@ const JUMP_DOWN: f64 = 0.72;
 const JUMP_UP: f64 = 1.45;
 const MAX_SYMBOLS: usize = 60;
 const MAX_SPAN_DAYS: i64 = 1100;
-/// 第一根价格比第一笔成交晚超过这么多天,当作取价被窗口截断
-const LATE_START_DAYS: i64 = 20;
 
 fn r2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
@@ -162,7 +160,8 @@ pub(crate) fn compute(flows: &[Flow], closes: &HashMap<String, BTreeMap<String, 
                 if let Some((pd, pc)) = prev_close_by_symbol.get(s) {
                     let multiplier = todays.iter().find(|f|f.side==Side::Split && f.symbol==**s).map(|f|f.price).unwrap_or(1.0);
                     let ratio = c * multiplier / pc;
-                    if (ratio < JUMP_DOWN || ratio > JUMP_UP) && shares.get(s).copied().unwrap_or(0.0) > EPS {
+                    let jump_down = if is_bj(s) { 0.69 } else { JUMP_DOWN };
+                    if (ratio < jump_down || ratio > JUMP_UP) && shares.get(s).copied().unwrap_or(0.0) > EPS {
                         warnings.push(format!("{s} 在 {day} 收盘价比 {pd} 变了 {:.0}%:可能是送转拆股没有记录(未记录或记录不完整),这一段的市值和时间加权收益可能算错", (ratio - 1.0) * 100.0));
                     }
                 }
@@ -203,6 +202,13 @@ pub(crate) fn compute(flows: &[Flow], closes: &HashMap<String, BTreeMap<String, 
         last_day_mv = mv;
     }
     let last = days.last().unwrap().clone();
+    for s in &included {
+        if shares.get(s).copied().unwrap_or(0.0) > EPS {
+            if let Some(price_date) = closes[*s].keys().next_back().filter(|d| **d < last) {
+                warnings.push(format!("{s} 最后价格为 {price_date}，之后至 {last} 按该收盘价结转；可能停牌或行情缺失，期末市值并非当日新报价"));
+            }
+        }
+    }
     if !started || invested <= EPS {
         return json!({"ok": false, "reason": "区间内没有买入,算不出收益", "gaps": gaps});
     }
@@ -246,32 +252,50 @@ pub(crate) fn compute(flows: &[Flow], closes: &HashMap<String, BTreeMap<String, 
         "xirr_note": if span < 365 { Some(format!("区间 {span} 天不满一年,年化会把短期涨跌放大,不给年化数")) } else if irr.is_none() { Some("现金流解不出年化收益率".to_string()) } else { None },
         "invested": r2(invested), "withdrawn": r2(withdrawn), "final_value": r2(last_day_mv), "pnl": r2(withdrawn + last_day_mv - invested),
         "series": thin, "symbols": symbols, "gaps": gaps, "warnings": warnings,
-        "note": "时间加权收益把每天的涨跌连乘,存取钱的多少和时机不影响它;资金加权看你这些钱实际赚了多少。买入在当天开头投入、卖出与分红在当天收盘取出;价格是腾讯不复权日线,手机端没有送转流水,价格断崖会列在提醒里。只给数字,不评好坏。",
+        "note": "时间加权收益把每天的涨跌连乘,存取钱的多少和时机不影响它;资金加权看你这些钱实际赚了多少。买入在当天开头投入、卖出与分红在当天收盘取出;沪深使用腾讯、北交所使用东财不复权日线。已记录送转按股数换算,未知价格断崖列在提醒里;缺行情按最近收盘价结转,不能区分停牌和源站漏行。只给数字,不评好坏。",
     })
+}
+
+fn closes_from_response(root: &Value, symbol: &str, start: &str, end: &str) -> Result<BTreeMap<String, f64>> {
+    let key = normalize_stock_symbol(symbol).map_err(|e| anyhow!("{e}"))?;
+    let (bars, dropped, _) = if is_bj(symbol) { crate::chart::parse_em_kline(root, &key)? } else { crate::chart::parse_tencent_kline(root, &key, "day")? };
+    if dropped > 0 { return Err(anyhow!("日线有 {dropped} 行异常或重复，不能悄悄删行计算收益")); }
+    if bars.iter().any(|b| NaiveDate::parse_from_str(&b.0, "%Y-%m-%d").is_err()) { return Err(anyhow!("日线日期无效")); }
+    let map: BTreeMap<String, f64> = bars.into_iter().filter(|b| b.0.as_str() >= start && b.0.as_str() <= end).map(|b| (b.0, b.2)).collect();
+    if map.is_empty() { return Err(anyhow!("日 K 没有返回这段时间的数据")); }
+    if map.keys().next().map(String::as_str) != Some(start) {
+        return Err(anyhow!("日线缺少第一笔买入日 {start} 的价格，不能用零市值开始计算；请核对成交日期和行情覆盖"));
+    }
+    Ok(map)
 }
 
 async fn fetch_closes(client: &Client, symbol: &str, start: &str, end: &str) -> Result<BTreeMap<String, f64>> {
     let key = normalize_stock_symbol(symbol).map_err(|e| anyhow!("{e}"))?;
+    let from = NaiveDate::parse_from_str(start, "%Y-%m-%d")?;
+    let to = NaiveDate::parse_from_str(end, "%Y-%m-%d")?;
     let days = days_between(start, end);
-    if days > MAX_SPAN_DAYS {
-        return Err(anyhow!("持有超过约三年,腾讯日 K 一次取不全"));
+    if days < 0 || days > MAX_SPAN_DAYS {
+        return Err(anyhow!("持有区间无效或超过约三年,日 K 一次取不全"));
     }
     let count = ((days as f64 * 0.75) as i64 + 30).clamp(30, 800);
-    let root: Value = client
+    let request = if is_bj(symbol) {
+        client.get("https://push2his.eastmoney.com/api/qt/stock/kline/get")
+            .query(&[("secid", key.eastmoney), ("klt", "101".into()), ("fqt", "0".into()),
+                ("beg", from.format("%Y%m%d").to_string()), ("end", to.format("%Y%m%d").to_string()),
+                ("lmt", "1000".into()), ("fields1", "f1,f2,f3".into()),
+                ("fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61".into())])
+            .header("Referer", "https://quote.eastmoney.com/")
+    } else { client
         .get("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get")
-        .query(&[("param", format!("{},day,{},{},{count},", key.tencent, start, end))])
+        .query(&[("param", format!("{},day,{},{},{count},", key.tencent, start, end))]) };
+    let root: Value = request
         .timeout(Duration::from_secs(12))
         .send()
         .await?
         .error_for_status()?
         .json()
         .await?;
-    let (bars, _, _) = crate::chart::parse_tencent_kline(&root, &key, "day")?;
-    let map: BTreeMap<String, f64> = bars.into_iter().filter(|b| b.0.len() == 10 && b.0.as_str() >= start && b.0.as_str() <= end).map(|b| (b.0, b.2)).collect();
-    if map.is_empty() {
-        return Err(anyhow!("腾讯日 K 没有返回这段时间的数据"));
-    }
-    Ok(map)
+    closes_from_response(&root, symbol, start, end)
 }
 
 pub async fn view(client: &Client, db: &Path) -> std::result::Result<Value, DiscoveryError> {
@@ -286,7 +310,7 @@ pub async fn view(client: &Client, db: &Path) -> std::result::Result<Value, Disc
     }
     let today = crate::emotion::now_china().0.format("%Y-%m-%d").to_string();
     let mut first_by: BTreeMap<String, String> = BTreeMap::new();
-    for f in &flows {
+    for f in flows.iter().filter(|f| f.side == Side::Buy) {
         let e = first_by.entry(f.symbol.clone()).or_insert_with(|| f.date.clone());
         if f.date < *e {
             *e = f.date.clone();
@@ -296,14 +320,7 @@ pub async fn view(client: &Client, db: &Path) -> std::result::Result<Value, Disc
         return Ok(json!({"ok": false, "reason": format!("一次最多算 {MAX_SYMBOLS} 只,现在有 {} 只", first_by.len()), "gaps": []}));
     }
     let mut gaps: Vec<Value> = Vec::new();
-    let mut targets: Vec<(String, String)> = Vec::new();
-    for (symbol, first) in &first_by {
-        if is_bj(symbol) {
-            gaps.push(json!({"symbol": symbol, "why": "北交所腾讯日线取不到,这只没算"}));
-        } else {
-            targets.push((symbol.clone(), first.clone()));
-        }
-    }
+    let targets: Vec<(String, String)> = first_by.into_iter().collect();
     let fetched: Vec<(String, String, Result<BTreeMap<String, f64>>)> = stream::iter(targets)
         .map(|(symbol, first)| {
             let client = client.clone();
@@ -317,15 +334,10 @@ pub async fn view(client: &Client, db: &Path) -> std::result::Result<Value, Disc
         .collect()
         .await;
     let mut closes: HashMap<String, BTreeMap<String, f64>> = HashMap::new();
-    for (symbol, first, result) in fetched {
+    for (symbol, _first, result) in fetched {
         match result {
             Ok(map) => {
-                let start = map.keys().next().cloned().unwrap_or_default();
-                if days_between(&first, &start) > LATE_START_DAYS {
-                    gaps.push(json!({"symbol": symbol, "why": format!("第一根价格({start})比第一笔成交({first})晚了 {} 天,取价被截断,这只没算", days_between(&first, &start))}));
-                } else {
-                    closes.insert(symbol, map);
-                }
+                closes.insert(symbol, map);
             }
             Err(e) => gaps.push(json!({"symbol": symbol, "why": format!("取不到价格:{e}")})),
         }
@@ -401,6 +413,55 @@ mod tests {
     }
 
     #[test]
+    fn beijing_prices_contribute_to_returns_and_ordinary_drops_are_not_split_warnings() {
+        let f = [flow("920575", "2026-01-05", Side::Buy, 100.0, 10.0)];
+        let v = compute(&f, &closes("920575", &[("2026-01-05", 10.0), ("2026-01-06", 7.0)]), vec![]);
+        assert_eq!(v["twr_pct"], -30.0);
+        assert_eq!(v["pnl"], -300.0);
+        assert!(v["warnings"].as_array().unwrap().is_empty());
+        let cliff = compute(&f, &closes("920575", &[("2026-01-05", 10.0), ("2026-01-06", 5.0)]), vec![]);
+        assert_eq!(cliff["warnings"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn carried_prices_are_disclosed_only_for_still_held_positions() {
+        let mut c = closes("920575", &[("2026-01-05", 10.0), ("2026-01-06", 11.0)]);
+        c.extend(closes("600519", &[("2026-01-05", 10.0), ("2026-01-07", 10.0)]));
+        let mut f = vec![flow("920575", "2026-01-05", Side::Buy, 100.0, 10.0), flow("600519", "2026-01-05", Side::Buy, 100.0, 10.0)];
+        let v = compute(&f, &c, vec![]);
+        assert_eq!(v["final_value"], 2100.0);
+        assert!(v["warnings"][0].as_str().unwrap().contains("最后价格为 2026-01-06"));
+        f.push(flow("920575", "2026-01-06", Side::Sell, 100.0, 11.0));
+        assert!(compute(&f, &c, vec![])["warnings"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn provider_rows_require_identity_valid_dates_and_no_silent_drops() {
+        let em = json!({"data":{"code":"920575","market":0,"klines":["2026-01-05,10,10,11,9,100,10000", "2026-01-06,7,7,8,6,100,7000"]}});
+        let parsed = closes_from_response(&em, "920575", "2026-01-05", "2026-01-06").unwrap();
+        assert_eq!(parsed["2026-01-06"], 7.0);
+        let mut wrong = em.clone(); wrong["data"]["code"] = json!("600519");
+        assert!(closes_from_response(&wrong, "920575", "2026-01-05", "2026-01-06").is_err());
+        let mut bad = em.clone(); bad["data"]["klines"][1] = json!("2026-01-06,7,7,6,8,100,7000");
+        assert!(closes_from_response(&bad, "920575", "2026-01-05", "2026-01-06").is_err());
+        let mut date = em.clone(); date["data"]["klines"][1] = json!("2026-02-30,7,7,8,6,100,7000");
+        assert!(closes_from_response(&date, "920575", "2026-01-05", "2026-03-01").is_err());
+        let tx = json!({"code":0,"data":{"sh600519":{"day":[["2026-01-05","10","10","11","9","100"],["2026-01-05","10","10","11","9","100"]]}}});
+        assert!(closes_from_response(&tx, "600519", "2026-01-05", "2026-01-06").is_err());
+        assert!(closes_from_response(&em, "920575", "2025-01-01", "2025-01-02").is_err());
+        assert!(closes_from_response(&em, "920575", "2026-01-04", "2026-01-06").unwrap_err().to_string().contains("第一笔买入日"));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires public Eastmoney HTTPS"]
+    async fn live_beijing_performance_prices() {
+        let c = fetch_closes(&Client::new(), "920575", "2026-10-08", "2026-10-16").await.unwrap();
+        assert_eq!(c.keys().next().map(String::as_str), Some("2026-10-08"));
+        assert_eq!(c.keys().next_back().map(String::as_str), Some("2026-10-16"));
+        assert!(c.len() >= 5);
+    }
+
+    #[test]
     fn a_year_or_more_gives_annualised_return_and_the_series_is_thinned() {
         let mut rows: Vec<(String, f64)> = Vec::new();
         let start = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
@@ -445,7 +506,11 @@ mod tests {
             Flow { name: "样本银行".into(), ..flow("000001", &b[200].0, Side::Sell, 400.0, b[200].1) },
             Flow { name: "样本白酒".into(), amount: 300.0, ..flow("600519", &a[150].0, Side::Dividend, 0.0, 0.0) },
         ];
-        let v = compute(&flows, &c, vec![json!({"symbol": "920575", "why": "北交所腾讯日线取不到,这只没算"})]);
+        let mut flows = flows;
+        let bj: Vec<(&str, f64)> = a.iter().enumerate().map(|(i, (d, _))| (d.as_str(), 10.0 * (1.0 + i as f64 * 0.0003))).collect();
+        c.extend(closes("920575", &bj));
+        flows.push(Flow { name: "样本北交所".into(), ..flow("920575", &a[0].0, Side::Buy, 100.0, 10.0) });
+        let v = compute(&flows, &c, vec![json!({"symbol": "688001", "why": "行情源未返回价格,这只没算"})]);
         std::fs::write(out, serde_json::to_string_pretty(&v).unwrap()).unwrap();
     }
 }

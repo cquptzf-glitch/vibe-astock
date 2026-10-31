@@ -15,13 +15,15 @@ test("收益表现:四个读数、走势线、区间与投入取出、逐只盈�
     const { PerfView } = await r.load("/src/mobile/PortfolioAnalysis.tsx");
     const html = r.html(PerfView, { data: perf });
     const text = flat(html);
-    for (const part of ["时间加权", "+9.38%", "资金加权", "+7.82%", "年化(XIRR)", "+8.08%", "累计盈亏", "样本白酒", "样本银行", "920575 北交所腾讯日线取不到", "只给数字,不评好坏"]) {
+    for (const part of ["时间加权", "+9.33%", "资金加权", "+7.86%", "年化(XIRR)", "+8.07%", "累计盈亏", "样本白酒", "样本银行", "样本北交所", "688001 行情源未返回价格", "北交所使用东财不复权日线", "已记录送转按股数换算", "只给数字,不评好坏"]) {
       assert.ok(text.includes(sq(part)), part);
     }
     assert.match(html, /<svg[^>]*aria-label="时间加权收益走势"/);
-    assert.match(html, /class="up">\+9\.38%/);
-    const short = flat(r.html(PerfView, { data: { ...perf, xirr_pct: null, xirr_note: "区间 40 天不满一年,年化会把短期涨跌放大,不给年化数", warnings: ["600519 在 2026-01-06 收盘价比 2026-01-05 变了 -50%:可能是送转拆股没有记录"] } }));
+    assert.match(html, /class="up">\+9\.33%/);
+    const short = flat(r.html(PerfView, { data: { ...perf, span_days: 40, xirr_pct: null, xirr_note: "区间 40 天不满一年,年化会把短期涨跌放大,不给年化数", warnings: ["600519 在 2026-01-06 收盘价比 2026-01-05 变了 -50%:可能是送转拆股没有记录"] } }));
     for (const part of ["不满一年不给", "区间 40 天不满一年", "可能是送转拆股没有记录"]) assert.ok(short.includes(sq(part)), part);
+    const noIrr = flat(r.html(PerfView, { data: { ...perf, span_days: 400, xirr_pct: null, xirr_note: "现金流解不出年化收益率" } }));
+    assert.ok(noIrr.includes("现金流无法求解") && !noIrr.includes("不满一年不给"));
     const bad = flat(r.html(PerfView, { data: { ok: false, reason: "还没有买入成交,算不出收益。", gaps: [{ symbol: "000001", why: "取不到价格" }] } }));
     assert.ok(bad.includes(sq("算不了:还没有买入成交")) && bad.includes("000001取不到价格"));
   });

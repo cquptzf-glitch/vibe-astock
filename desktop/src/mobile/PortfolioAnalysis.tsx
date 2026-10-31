@@ -87,7 +87,7 @@ export function PerfView({ data }: { data: PerfData }) {
     <div className="pa-stats" aria-label="收益表现读数">
       <div><span>时间加权</span><strong className={tone(data.twr_pct)}>{fmtPercent(data.twr_pct)}</strong><small>票本身的涨跌</small></div>
       <div><span>资金加权</span><strong className={tone(data.money_weighted_pct)}>{fmtPercent(data.money_weighted_pct)}</strong><small>区间,不年化</small></div>
-      <div><span>年化(XIRR)</span><strong className={tone(data.xirr_pct)}>{data.xirr_pct == null ? "—" : fmtPercent(data.xirr_pct)}</strong><small>{data.xirr_pct == null ? "不满一年不给" : "内部收益率"}</small></div>
+      <div><span>年化(XIRR)</span><strong className={tone(data.xirr_pct)}>{data.xirr_pct == null ? "—" : fmtPercent(data.xirr_pct)}</strong><small>{data.xirr_pct == null ? (data.span_days < 365 ? "不满一年不给" : "现金流无法求解") : "内部收益率"}</small></div>
       <div><span>累计盈亏</span><strong className={tone(data.pnl)}>{signed(data.pnl)}</strong><small>元(含分红)</small></div>
     </div>
     <Spark ariaLabel="时间加权收益走势" points={data.series.map((s) => ({ date: s.date, v: s.twr_pct }))} />

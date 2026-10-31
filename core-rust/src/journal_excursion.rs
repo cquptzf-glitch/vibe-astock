@@ -71,6 +71,16 @@ pub(crate) struct Hl {
     pub close: f64,
 }
 
+/// 成交区间两端必须有真实日线；中间缺日仍可能是停牌，不能自行补齐。
+fn valid_window(rows: &[Hl], start: &str, end: &str) -> bool {
+    rows.first().is_some_and(|r| r.date == start) && rows.last().is_some_and(|r| r.date == end)
+        && rows.windows(2).all(|w| w[0].date < w[1].date)
+        && rows.iter().all(|r| NaiveDate::parse_from_str(&r.date, "%Y-%m-%d").is_ok()
+            && r.date.as_str() >= start && r.date.as_str() <= end
+            && [r.high, r.low, r.close].iter().all(|v| v.is_finite() && *v > 0.0)
+            && r.low <= r.close && r.close <= r.high)
+}
+
 /// 算这一轮要用的东西:都来自卖光了的一轮
 #[derive(Clone, Debug)]
 pub(crate) struct Input {
@@ -264,7 +274,9 @@ pub(crate) fn cache_get(conn: &Connection, t: &Input) -> Result<Option<Cached>> 
     let Some((payload, fetched_at)) = raw else { return Ok(None) };
     // 缓存损坏当没有,重取覆盖
     let Ok(lines) = serde_json::from_str::<Vec<(String, f64, f64, f64)>>(&payload) else { return Ok(None) };
-    Ok(Some(Cached { rows: lines.into_iter().map(|(date, high, low, close)| Hl { date, high, low, close }).collect(), fetched_at }))
+    let rows: Vec<Hl> = lines.into_iter().map(|(date, high, low, close)| Hl { date, high, low, close }).collect();
+    if !valid_window(&rows, &t.buy, &t.sell) { return Ok(None); }
+    Ok(Some(Cached { rows, fetched_at }))
 }
 
 pub(crate) fn cache_put(conn: &Connection, t: &Input, rows: &[Hl], fetched_at: &str) -> Result<()> {
@@ -282,8 +294,12 @@ pub(crate) fn cache_put(conn: &Connection, t: &Input, rows: &[Hl], fetched_at: &
 /// 腾讯日 K 响应 → [start, end] 内的日线(不复权)。日期要是 YYYY-MM-DD,价格要合理,不补值
 pub(crate) fn rows_from_tencent(root: &Value, symbol: &str, start: &str, end: &str) -> Result<Vec<Hl>> {
     let key = normalize_stock_symbol(symbol).map_err(|e| anyhow!("{e}"))?;
-    let (bars, _, _) = crate::chart::parse_tencent_kline(root, &key, "day")?;
-    Ok(bars.into_iter().filter(|b| b.0.as_str() >= start && b.0.as_str() <= end && b.0.len() == 10).map(|(date, _o, close, high, low, ..)| Hl { date, high, low, close }).collect())
+    let (bars, dropped, _) = crate::chart::parse_tencent_kline(root, &key, "day")?;
+    if dropped > 0 { return Err(anyhow!("腾讯日线存在异常或重复行，不能按完整区间计算")); }
+    if bars.iter().any(|b| NaiveDate::parse_from_str(&b.0, "%Y-%m-%d").is_err()) { return Err(anyhow!("腾讯日线日期无效")); }
+    let rows: Vec<Hl> = bars.into_iter().filter(|b| b.0.as_str() >= start && b.0.as_str() <= end).map(|(date, _o, close, high, low, ..)| Hl { date, high, low, close }).collect();
+    if !valid_window(&rows, start, end) { return Err(anyhow!("腾讯日线缺少买入日或卖出日，不能按完整区间计算")); }
+    Ok(rows)
 }
 
 async fn fetch_tencent(client: &Client, t: &Input) -> Result<Vec<Hl>> {
@@ -640,10 +656,13 @@ mod tests {
     fn tencent_rows_are_unadjusted_day_bars_inside_the_window_only() {
         let root = json!({"code": 0, "data": {"sh600001": {"day": [
             ["2026-10-09", "9.80", "9.90", "10.00", "9.70", "1000"], ["2026-10-12", "10.00", "10.40", "10.50", "9.90", "1200"],
-            ["2026-10-13", "10.40", "10.20", "10.60", "10.10", "900"], ["2026-10-14", "10.20", "10.30", "10.35", "10.00", "800"],
-            ["2026-10-13", "bad", "x", "x", "x", "1"]]}}});
+            ["2026-10-13", "10.40", "10.20", "10.60", "10.10", "900"], ["2026-10-14", "10.20", "10.30", "10.35", "10.00", "800"]]}}});
         let rows = rows_from_tencent(&root, "600001", "2026-10-12", "2026-10-13").unwrap();
-        assert_eq!(rows, vec![hl("2026-10-12", 10.5, 9.9, 10.4), hl("2026-10-13", 10.6, 10.1, 10.2)], "只取买入日~卖出日,坏行丢弃不补值");
+        assert_eq!(rows, vec![hl("2026-10-12", 10.5, 9.9, 10.4), hl("2026-10-13", 10.6, 10.1, 10.2)], "只取买入日~卖出日");
+        let mut bad = root.clone(); bad["data"]["sh600001"]["day"].as_array_mut().unwrap().push(json!(["2026-10-13", "bad", "x", "x", "x", "1"]));
+        assert!(rows_from_tencent(&bad, "600001", "2026-10-12", "2026-10-13").is_err());
+        assert!(rows_from_tencent(&root, "600001", "2026-10-08", "2026-10-13").is_err());
+        assert!(rows_from_tencent(&root, "600001", "2026-10-12", "2026-10-15").is_err());
         assert!(rows_from_tencent(&json!({"code": 0, "data": {"sh600001": {}}}), "600001", "a", "b").is_err());
     }
 
@@ -666,6 +685,22 @@ mod tests {
         assert!(rows_from_eastmoney(&bad, &t).is_err());
         let mut split = bars.clone(); split[1].close = 6.8;
         assert!(matches!(compute_excursion(&t, &split), Computed::Split));
+    }
+
+    #[test]
+    fn cached_windows_missing_fill_dates_or_containing_bad_rows_are_not_reused() {
+        let (app, dir) = db("bad-window");
+        let conn = open(app.db_path()).unwrap();
+        let t = input("2026-10-12", "2026-10-14", 0.0);
+        let valid = vec![hl("2026-10-12", 11.0, 9.0, 10.0), hl("2026-10-14", 11.0, 9.0, 10.0)];
+        cache_put(&conn, &t, &valid, "2026-10-15T08:00:00Z").unwrap();
+        assert!(cache_get(&conn, &t).unwrap().is_some());
+        for rows in [vec![valid[0].clone()], vec![valid[1].clone()], vec![valid[1].clone(), valid[0].clone()], vec![valid[0].clone(), hl("2026-10-14", 8.0, 9.0, 10.0)]] {
+            cache_put(&conn, &t, &rows, "2026-10-15T08:00:00Z").unwrap();
+            assert!(cache_get(&conn, &t).unwrap().is_none());
+        }
+        drop(conn); drop(app);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     fn db(label: &str) -> (crate::AppCore, std::path::PathBuf) {

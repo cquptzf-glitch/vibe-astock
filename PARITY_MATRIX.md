@@ -1,5 +1,12 @@
 # Android / Rust migration parity matrix
 
+## 当前入口：0.1.46 收益取价与复查完整性（2026-10-31，本地候选）
+
+北交所收益通过东财不复权日线计算，沪深通过腾讯；首笔买入日缺价、坏行和重复行不能静默用于收益计算。旧报价结转显示日期，XIRR 无解原因准确展示。沪深复查和旧复查缓存增加成交日期边界、顺序、价格关系校验。中间缺日、未知公司行动与现金除息仍保留精度说明。
+
+本地 Rust 321 通过/30 ignored、前端 584 通过、桌面/移动构建通过；388 个冻结对照散列匹配。收益合成夹具与本版 Rust 输出一致，北交所公开接口单次探测通过。浏览器与发布记录见 [0.1.46](docs/android/releases/0.1.46.md)；这些检查不构成真机或全部旧工作流等价证明。
+
+
 ### 0.1.45 发布尝试（2026-10-29）
 
 代码提交 `0691a8ad05a42bf77bdf8cc53b230e020d22a7d5` 已推送。核对远端 android-mvp 指向该提交后，手动触发 Android 工作流并选择发布预览；GitHub 返回 HTTP 422 `Actions has been disabled for this repository.`，未生成本版 APK。仓库权限接口此前返回 enabled=true、工作流为 active；平台拒绝原因仍待解决。本机没有固定预览 keystore，不能生成替代签名覆盖发布。此前确认的最近 Android Release 仍为 0.1.38。
@@ -87,7 +94,7 @@ Desktop CI PASS
 Android APK PASS
 ```
 
-## Current mobile matrix — 0.1.40 local candidate (2026-10-25)
+## Current mobile matrix — 0.1.46 local candidate (2026-10-31)
 
 | Area | Mobile implementation | Evidence | Status |
 | --- | --- | --- | --- |
@@ -100,6 +107,7 @@ Android APK PASS
 | Signed distribution / App Links | android-distribution.yml + scripts/android + native owned-host routing | 9 helper tests; native route checks; 0.1.38 CI debug/release APK and AAB fixture smoke passed | Build/configuration implemented; real owner key, hosted domain, store and device acceptance absent |
 | Advanced backtest | backtest_advanced / backtest_rules / ai_backtest | deterministic resampling, WFO no future dependence, rebalance cash bounds; live single/multi run | Implemented SH/SZ historical ST/IPO metadata; special relisting/delisting/BJ source coverage remains partial |
 | Corporate actions / opening positions | journal_fills v13 + unified settle; backup v11 | FIFO/partial sell/restore/no fake cash flow tests | Implemented; registered splits normalize MFE prices/quantities to exit-share basis; unknown actions and cash-dividend caveats remain |
+| Portfolio performance / journal price integrity | portfolio_perf + journal_excursion; SH/SZ Tencent and BJ Eastmoney unadjusted daily bars | missing-first-buy / malformed / duplicate / identity / stale-price tests; synthetic portfolio; public BJ probe; invalid-cache regression | Implemented mobile returns including BJ; reject missing buy-day prices and incomplete fill-date excursion windows; intermediate gaps and unknown actions remain disclosed |
 | Scan / Android service | market_scan + MarketMonitorService | parsing and native source compile | Full-market quote/minute sampling; official month calendar gates native sampling and rollover stops; exchange tick feed and device lifecycle unverified |
 | Calendar / event reminders | calendar_sources + native rules | complete-month validation, reminder/backup/done state tests; live SZSE | Implemented SZSE month semantics; special exchange-specific coverage pending |
 | General AI chat | ai_chat + AiChatPanel / SQLite threads | native streaming/cancel/history and frontend regressions; cross-platform CI | Implemented streaming, stop, threads and bounded tools; real model/device quality not certified |

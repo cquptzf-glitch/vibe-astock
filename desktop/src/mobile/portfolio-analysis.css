@@ -30,3 +30,11 @@
 .pa-scenario h3 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px; margin: 0; font-size: 12.5px; }
 .pa-scenario h3 small { color: var(--mobile-muted); font-size: 10.5px; font-weight: 400; }
 .pa-pairs small { color: var(--mobile-muted); font-size: 10px; }
+
+@media (max-width: 600px) {
+  .pa-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .pa-stats > div { padding: 8px; gap: 3px; }
+  .pa-stats span { font-size: 11px; }
+  .pa-stats strong { font-size: 16px; }
+  .pa-stats small { font-size: 10.5px; }
+}

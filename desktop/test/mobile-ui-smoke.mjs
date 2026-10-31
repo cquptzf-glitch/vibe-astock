@@ -177,6 +177,28 @@ try {
           throw new Error("Unexpected command: " + command);
         } }, notification: { isPermissionGranted: async () => false, requestPermission: async () => "granted", sendNotification() {} } };
       }, { responses, quote, klineRows, theme });
+      if (process.env.VIBE_UI_PORTFOLIO_ONLY) {
+        await page.goto("http://127.0.0.1:4173/#"+MOBILE_PATHS.hold,{waitUntil:"networkidle"});
+        await page.getByRole("button",{name:"开始计算",exact:true}).click();
+        await page.getByRole("img",{name:"时间加权收益走势"}).waitFor();
+        await page.getByRole("button",{name:"开始体检",exact:true}).click();
+        await page.getByRole("table",{name:"持仓权重与行业"}).waitFor();
+        await page.getByRole("button",{name:"开始回放",exact:true}).click();
+        await page.getByRole("article",{name:"2020 年 3 月全球疫情冲击"}).waitFor();
+        const layout=await page.evaluate(()=>({
+          overflow:document.documentElement.scrollWidth>innerWidth,
+          columns:[...document.querySelectorAll(".pa-stats")].map(x=>getComputedStyle(x).gridTemplateColumns.split(" ").length),
+          wrapped:[...document.querySelectorAll(".pa-stats strong")].filter(x=>{const r=document.createRange();r.selectNodeContents(x);return new Set([...r.getClientRects()].map(r=>Math.round(r.top))).size>1;}).map(x=>x.textContent)
+        }));
+        assert.equal(layout.overflow,false);
+        assert.ok(layout.columns.every(n=>n===(width<=600?2:4)));
+        assert.deepEqual(layout.wrapped,[]);
+        for(const label of ["收益表现","持仓体检","历史回放"]) await page.locator(`section.portfolio-analysis[aria-label='${label}']`).screenshot({path:path.join(out,`${width}-${theme}-${label}.png`)});
+        routeCoverage.push({page:"hold",route:MOBILE_PATHS.hold,width,theme,state:"portfolio-analysis",...layout});
+        for(const request of await page.evaluate(()=>window.__missingRequests))missingRequests.add(request);
+        assert.equal(missingRequests.size,0);
+        await context.close();continue;
+      }
       const auditAllPages = async () => {
         fs.mkdirSync(path.join(out,"page-previews"),{recursive:true});
         for (const [name,route] of Object.entries(MOBILE_PATHS)) {
@@ -552,6 +574,8 @@ try {
       await page.waitForFunction(() => !document.querySelector(".portfolio-income")?.textContent?.includes("••••"));
       await page.getByRole("button", { name: "开始计算", exact: true }).click();
       await page.getByRole("img", { name: "时间加权收益走势" }).waitFor();
+      await page.getByRole("table", { name: "逐只盈亏", exact: true }).getByText("样本北交所", { exact: true }).waitFor();
+      assert.ok((await page.locator("[aria-label='收益表现']").innerText()).includes("北交所使用东财不复权日线"));
       await page.getByRole("button", { name: "开始体检", exact: true }).click();
       await page.getByRole("table", { name: "持仓权重与行业" }).waitFor();
       await page.getByRole("button", { name: "开始回放", exact: true }).click();
@@ -710,7 +734,7 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [320, 360, 390, 768], themes: ["light", "dark"], screenshots: fs.readdirSync(out).filter(x=>x.endsWith(".png")).length, chart_png_exports: fs.existsSync(path.join(out,"chart-exports"))?fs.readdirSync(path.join(out,"chart-exports")).length:0, route_coverage: routeCoverage, missing_requests: [...missingRequests], page_errors: errors }, null, 2));
+  fs.writeFileSync(path.join(out, "verification.json"), JSON.stringify({ fixture_data: true, widths: [...new Set(routeCoverage.map(x=>x.width))], themes: [...new Set(routeCoverage.map(x=>x.theme))], screenshots: fs.readdirSync(out).filter(x=>x.endsWith(".png")).length, chart_png_exports: fs.existsSync(path.join(out,"chart-exports"))?fs.readdirSync(path.join(out,"chart-exports")).length:0, route_coverage: routeCoverage, missing_requests: [...missingRequests], page_errors: errors }, null, 2));
   console.log(`Mobile UI smoke passed: ${routeCoverage.length} route/state/viewport checks; ${new Set(routeCoverage.map(x=>x.page)).size} routes; ${missingRequests.size} missing fixture endpoints; ${errors.length} page errors.`);
 } catch (error) {
   // 注解(::error::)匿名可读;日志要登录才能看
