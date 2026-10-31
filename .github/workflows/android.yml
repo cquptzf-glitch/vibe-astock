@@ -162,6 +162,7 @@ jobs:
             sleep 1
           done
           VIBE_UI_RUNTIME="$RUNNER_TEMP/mobile-ui" VIBE_UI_OUTPUT="dist/mobile-ui" node desktop/test/mobile-ui-smoke.mjs
+          VIBE_UI_RUNTIME="$RUNNER_TEMP/mobile-ui" VIBE_UI_OUTPUT="dist/mobile-ui/revenue" VIBE_UI_REVENUE_ONLY=1 node desktop/test/mobile-ui-smoke.mjs
 
       - name: Upload mobile UI screenshots
         if: always()
@@ -173,28 +174,24 @@ jobs:
           retention-days: 30
 
       - name: Initialize Android project
-        run: cargo tauri android init --ci
-
-      - name: Restore preview upgrade signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: android-preview-debug-keystore-v1
+        run: cargo tauri android init --ci --config src-tauri/tauri.preview.conf.json
 
       - name: Guard preview upgrade identity
-        run: python3 scripts/android/prepare_preview_signing.py
+        env:
+          VIBE_PREVIEW_KEYSTORE_BASE64: ${{ secrets.VIBE_PREVIEW_KEYSTORE_BASE64 }}
+        run: python3 scripts/android/prepare_preview_signing.py --parallel
 
       - name: Build installable size-optimized APK
         # CI keeps the Android debug signing path so artifacts remain directly
         # installable. Production signing is handled separately from this job.
-        run: cargo tauri android build --ci --debug --apk --split-per-abi --target aarch64
+        run: cargo tauri android build --ci --debug --apk --split-per-abi --target aarch64 --config src-tauri/tauri.preview.conf.json
 
       - name: Test native reminder navigation
         working-directory: src-tauri/gen/android
         run: ./gradlew :tauri-plugin-vibe-reminders:testDebugUnitTest
 
       - name: Verify release APK and AAB with a disposable test key
-        run: python3 scripts/android/smoke_distribution.py
+        run: python3 scripts/android/smoke_distribution.py --preview
 
       - name: Upload distribution verification receipt
         uses: actions/upload-artifact@v4

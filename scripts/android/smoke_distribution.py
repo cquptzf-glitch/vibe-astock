@@ -1,5 +1,6 @@
 """Build and verify release artifacts with a disposable test key; never publish them."""
 from __future__ import annotations
+import argparse
 import json
 import os
 from pathlib import Path
@@ -8,7 +9,9 @@ import tempfile
 from configure_distribution import configure
 from verify_distribution import signing_certificate, verify
 
-def main() -> None:
+def main(preview: bool = False) -> None:
+    package_name = 'com.vibeastock.preview' if preview else 'com.vibeastock.mobile'
+    config_args = ['--config', str(Path('src-tauri/tauri.preview.conf.json').resolve())] if preview else []
     project=Path('src-tauri/gen/android')
     output=Path('dist/android-distribution-smoke')
     with tempfile.TemporaryDirectory(prefix='vibe-signing-smoke-') as temporary:
@@ -18,21 +21,22 @@ def main() -> None:
         os.environ.update({k:v for k,v in env.items() if k.startswith('ANDROID_')})
         try:
             cert=signing_certificate()
-            configure(project,output,'links.example.com',[cert],True)
-            subprocess.run(['cargo','tauri','android','build','--ci','--apk','--aab','--split-per-abi','--target','aarch64'],env=env,check=True)
+            configure(project,output,'links.example.com',[cert],True,package_name)
+            subprocess.run(['cargo','tauri','android','build','--ci','--apk','--aab','--split-per-abi','--target','aarch64',*config_args],env=env,check=True)
             apk=next((project/'app/build/outputs/apk').rglob('*release*.apk'))
             aab=next((project/'app/build/outputs/bundle').rglob('*release*.aab'))
             tools=Path(os.environ['ANDROID_HOME'])/'build-tools'
             signers=sorted(tools.glob('*/apksigner'),key=lambda p:tuple(int(x) for x in p.parent.name.split('.') if x.isdigit()))
             if not signers:raise RuntimeError('apksigner missing')
-            receipt=verify(apk,aab,signers[-1],cert,json.loads(Path("src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"])
+            receipt=verify(apk,aab,signers[-1],cert,json.loads(Path("src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"],package_name)
             receipt.update({'identity':'disposable CI fixture, never a production upgrade key','production_signed':False,'website_verified':False})
             (output/'verification.json').write_text(json.dumps(receipt,indent=2)+'\n',encoding='utf-8')
             print('Disposable release APK/AAB signature smoke passed; production identity and device checks remain separate')
         finally:
-            configure(project,output)
+            configure(project,output,package_name=package_name)
             for k,v in prior.items():
                 if v is None:os.environ.pop(k,None)
                 else:os.environ[k]=v
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--preview',action='store_true');main(parser.parse_args().preview)

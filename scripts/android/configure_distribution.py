@@ -10,6 +10,12 @@ import xml.etree.ElementTree as ET
 
 ANDROID = "http://schemas.android.com/apk/res/android"
 ET.register_namespace("android", ANDROID)
+PACKAGES = {"com.vibeastock.mobile", "com.vibeastock.preview"}
+
+def validate_package(package: str) -> str:
+    if package not in PACKAGES:
+        raise ValueError("Unknown Vibe AStock application package")
+    return package
 def attr(name: str) -> str:
     return "{" + ANDROID + "}" + name
 
@@ -52,7 +58,8 @@ android {
 // END VIBE DISTRIBUTION SIGNING
 '''
 
-def configure(project: Path, output: Path, host: str = "", fingerprints: list[str] | None = None, signing: bool = False) -> dict:
+def configure(project: Path, output: Path, host: str = "", fingerprints: list[str] | None = None, signing: bool = False, package_name: str = "com.vibeastock.mobile") -> dict:
+    package_name = validate_package(package_name)
     fingerprints = [certificate(f) for f in (fingerprints or [])]
     if host:
         host = validate_host(host)
@@ -77,7 +84,7 @@ def configure(project: Path, output: Path, host: str = "", fingerprints: list[st
     app = tree.getroot().find("application")
     if app is None:
         raise ValueError("Generated manifest has no application")
-    activity = next((a for a in app.findall("activity") if a.get(attr("name")) in (".MainActivity", "com.vibeastock.mobile.MainActivity")), None)
+    activity = next((a for a in app.findall("activity") if a.get(attr("name")) in (".MainActivity", package_name + ".MainActivity")), None)
     if activity is None:
         raise ValueError("Generated manifest has no expected MainActivity")
     metadata_key = "com.vibeastock.APP_LINK_HOST"
@@ -99,10 +106,10 @@ def configure(project: Path, output: Path, host: str = "", fingerprints: list[st
     gradle.write_text(source, encoding="utf-8")
     ET.indent(tree, space="    ")
     tree.write(manifest, encoding="utf-8", xml_declaration=True)
-    receipt = {"package": "com.vibeastock.mobile", "app_links_host": host or None, "signing_configured": signing, "website_verified": False}
+    receipt = {"package": package_name, "app_links_host": host or None, "signing_configured": signing, "website_verified": False}
     output.mkdir(parents=True, exist_ok=True)
     if host:
-        association = [{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "android_app", "package_name": "com.vibeastock.mobile", "sha256_cert_fingerprints": fingerprints}}]
+        association = [{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "android_app", "package_name": package_name, "sha256_cert_fingerprints": fingerprints}}]
         website = output / ".well-known"
         website.mkdir(exist_ok=True)
         (website / "assetlinks.json").write_text(json.dumps(association, indent=2) + "\n", encoding="utf-8")
@@ -118,5 +125,6 @@ if __name__ == "__main__":
     p.add_argument("--host", default="")
     p.add_argument("--fingerprint", action="append", default=[])
     p.add_argument("--signing", action="store_true")
+    p.add_argument("--package", default="com.vibeastock.mobile", choices=sorted(PACKAGES))
     a = p.parse_args()
-    print(json.dumps(configure(a.project, a.output, a.host, a.fingerprint, a.signing)))
+    print(json.dumps(configure(a.project, a.output, a.host, a.fingerprint, a.signing, a.package)))

@@ -125,4 +125,54 @@ class DistributionTest(unittest.TestCase):
             prepare(expected,key,output)
             self.assertTrue(json.loads(output.read_text())['debug_signed'])
 
+
+    def test_parallel_preview_rejects_legacy_metadata_and_keeps_package_isolation(self):
+        apk=self.root/'parallel.apk';apk.write_bytes(b'synthetic APK fixture')
+        expected={'package':'com.vibeastock.preview','certificate_sha256':self.fingerprint,'debug_signed':True}
+        good="package: name='com.vibeastock.preview' versionCode='1048' versionName='0.1.48'\napplication-debuggable\nnative-code: 'arm64-v8a'\n"
+        result=lambda text: SimpleNamespace(returncode=0,stdout=text)
+        with patch('verify_distribution.subprocess.run',side_effect=[result(good),result('Signer #1 certificate SHA-256 digest: '+self.fingerprint)]):
+            self.assertEqual(verify_preview(apk,self.root/'signer',expected,'0.1.48')['package'],'com.vibeastock.preview')
+        with patch('verify_distribution.subprocess.run',return_value=result(good.replace('com.vibeastock.preview','com.vibeastock.mobile'))):
+            with self.assertRaises(ValueError):verify_preview(apk,self.root/'signer',expected,'0.1.48')
+        configure(self.project,self.out,'links.example.com',[self.fingerprint],package_name='com.vibeastock.preview')
+        association=json.loads((self.out/'.well-known/assetlinks.json').read_text())
+        self.assertEqual(association[0]['target']['package_name'],'com.vibeastock.preview')
+        self.assertTrue(association_matches(association,[self.fingerprint],'com.vibeastock.preview'))
+        self.assertFalse(association_matches(association,[self.fingerprint]))
+        before=self.gradle.read_bytes()
+        with self.assertRaises(ValueError):configure(self.project,self.out,package_name='other.package')
+        self.assertEqual(self.gradle.read_bytes(),before)
+
+    def test_encrypted_secret_restores_only_the_pinned_key_atomically(self):
+        import base64
+        pin=self.root/'pin.json';key=self.root/'parallel.key';out=self.root/'receipt.json'
+        cert=b'synthetic certificate fixture'
+        pin.write_text(json.dumps({'package':'com.vibeastock.preview','certificate_sha256':hashlib.sha256(cert).hexdigest()}))
+        secret=base64.b64encode(b'synthetic restored keystore').decode()
+        with patch('prepare_preview_signing.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=cert)):
+            prepare(pin,key,out,secret,'com.vibeastock.preview')
+        self.assertEqual(key.read_bytes(),b'synthetic restored keystore')
+        self.assertEqual(json.loads(out.read_text())['package'],'com.vibeastock.preview')
+        original=key.read_bytes()
+        for invalid in ['not-base64!',base64.b64encode(b'').decode()]:
+            if not invalid:continue
+            with self.assertRaises(SystemExit):prepare(pin,key,out,invalid,'com.vibeastock.preview')
+            self.assertEqual(key.read_bytes(),original)
+        with patch('prepare_preview_signing.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=b'wrong certificate')):
+            with self.assertRaises(SystemExit):prepare(pin,key,out,secret,'com.vibeastock.preview')
+        self.assertEqual(key.read_bytes(),original)
+        self.assertEqual(list(key.parent.glob('.vibe-key-*')),[])
+        with self.assertRaises(SystemExit):prepare(pin,key,out,secret,'com.vibeastock.mobile')
+
+
+    def test_malformed_pin_never_creates_a_replacement_key(self):
+        pin=self.root/'bad-pin.json';key=self.root/'key';output=self.root/'receipt.json'
+        for value in [{},[],{'certificate_sha256':'bad'}]:
+            pin.write_text(json.dumps(value))
+            with patch('prepare_preview_signing.subprocess.run') as run:
+                with self.assertRaises(SystemExit):prepare(pin,key,output)
+                run.assert_not_called()
+            self.assertFalse(key.exists())
+
 if __name__=='__main__':unittest.main()

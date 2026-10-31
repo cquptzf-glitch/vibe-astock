@@ -1,5 +1,16 @@
 # Android App 全面审查与后续开发交接
 
+## 当前入口：0.1.48 并行预览、签名恢复与月营收图表（2026-10-31）
+
+Actions 触发已恢复：仓库页面的 fork 工作流禁用开关是本次 422 的原因，重新启用后 GitHub 创建 [0.1.47 CI #41184117989](https://github.com/cquptzf-glitch/vibe-astock/actions/runs/41184117989)。Rust、前端与完整手机界面检查通过；后续因原预览签名缓存为空，按原有身份保护规则停在签名检查。维护者确认没有原私钥备份，并明确选择新包名并行安装。
+
+0.1.48 预览使用独立配置 `com.vibeastock.preview` / Vibe AStock Preview，新证书固定在 `docs/android/preview-signing-parallel.json`，私钥保存于 GitHub Actions 加密 Secret 和本机 ignored 的签名目录，不进入 Git、日志、截图或公开交付包。旧 `com.vibeastock.mobile` 及其公开签名记录保留；新包不覆盖旧数据，需从旧版导出业务备份后在新版导入。正式分发的默认包名不变。
+
+补齐月营收 SVG 走势图与 PNG 分享，支持 12/24/全部区间，缺月断开、不补零；完整表格保留，图片附带来源、期间、滞后和资料边界。旧预览会随区间或元数据改变失效。本地前端 585 通过，四尺寸明暗主题 8 组图表与分享检查、47 路由 166 组页面状态检查通过；发行辅助脚本 12 通过，真实新密钥恢复/证书核对和新包 Android 工程生成通过。Core 严格 Clippy、Core/Tauri fmt 与 388 个计算对照散列检查通过。本机 Gradle 遇到 loopback 连接错误，Android 构建与原生验收以本版 CI 回执为准。
+
+版本 0.1.48，配置预期 versionCode 1048，SQLite v13 / 业务备份 v11 不变。交易数据与模型处理保持原状。发布结果见 [0.1.48](docs/android/releases/0.1.48.md)，Actions 经过见 [故障记录](docs/android/actions-troubleshooting.md)。
+
+
 ### 0.1.47 发布尝试（2026-10-31）
 
 功能提交 `d01da745652debe4a3241ce8bb85512e2d7a5cd3` 已推送并经 GitHub 分支接口核对。Android 工作流以 publish_preview=true 触发后再次返回 HTTP 422 `Actions has been disabled for this repository.`，没有本版 APK，也不能将新增 CI 检查写成已经在云端运行通过。本地交付目录 `.local/delivery/0.1.47/` 保存严格 lint、全量 Rust 测试、五组实际输出对照及版本回执；界面预览沿用 0.1.46。

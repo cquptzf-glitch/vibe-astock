@@ -82,6 +82,22 @@ test("台股月营收历史保留跨年、缺月和同比基数", async () => {
   });
 });
 
+test("月营收走势图保留缺月断点、原始金额和公开图片分享入口", async () => {
+  await withRenderer(async r => {
+    const {RevenueTrend,revenueHistory} = await r.load("/src/mobile/IndustryRevenue.tsx");
+    const company = {ticker:"2383",name:"合成公司",period:"2026-03",revenue_twd:180000000,mom_pct:null,yoy_pct:null,cumulative_yoy_pct:null,stale:true,lag_months:4,series:[["2025-01",100000000],["2025-12",120000000],["2026-01",150000000],["2026-03",180000000]]};
+    const html = r.html(RevenueTrend,{company,source:"合成来源",note:"不能推出 A 股公司业绩"});
+    const text = textOf(html);
+    assert.match(html,/role="img" aria-label="合成公司月营收走势图，单位亿新台币"/);
+    assert.equal((html.match(/class="revenue-line"/g)??[]).length,3,"三个连续片段，不能跨越缺月连线");
+    assert.equal((html.match(/class="revenue-point"/g)??[]).length,4,"只绘制实际四个月的数值");
+    for(const value of ["2025-01 至 2026-03", "缺失 11 个月", "2026-03 1.8 亿新台币", "近 12 月", "近 24 月", "全部", "生成当前图表分享图"]) assert.ok(text.includes(value),value);
+    const empty = r.html(RevenueTrend,{company:{...company,series:[["2026-03",180000000]]},source:"合成来源",note:""});
+    assert.match(textOf(empty),/不足两个月/);assert.doesNotMatch(empty,/<svg|生成当前图表分享图/);
+    assert.deepEqual(revenueHistory([["1900-01",1],["2200-01",2],["2026-03",180000000]]).map((x:{period:string})=>x.period),["2026-03"]);
+  });
+});
+
 
 test("日历日期窗口使用北京时间跨日和跨年", async () => {
   await withRenderer(async r => {

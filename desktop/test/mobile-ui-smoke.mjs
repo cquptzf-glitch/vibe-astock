@@ -177,6 +177,48 @@ try {
           throw new Error("Unexpected command: " + command);
         } }, notification: { isPermissionGranted: async () => false, requestPermission: async () => "granted", sendNotification() {} } };
       }, { responses, quote, klineRows, theme });
+      if (process.env.VIBE_UI_REVENUE_ONLY) {
+        await page.goto("http://127.0.0.1:4173/#"+MOBILE_PATHS.signals,{waitUntil:"networkidle"});
+        await page.getByText("更多温度计：台系供应链月营收",{exact:true}).click();
+        const trend=page.getByRole("region",{name:"合成台股月营收趋势",exact:true});
+        const svg=trend.getByRole("img",{name:"合成台股月营收走势图，单位亿新台币",exact:true});
+        await svg.waitFor();
+        assert.ok((await trend.innerText()).includes("2024-04 至 2026-03"));
+        assert.equal(await svg.locator(".revenue-line").count(),2,"missing month splits the line");
+        assert.equal(await svg.locator(".revenue-point").count(),23);
+        await page.getByText("有效月营收不足两个月，暂不绘制走势。",{exact:true}).waitFor();
+        const card=trend.getByRole("region",{name:"当前图表图片分享",exact:true});
+        const iconSizes=await card.locator("svg").evaluateAll(items=>items.map(el=>el.getBoundingClientRect().width));
+        assert.ok(iconSizes.every(w=>w<=20),"share controls retain icon-sized SVGs");
+        await page.evaluate(()=>{window.__chartTextLog=[];});
+        await card.getByRole("button",{name:"生成当前图表分享图",exact:true}).click();
+        const image=card.locator("img");await image.waitFor();
+        await page.waitForFunction(()=>{const image=document.querySelector('.revenue-chart .chart-share-card img');return image?.complete&&image.naturalWidth>0;});
+        const png=await image.evaluate(img=>({src:img.src,width:img.naturalWidth,height:img.naturalHeight}));
+        assert.equal(png.width,1080);assert.ok(png.height>300&&png.height<=3200);
+        const bytes=Buffer.from(png.src.split(",")[1],"base64");assert.equal(bytes.subarray(0,8).toString("hex"),"89504e470d0a1a0a");
+        const painted=await page.evaluate(()=>window.__chartTextLog.join(""));
+        for(const text of ["2024-04 至 2026-03","亿新台币","合成月营收源","滞后 7 个月","缺失 1 个月"])assert.ok(painted.includes(text),text);
+        await card.getByRole("button",{name:"分享这张图表",exact:true}).click();
+        const shared=await page.evaluate(()=>window.__sharedFiles.at(-1));
+        assert.equal(shared.mime,"image/png");assert.equal(shared.data_base64,png.src.split(",")[1]);
+        fs.mkdirSync(path.join(out,"chart-exports"),{recursive:true});
+        fs.writeFileSync(path.join(out,"chart-exports",`${width}-${theme}-revenue.png`),bytes);
+        await trend.screenshot({path:path.join(out,`${width}-${theme}-revenue-share.png`)});
+        await trend.getByRole("button",{name:"近 12 月",exact:true}).click();
+        assert.equal(await image.count(),0,"range change invalidates old preview");
+        assert.ok((await trend.innerText()).includes("2025-04 至 2026-03"));
+        await trend.getByRole("button",{name:"全部",exact:true}).click();
+        assert.ok((await trend.innerText()).includes("2023-10 至 2026-03"));
+        const history=page.locator(".industry-revenue-history").first();await history.locator("summary").click();
+        assert.equal(await history.locator("tbody tr").count(),30,"full historical table remains available");
+        const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+        assert.equal(overflow,false);
+        await page.screenshot({path:path.join(out,`${width}-${theme}-revenue-history.png`),fullPage:true});
+        routeCoverage.push({page:"signals",route:MOBILE_PATHS.signals,width,theme,state:"revenue-controls-and-png",overflow});
+        for(const request of await page.evaluate(()=>window.__missingRequests))missingRequests.add(request);
+        assert.equal(missingRequests.size,0);await context.close();continue;
+      }
       if (process.env.VIBE_UI_PORTFOLIO_ONLY) {
         await page.goto("http://127.0.0.1:4173/#"+MOBILE_PATHS.hold,{waitUntil:"networkidle"});
         await page.getByRole("button",{name:"开始计算",exact:true}).click();

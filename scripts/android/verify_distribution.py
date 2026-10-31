@@ -9,7 +9,7 @@ import re
 import subprocess
 import urllib.request
 import zipfile
-from configure_distribution import certificate, validate_host
+from configure_distribution import certificate, validate_host, validate_package
 
 def signing_certificate() -> str:
     args = ["keytool", "-exportcert", "-keystore", os.environ["ANDROID_KEYSTORE_PATH"], "-alias", os.environ["ANDROID_KEY_ALIAS"], "-storepass:env", "ANDROID_STORE_PASSWORD"]
@@ -40,12 +40,13 @@ def expected_version_code(version: str) -> int:
         raise ValueError("Android application version code is outside supported range")
     return result
 
-def verify(apk: Path, aab: Path, apksigner: Path, expected: str, version: str) -> dict:
+def verify(apk: Path, aab: Path, apksigner: Path, expected: str, version: str, package_name: str = "com.vibeastock.mobile") -> dict:
+    package_name = validate_package(package_name)
     expected = certificate(expected)
     version_code = expected_version_code(version)
     badging = subprocess.run([str(apksigner.with_name("aapt")), "dump", "badging", str(apk)], capture_output=True, text=True)
     package = re.search(r"package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", badging.stdout)
-    if badging.returncode or not package or package[1] != "com.vibeastock.mobile" or package[3] != version or int(package[2]) != version_code or "application-debuggable" in badging.stdout or "arm64-v8a" not in badging.stdout:
+    if badging.returncode or not package or package[1] != package_name or package[3] != version or int(package[2]) != version_code or "application-debuggable" in badging.stdout or "arm64-v8a" not in badging.stdout:
         raise ValueError("Release APK package, ABI or debuggability is incorrect")
     r = subprocess.run([str(apksigner), "verify", "--verbose", "--print-certs", str(apk)], capture_output=True, text=True)
     if r.returncode:
@@ -72,7 +73,7 @@ def verify(apk: Path, aab: Path, apksigner: Path, expected: str, version: str) -
     return {"package":package[1],"version_code":int(package[2]),"version_name":package[3],"debuggable":False,"certificate_sha256": expected, "apk": {"name": apk.name, "bytes": apk.stat().st_size, "sha256": hashlib.sha256(apk.read_bytes()).hexdigest()}, "aab": {"name": aab.name, "bytes": aab.stat().st_size, "sha256": hashlib.sha256(aab.read_bytes()).hexdigest()}, "signature_verified": True, "device_upgrade_verified": False}
 
 def verify_preview(apk: Path, apksigner: Path, expected: dict, version: str) -> dict:
-    if expected.get("package") != "com.vibeastock.mobile" or not version:
+    if expected.get("package") not in ("com.vibeastock.mobile", "com.vibeastock.preview") or not version:
         raise ValueError("Preview identity or version missing")
     digest = certificate(expected["certificate_sha256"])
     version_code = expected_version_code(version)
@@ -86,7 +87,8 @@ def verify_preview(apk: Path, apksigner: Path, expected: dict, version: str) -> 
     verify_apk_certificate(result.stdout, digest)
     return {**expected, "version_name": version, "version_code": int(package[2]), "signature_verified": True, "device_upgrade_verified": False, "apk": {"name": apk.name, "bytes": apk.stat().st_size, "sha256": hashlib.sha256(apk.read_bytes()).hexdigest()}}
 
-def association_matches(body: object, fingerprints: list[str]) -> bool:
+def association_matches(body: object, fingerprints: list[str], package_name: str = "com.vibeastock.mobile") -> bool:
+    package_name = validate_package(package_name)
     wanted = {certificate(f) for f in fingerprints}
     if not isinstance(body, list) or not wanted:
         return False
@@ -94,7 +96,7 @@ def association_matches(body: object, fingerprints: list[str]) -> bool:
         if not isinstance(entry, dict) or not isinstance(entry.get("relation"), list) or "delegate_permission/common.handle_all_urls" not in entry["relation"]:
             continue
         target = entry.get("target")
-        if not isinstance(target, dict) or target.get("namespace") != "android_app" or target.get("package_name") != "com.vibeastock.mobile" or not isinstance(target.get("sha256_cert_fingerprints"), list):
+        if not isinstance(target, dict) or target.get("namespace") != "android_app" or target.get("package_name") != package_name or not isinstance(target.get("sha256_cert_fingerprints"), list):
             continue
         try:
             if wanted.issubset({certificate(f) for f in target["sha256_cert_fingerprints"] if isinstance(f, str)}):
@@ -103,7 +105,7 @@ def association_matches(body: object, fingerprints: list[str]) -> bool:
             continue
     return False
 
-def verify_website(host: str, fingerprints: list[str]) -> None:
+def verify_website(host: str, fingerprints: list[str], package_name: str = "com.vibeastock.mobile") -> None:
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *args, **kwargs):
             return None
@@ -112,7 +114,7 @@ def verify_website(host: str, fingerprints: list[str]) -> None:
         if response.status != 200 or response.headers.get_content_type() != "application/json":
             raise ValueError("assetlinks.json needs HTTP 200 and application/json without redirects")
         payload = response.read(256 * 1024 + 1)
-        if len(payload) > 256 * 1024 or not association_matches(json.loads(payload), fingerprints):
+        if len(payload) > 256 * 1024 or not association_matches(json.loads(payload), fingerprints, package_name):
             raise ValueError("Website association does not match package and installed certificate")
 
 if __name__ == "__main__":
@@ -126,6 +128,7 @@ if __name__ == "__main__":
     p.add_argument("--apksigner", type=Path)
     p.add_argument("--expected", default="")
     p.add_argument("--check-host", default="")
+    p.add_argument("--package", default="com.vibeastock.mobile", choices=["com.vibeastock.mobile", "com.vibeastock.preview"])
     a = p.parse_args()
     if a.certificate:
         print(signing_certificate())
@@ -136,9 +139,9 @@ if __name__ == "__main__":
         a.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print("Preview APK matched the guarded upgrade certificate: " + result["certificate_sha256"])
     elif a.check_host:
-        verify_website(a.check_host, [a.expected])
+        verify_website(a.check_host, [a.expected], a.package)
         print("Website association matched; device verification is still required")
     else:
         if not all((a.apk, a.aab, a.apksigner, a.expected, a.version)):
             p.error("--apk, --aab, --apksigner, --expected and --version are required")
-        print(json.dumps(verify(a.apk, a.aab, a.apksigner, a.expected, a.version), indent=2))
+        print(json.dumps(verify(a.apk, a.aab, a.apksigner, a.expected, a.version, a.package), indent=2))

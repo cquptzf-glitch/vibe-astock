@@ -1,0 +1,8 @@
+{
+  "package": "com.vibeastock.preview",
+  "certificate_sha256": "1B:13:C0:3A:76:15:DC:82:E7:56:E6:52:C4:D9:EA:5A:17:C3:AF:3C:3A:82:91:BD:78:C8:58:16:0B:9C:E4:93",
+  "first_version": "0.1.48",
+  "parallel_with": "com.vibeastock.mobile",
+  "debug_signed": true,
+  "device_upgrade_verified": false
+}

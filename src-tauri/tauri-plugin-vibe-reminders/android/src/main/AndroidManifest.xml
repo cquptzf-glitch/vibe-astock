@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <application>
         <service android:name="com.vibeastock.reminders.MarketMonitorService" android:exported="false" android:foregroundServiceType="dataSync" />
-        <activity android:name="com.vibeastock.mobile.MainActivity" android:exported="true">
+        <activity android:name="${applicationId}.MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
